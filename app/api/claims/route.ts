@@ -1,17 +1,19 @@
-import { env } from 'cloudflare:workers';
-import { createClaim, createReceipt, findMission } from '@/db/queries';
+import { createClaim, findMission } from '@/db/queries';
 import {
   canonicalJson,
   EVENT_SCHEMA,
+  type FoundryClaimEvent,
+  sha256Hex,
   type SignedFoundryEvent,
   verifySignedEvent,
 } from '@/lib/foundry-crypto';
+import { persistReceipt } from '@/lib/server-receipts';
 
 export const dynamic = 'force-dynamic';
 
 const MAX_BODY_BYTES = 16_384;
 
-function looksLikeClaim(value: unknown): value is SignedFoundryEvent {
+function looksLikeClaim(value: unknown): value is SignedFoundryEvent<FoundryClaimEvent> {
   if (!value || typeof value !== 'object') return false;
   const receipt = value as Partial<SignedFoundryEvent>;
   const event = receipt.event;
@@ -20,7 +22,7 @@ function looksLikeClaim(value: unknown): value is SignedFoundryEvent {
       event.schema === EVENT_SCHEMA &&
       event.type === 'claim' &&
       typeof event.missionId === 'string' &&
-      /^M-[0-9]{3}$/.test(event.missionId) &&
+      /^(M-[0-9]{3}|F-[A-F0-9]{8})$/.test(event.missionId) &&
       typeof event.requirementsHash === 'string' &&
       /^sha256:[a-f0-9]{64}$/.test(event.requirementsHash) &&
       typeof event.actor === 'string' &&
@@ -31,10 +33,6 @@ function looksLikeClaim(value: unknown): value is SignedFoundryEvent {
       typeof receipt.signature === 'string' &&
       receipt.signature.length <= 512,
   );
-}
-
-function hex(bytes: Uint8Array) {
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 export async function POST(request: Request) {
@@ -74,21 +72,15 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Mission requirements changed; refresh before claiming.' }, { status: 409 });
     }
 
-    const receiptJson = `${canonicalJson(payload)}\n`;
-    const receiptBytes = new TextEncoder().encode(receiptJson);
-    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', receiptBytes));
-    const sha256 = hex(digest);
+    const sha256 = await sha256Hex(canonicalJson(payload));
     const id = `frc_${sha256.slice(0, 24)}`;
-    const objectKey = `receipts/${id}.json`;
-
-    if (!env.FILES) throw new Error('R2 binding unavailable');
-    await env.FILES.put(objectKey, receiptBytes, {
-      httpMetadata: { contentType: 'application/json' },
-      customMetadata: {
-        actorDid: payload.event.actor,
-        missionId: payload.event.missionId,
-        sha256,
-      },
+    await persistReceipt({
+      id,
+      schema: EVENT_SCHEMA,
+      actorDid: payload.event.actor,
+      missionId: payload.event.missionId,
+      createdAt: payload.event.createdAt,
+      payload,
     });
     await createClaim({
       id,
@@ -98,16 +90,6 @@ export async function POST(request: Request) {
       eventJson: canonicalJson(payload.event),
       createdAt: payload.event.createdAt,
     });
-    await createReceipt({
-      id,
-      actorDid: payload.event.actor,
-      missionId: payload.event.missionId,
-      objectKey,
-      sha256,
-      bytes: receiptBytes.byteLength,
-      createdAt: payload.event.createdAt,
-    });
-
     return Response.json(
       {
         id,

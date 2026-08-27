@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-  if (!/^frc_[a-f0-9]{24}$/.test(id)) {
+  if (!/^(frc|fms|res|fac)_[a-f0-9]{24}$/.test(id)) {
     return Response.json({ error: 'Invalid receipt identifier.' }, { status: 400 });
   }
 
@@ -14,7 +14,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   return new Response(object.body, {
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': 'public, max-age=60, immutable',
+      'Cache-Control': 'public, max-age=31536000, immutable',
       'Content-Disposition': `inline; filename="${id}.json"`,
       'X-Content-Type-Options': 'nosniff',
     },

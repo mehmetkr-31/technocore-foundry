@@ -79,6 +79,7 @@ button { font: inherit; }
   font-size: 10px;
   text-align: center;
 }
+.notice-bar button { margin-left: 14px; border: 0; background: transparent; color: inherit; cursor: pointer; }
 
 .hero {
   position: relative;
@@ -273,6 +274,8 @@ button { font: inherit; }
   line-height: 0.98;
 }
 .section-heading > p, .protocol-grid > p { max-width: 520px; margin: 0; color: #8d969d; font-size: 16px; line-height: 1.65; }
+.section-side { display: grid; justify-items: start; gap: 24px; }
+.section-side > p { max-width: 520px; margin: 0; color: #8d969d; font-size: 16px; line-height: 1.65; }
 .mission-list { border-top: 1px solid var(--line); }
 .mission-row {
   display: grid;
@@ -359,7 +362,7 @@ footer > span { justify-self: end; }
   font-size: 10px;
   letter-spacing: 0.04em;
 }
-.foundry-dialog input, .foundry-dialog textarea {
+.foundry-dialog input, .foundry-dialog textarea, .foundry-dialog select {
   width: 100%;
   border: 1px solid rgba(242, 240, 233, 0.2);
   border-radius: 0;
@@ -370,7 +373,7 @@ footer > span { justify-self: end; }
   font-family: var(--font-geist-mono), monospace;
   font-size: 12px;
 }
-.foundry-dialog input:focus, .foundry-dialog textarea:focus { border-color: var(--acid); }
+.foundry-dialog input:focus, .foundry-dialog textarea:focus, .foundry-dialog select:focus { border-color: var(--acid); }
 .foundry-dialog input[type='file'] { padding: 10px; color: #8d969d; }
 .dialog-copy { margin: 0; color: #8f989f; font-size: 14px; line-height: 1.65; }
 .dialog-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 6px; }
@@ -378,6 +381,7 @@ footer > span { justify-self: end; }
 .button:disabled { cursor: wait; opacity: 0.55; }
 .text-button { border: 0; border-bottom: 1px solid currentColor; background: transparent; color: var(--cyan); padding: 5px 0; cursor: pointer; font-family: var(--font-geist-mono), monospace; font-size: 10px; }
 .form-error { margin: 0; border-left: 2px solid var(--coral); background: rgba(255, 104, 77, 0.08); color: #ff9b89; padding: 12px 14px; font-family: var(--font-geist-mono), monospace; font-size: 11px; line-height: 1.5; }
+.form-warning { margin: 0; border-left: 2px solid var(--acid); background: rgba(184, 242, 56, 0.06); color: #c3c8b8; padding: 12px 14px; font-family: var(--font-geist-mono), monospace; font-size: 10px; line-height: 1.6; }
 .identity-card code { display: block; overflow-wrap: anywhere; margin: 12px 0 22px; color: var(--cyan); font-family: var(--font-geist-mono), monospace; font-size: 13px; line-height: 1.6; }
 .identity-card.compact { margin: -6px 0 5px; border: 1px solid var(--line); padding: 18px; }
 .identity-card.compact code { margin: 8px 0 12px; font-size: 10px; }
@@ -386,6 +390,7 @@ footer > span { justify-self: end; }
 .mission-detail h3 { margin: 12px 0 8px; font-size: 25px; font-weight: 500; letter-spacing: -0.03em; }
 .mission-detail p { color: #929aa1; font-size: 13px; line-height: 1.55; }
 .mission-detail code { display: block; overflow-wrap: anywhere; color: var(--cyan); font-family: var(--font-geist-mono), monospace; font-size: 9px; }
+.mission-detail small { display: block; margin-top: 16px; color: #78838b; font-family: var(--font-geist-mono), monospace; font-size: 9px; }
 .success-mark { display: grid; width: 54px; height: 54px; place-items: center; border: 1px solid var(--acid); color: var(--acid); font-size: 28px; }
 .claim-success .eyebrow { margin: 22px 0 8px; }
 .claim-success h3 { margin: 0 0 24px; font-family: var(--font-geist-mono), monospace; font-size: 20px; }
@@ -398,6 +403,26 @@ footer > span { justify-self: end; }
 .verify-banner.valid { color: var(--acid); }
 .verify-banner.invalid { color: var(--coral); }
 .verify-banner small { color: #929aa1; font-size: 9px; }
+.lifecycle-shell { display: grid; gap: 24px; padding: 34px; }
+.lifecycle-rail { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); }
+.lifecycle-rail span { position: relative; padding: 14px 8px; border-right: 1px solid var(--line); color: #667179; font-family: var(--font-geist-mono), monospace; font-size: 9px; text-align: center; }
+.lifecycle-rail span:last-child { border-right: 0; }
+.lifecycle-rail span.done { background: rgba(184, 242, 56, 0.08); color: var(--acid); }
+.lifecycle-rail span.done::before { content: '●'; margin-right: 6px; }
+.result-list { display: grid; gap: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.result-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px 18px; border: 1px solid var(--line); padding: 18px; background: rgba(242, 240, 233, 0.018); }
+.result-card > div:first-child { min-width: 0; }
+.result-card strong, .result-card span, .result-card code { display: block; }
+.result-card strong { overflow-wrap: anywhere; font-size: 15px; }
+.result-card span { margin: 6px 0 10px; color: #7f8991; font-family: var(--font-geist-mono), monospace; font-size: 9px; }
+.result-card code { overflow: hidden; color: var(--cyan); font-family: var(--font-geist-mono), monospace; font-size: 8px; text-overflow: ellipsis; }
+.decision-chip { align-self: start; border: 1px solid currentColor; padding: 6px 8px; color: var(--coral); font-family: var(--font-geist-mono), monospace; font-size: 8px; }
+.decision-chip.accepted { color: var(--acid); }
+.decision-chip.rejected { color: var(--coral); }
+.result-actions { display: flex; grid-column: 1 / -1; flex-wrap: wrap; gap: 16px; }
+.result-actions a, .result-actions button { border: 0; border-bottom: 1px solid currentColor; background: transparent; color: var(--paper-dim); padding: 3px 0; cursor: pointer; font-family: var(--font-geist-mono), monospace; font-size: 9px; }
+.result-actions a:hover, .result-actions button:hover { color: var(--acid); }
+.file-proof { display: flex; justify-content: space-between; gap: 16px; border: 1px solid rgba(86, 217, 232, 0.25); padding: 12px; color: var(--cyan); font-family: var(--font-geist-mono), monospace; font-size: 10px; }
 
 @media (max-width: 980px) {
   .nav-shell { grid-template-columns: 1fr auto; }
@@ -431,7 +456,10 @@ footer > span { justify-self: end; }
   .dialog-backdrop { padding: 12px; }
   .foundry-dialog { max-height: calc(100vh - 24px); box-shadow: 8px 8px 0 rgba(86, 217, 232, 0.07); }
   .dialog-head, .foundry-dialog form, .identity-card, .claim-success { padding: 22px; }
+  .lifecycle-shell { padding: 22px; }
   .dialog-actions .button { width: 100%; }
+  .result-card { grid-template-columns: 1fr; }
+  .decision-chip { justify-self: start; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,5 +1,7 @@
 export const VAULT_SCHEMA = 'foundry-vault-v1' as const;
 export const EVENT_SCHEMA = 'foundry-event-v1' as const;
+export const TCR1_TYPE = 'technocore-task-receipt' as const;
+export const TCR1_DOMAIN = 'technocore-task-receipt:v1' as const;
 
 const BASE58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 const ED25519_MULTICODEC = new Uint8Array([0xed, 0x01]);
@@ -12,28 +14,85 @@ export type FoundryVault = {
   ciphertext: string;
   salt: string;
   iv: string;
-  kdf: {
-    name: 'PBKDF2';
-    hash: 'SHA-256';
-    iterations: number;
-  };
+  kdf: { name: 'PBKDF2'; hash: 'SHA-256'; iterations: number };
   cipher: 'AES-GCM';
   createdAt: string;
 };
 
-export type FoundryClaimEvent = {
+type EventBase = {
   schema: typeof EVENT_SCHEMA;
-  type: 'claim';
-  missionId: string;
-  requirementsHash: string;
   actor: string;
   nonce: string;
   createdAt: string;
 };
 
-export type SignedFoundryEvent = {
-  event: FoundryClaimEvent;
+export type FoundryMissionEvent = EventBase & {
+  type: 'mission';
+  missionId: string;
+  title: string;
+  lane: string;
+  summary: string;
+  requirements: string;
+  requirementsHash: string;
+};
+
+export type FoundryClaimEvent = EventBase & {
+  type: 'claim';
+  missionId: string;
+  requirementsHash: string;
+};
+
+export type FoundryAcceptanceEvent = EventBase & {
+  type: 'acceptance';
+  missionId: string;
+  resultId: string;
+  resultSha256: string;
+  decision: 'accepted' | 'rejected';
+  note: string;
+};
+
+export type FoundryEvent = FoundryMissionEvent | FoundryClaimEvent | FoundryAcceptanceEvent;
+
+export type SignedFoundryEvent<T extends FoundryEvent = FoundryEvent> = {
+  event: T;
   signature: string;
+};
+
+export type Tcr1Artifact = {
+  type: string;
+  uri: string;
+  sha256: string;
+  size?: number;
+};
+
+export type Tcr1Receipt = {
+  type: typeof TCR1_TYPE;
+  version: 1;
+  task: {
+    id: string;
+    issuer: string;
+    requirements_sha256: string;
+  };
+  claimant: string;
+  artifacts: Tcr1Artifact[];
+  created_at: string;
+  evidence?: {
+    repository?: string;
+    commit?: string;
+  };
+  signature: {
+    algorithm: 'Ed25519';
+    domain: typeof TCR1_DOMAIN;
+    value: string;
+  };
+};
+
+export type TechnocoreSignedMessage = {
+  room: string;
+  did: string;
+  sig: string;
+  nonce: string;
+  text: string;
 };
 
 function concatBytes(...parts: Uint8Array[]) {
@@ -45,6 +104,10 @@ function concatBytes(...parts: Uint8Array[]) {
     offset += part.length;
   }
   return output;
+}
+
+function exactBuffer(bytes: Uint8Array) {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
 export function bytesToBase64Url(bytes: Uint8Array) {
@@ -105,11 +168,12 @@ export function publicKeyFromDid(did: string) {
   if (decoded.length !== 34 || decoded[0] !== 0xed || decoded[1] !== 0x01) {
     throw new Error('DID does not contain an Ed25519 public key.');
   }
-  return decoded.slice(2);
+  const publicKey = decoded.slice(2);
+  if (didFromPublicKey(publicKey) !== did) throw new Error('DID uses a noncanonical base58btc encoding.');
+  return publicKey;
 }
 
 async function deriveVaultKey(passphrase: string, salt: Uint8Array, iterations: number) {
-  const saltBuffer = salt.buffer.slice(salt.byteOffset, salt.byteOffset + salt.byteLength) as ArrayBuffer;
   const passphraseKey = await crypto.subtle.importKey(
     'raw',
     new TextEncoder().encode(passphrase),
@@ -118,7 +182,7 @@ async function deriveVaultKey(passphrase: string, salt: Uint8Array, iterations: 
     ['deriveKey'],
   );
   return crypto.subtle.deriveKey(
-    { name: 'PBKDF2', hash: 'SHA-256', salt: saltBuffer, iterations },
+    { name: 'PBKDF2', hash: 'SHA-256', salt: exactBuffer(salt), iterations },
     passphraseKey,
     { name: 'AES-GCM', length: 256 },
     false,
@@ -127,20 +191,14 @@ async function deriveVaultKey(passphrase: string, salt: Uint8Array, iterations: 
 }
 
 function assertEd25519Support() {
-  if (!globalThis.crypto?.subtle) {
-    throw new Error('This browser does not expose the Web Crypto API.');
-  }
+  if (!globalThis.crypto?.subtle) throw new Error('This browser does not expose the Web Crypto API.');
 }
 
 export async function createVault(passphrase: string): Promise<FoundryVault> {
   assertEd25519Support();
   if (passphrase.length < 12) throw new Error('Use a passphrase with at least 12 characters.');
 
-  const keyPair = (await crypto.subtle.generateKey(
-    { name: 'Ed25519' },
-    true,
-    ['sign', 'verify'],
-  )) as CryptoKeyPair;
+  const keyPair = (await crypto.subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify'])) as CryptoKeyPair;
   const [publicBytes, privateBytes] = await Promise.all([
     crypto.subtle.exportKey('raw', keyPair.publicKey),
     crypto.subtle.exportKey('pkcs8', keyPair.privateKey),
@@ -182,9 +240,7 @@ export function parseVault(value: unknown): FoundryVault {
     candidate.kdf?.name !== 'PBKDF2' ||
     candidate.kdf.hash !== 'SHA-256' ||
     typeof candidate.kdf.iterations !== 'number'
-  ) {
-    throw new Error('Unsupported or malformed Foundry vault.');
-  }
+  ) throw new Error('Unsupported or malformed Foundry vault.');
   const publicKey = base64UrlToBytes(candidate.publicKey);
   if (didFromPublicKey(publicKey) !== candidate.did) throw new Error('Vault DID does not match its public key.');
   return candidate as FoundryVault;
@@ -192,19 +248,11 @@ export function parseVault(value: unknown): FoundryVault {
 
 export async function unlockVault(vault: FoundryVault, passphrase: string) {
   const publicKey = base64UrlToBytes(vault.publicKey);
-  const encryptionKey = await deriveVaultKey(
-    passphrase,
-    base64UrlToBytes(vault.salt),
-    vault.kdf.iterations,
-  );
+  const encryptionKey = await deriveVaultKey(passphrase, base64UrlToBytes(vault.salt), vault.kdf.iterations);
   let privateBytes: ArrayBuffer;
   try {
     privateBytes = await crypto.subtle.decrypt(
-      {
-        name: 'AES-GCM',
-        iv: base64UrlToBytes(vault.iv),
-        additionalData: publicKey,
-      },
+      { name: 'AES-GCM', iv: base64UrlToBytes(vault.iv), additionalData: publicKey },
       encryptionKey,
       base64UrlToBytes(vault.ciphertext),
     );
@@ -218,8 +266,9 @@ export async function unlockVault(vault: FoundryVault, passphrase: string) {
   ]);
   const challenge = crypto.getRandomValues(new Uint8Array(32));
   const signature = await crypto.subtle.sign('Ed25519', privateKey, challenge);
-  const verified = await crypto.subtle.verify('Ed25519', verifyKey, signature, challenge);
-  if (!verified) throw new Error('Vault key pair failed its local recovery test.');
+  if (!(await crypto.subtle.verify('Ed25519', verifyKey, signature, challenge))) {
+    throw new Error('Vault key pair failed its local recovery test.');
+  }
   return privateKey;
 }
 
@@ -239,35 +288,86 @@ export function canonicalJson(value: unknown) {
   return JSON.stringify(sortCanonical(value));
 }
 
-export function eventSigningBytes(event: FoundryClaimEvent) {
-  return concatBytes(
-    new TextEncoder().encode(`${EVENT_SCHEMA}\0`),
-    new TextEncoder().encode(canonicalJson(event)),
-  );
+export async function sha256Hex(value: string | ArrayBuffer | Uint8Array) {
+  const bytes = typeof value === 'string'
+    ? new TextEncoder().encode(value)
+    : value instanceof Uint8Array
+      ? value
+      : new Uint8Array(value);
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', exactBuffer(bytes)));
+  return Array.from(digest, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-export async function signClaim(
+function domainBytes(domain: string, value: unknown) {
+  return concatBytes(new TextEncoder().encode(`${domain}\0`), new TextEncoder().encode(canonicalJson(value)));
+}
+
+export function eventSigningBytes(event: FoundryEvent) {
+  return domainBytes(EVENT_SCHEMA, event);
+}
+
+async function signFoundryEvent<T extends FoundryEvent>(vault: FoundryVault, passphrase: string, event: T) {
+  const privateKey = await unlockVault(vault, passphrase);
+  const signature = await crypto.subtle.sign('Ed25519', privateKey, eventSigningBytes(event));
+  return { event, signature: bytesToBase64Url(new Uint8Array(signature)) } satisfies SignedFoundryEvent<T>;
+}
+
+function nonce() {
+  return `${Date.now()}${crypto.getRandomValues(new Uint32Array(1))[0].toString().padStart(10, '0')}`;
+}
+
+export async function signMission(
   vault: FoundryVault,
   passphrase: string,
-  missionId: string,
-  requirementsHash: string,
-): Promise<SignedFoundryEvent> {
-  const privateKey = await unlockVault(vault, passphrase);
-  const event: FoundryClaimEvent = {
+  input: { title: string; lane: string; summary: string; requirements: string },
+) {
+  const requirementsHash = `sha256:${await sha256Hex(input.requirements)}`;
+  const random = crypto.getRandomValues(new Uint8Array(4));
+  const missionId = `F-${Array.from(random, (byte) => byte.toString(16).padStart(2, '0')).join('').toUpperCase()}`;
+  return signFoundryEvent(vault, passphrase, {
+    schema: EVENT_SCHEMA,
+    type: 'mission',
+    missionId,
+    title: input.title,
+    lane: input.lane,
+    summary: input.summary,
+    requirements: input.requirements,
+    requirementsHash,
+    actor: vault.did,
+    nonce: nonce(),
+    createdAt: new Date().toISOString(),
+  });
+}
+
+export async function signClaim(vault: FoundryVault, passphrase: string, missionId: string, requirementsHash: string) {
+  return signFoundryEvent(vault, passphrase, {
     schema: EVENT_SCHEMA,
     type: 'claim',
     missionId,
     requirementsHash,
     actor: vault.did,
-    nonce: Date.now().toString(),
+    nonce: nonce(),
     createdAt: new Date().toISOString(),
-  };
-  const signature = await crypto.subtle.sign('Ed25519', privateKey, eventSigningBytes(event));
-  return { event, signature: bytesToBase64Url(new Uint8Array(signature)) };
+  });
+}
+
+export async function signAcceptance(
+  vault: FoundryVault,
+  passphrase: string,
+  input: { missionId: string; resultId: string; resultSha256: string; decision: 'accepted' | 'rejected'; note: string },
+) {
+  return signFoundryEvent(vault, passphrase, {
+    schema: EVENT_SCHEMA,
+    type: 'acceptance',
+    ...input,
+    actor: vault.did,
+    nonce: nonce(),
+    createdAt: new Date().toISOString(),
+  });
 }
 
 export async function verifySignedEvent(receipt: SignedFoundryEvent) {
-  if (receipt.event?.schema !== EVENT_SCHEMA || receipt.event.type !== 'claim') return false;
+  if (!receipt?.event || receipt.event.schema !== EVENT_SCHEMA || !/^[A-Za-z0-9_-]{86}$/.test(receipt.signature)) return false;
   const publicKey = await crypto.subtle.importKey(
     'raw',
     publicKeyFromDid(receipt.event.actor),
@@ -280,6 +380,102 @@ export async function verifySignedEvent(receipt: SignedFoundryEvent) {
     publicKey,
     base64UrlToBytes(receipt.signature),
     eventSigningBytes(receipt.event),
+  );
+}
+
+function tcr1Unsigned(receipt: Tcr1Receipt) {
+  const { signature: _signature, ...unsigned } = receipt;
+  return unsigned;
+}
+
+export async function signTcr1Receipt(
+  vault: FoundryVault,
+  passphrase: string,
+  input: {
+    task: Tcr1Receipt['task'];
+    artifact: Tcr1Artifact;
+    evidence?: Tcr1Receipt['evidence'];
+  },
+) {
+  const privateKey = await unlockVault(vault, passphrase);
+  const unsigned = {
+    type: TCR1_TYPE,
+    version: 1 as const,
+    task: input.task,
+    claimant: vault.did,
+    artifacts: [input.artifact],
+    created_at: new Date().toISOString(),
+    ...(input.evidence && Object.keys(input.evidence).length ? { evidence: input.evidence } : {}),
+  };
+  const signature = await crypto.subtle.sign('Ed25519', privateKey, domainBytes(TCR1_DOMAIN, unsigned));
+  return {
+    ...unsigned,
+    signature: { algorithm: 'Ed25519' as const, domain: TCR1_DOMAIN, value: bytesToBase64Url(new Uint8Array(signature)) },
+  } satisfies Tcr1Receipt;
+}
+
+function hasOnlyKeys(value: Record<string, unknown>, allowed: string[]) {
+  return Object.keys(value).every((key) => allowed.includes(key));
+}
+
+export async function verifyTcr1Receipt(receipt: Tcr1Receipt) {
+  if (!receipt || typeof receipt !== 'object' || !hasOnlyKeys(receipt as unknown as Record<string, unknown>, ['type', 'version', 'task', 'claimant', 'artifacts', 'created_at', 'evidence', 'signature'])) return false;
+  if (receipt.type !== TCR1_TYPE || receipt.version !== 1 || !receipt.task || !receipt.signature) return false;
+  if (!hasOnlyKeys(receipt.task as unknown as Record<string, unknown>, ['id', 'issuer', 'requirements_sha256'])) return false;
+  if (!hasOnlyKeys(receipt.signature as unknown as Record<string, unknown>, ['algorithm', 'domain', 'value'])) return false;
+  if (receipt.signature.algorithm !== 'Ed25519' || receipt.signature.domain !== TCR1_DOMAIN || !/^[A-Za-z0-9_-]{86}$/.test(receipt.signature.value)) return false;
+  if (typeof receipt.task.id !== 'string' || typeof receipt.task.issuer !== 'string' || typeof receipt.claimant !== 'string') return false;
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(receipt.created_at) || !Number.isFinite(Date.parse(receipt.created_at))) return false;
+  if (!Array.isArray(receipt.artifacts) || receipt.artifacts.length < 1) return false;
+  if (!/^[a-f0-9]{64}$/.test(receipt.task.requirements_sha256)) return false;
+  if (!receipt.artifacts.every((artifact) =>
+    artifact &&
+    hasOnlyKeys(artifact as unknown as Record<string, unknown>, ['type', 'uri', 'sha256', 'size']) &&
+    /^[a-f0-9]{64}$/.test(artifact.sha256) &&
+    typeof artifact.uri === 'string' && artifact.uri.length > 0 &&
+    typeof artifact.type === 'string' && artifact.type.length > 0 &&
+    (artifact.size === undefined || (Number.isSafeInteger(artifact.size) && artifact.size >= 0)),
+  )) return false;
+  if (receipt.evidence && (
+    !hasOnlyKeys(receipt.evidence as unknown as Record<string, unknown>, ['repository', 'commit']) ||
+    (receipt.evidence.repository !== undefined && typeof receipt.evidence.repository !== 'string') ||
+    (receipt.evidence.commit !== undefined && typeof receipt.evidence.commit !== 'string')
+  )) return false;
+  const claimantPublicKey = publicKeyFromDid(receipt.claimant);
+  if (didFromPublicKey(claimantPublicKey) !== receipt.claimant || publicKeyFromDid(receipt.task.issuer).length !== 32) return false;
+  const publicKey = await crypto.subtle.importKey('raw', claimantPublicKey, { name: 'Ed25519' }, false, ['verify']);
+  return crypto.subtle.verify(
+    'Ed25519',
+    publicKey,
+    base64UrlToBytes(receipt.signature.value),
+    domainBytes(TCR1_DOMAIN, tcr1Unsigned(receipt)),
+  );
+}
+
+export function sweepTechnocoreText(text: string) {
+  return Array.from(text.normalize('NFC'))
+    .map((character) => /[\p{Cc}\p{Cf}\p{Cs}\p{Co}]/u.test(character) ? ' ' : character)
+    .join('')
+    .slice(0, 4096);
+}
+
+export async function signTechnocoreAnnouncement(vault: FoundryVault, passphrase: string, room: string, text: string) {
+  const privateKey = await unlockVault(vault, passphrase);
+  const cleanText = sweepTechnocoreText(text);
+  const messageNonce = nonce();
+  const bytes = new TextEncoder().encode(`${room}|${messageNonce}|${cleanText}`);
+  const signature = await crypto.subtle.sign('Ed25519', privateKey, bytes);
+  return { room, did: vault.did, sig: bytesToBase64Url(new Uint8Array(signature)), nonce: messageNonce, text: cleanText } satisfies TechnocoreSignedMessage;
+}
+
+export async function verifyTechnocoreMessage(message: TechnocoreSignedMessage) {
+  if (message.text !== sweepTechnocoreText(message.text) || !/^[A-Za-z0-9_-]{86}$/.test(message.sig)) return false;
+  const publicKey = await crypto.subtle.importKey('raw', publicKeyFromDid(message.did), { name: 'Ed25519' }, false, ['verify']);
+  return crypto.subtle.verify(
+    'Ed25519',
+    publicKey,
+    base64UrlToBytes(message.sig),
+    new TextEncoder().encode(`${message.room}|${message.nonce}|${message.text}`),
   );
 }
 
