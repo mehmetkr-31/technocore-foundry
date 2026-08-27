@@ -8,6 +8,7 @@ import {
   verifySignedEvent,
 } from '@/lib/foundry-crypto';
 import { persistReceipt } from '@/lib/server-receipts';
+import { parseStrictJsonBytes } from '@/lib/strict-json';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,9 +33,9 @@ function looksLikeAcceptance(value: unknown): value is SignedFoundryEvent<Foundr
 export async function POST(request: Request) {
   let payload: unknown;
   try {
-    const raw = await request.text();
-    if (new TextEncoder().encode(raw).byteLength > 16_384) throw new Error('oversized');
-    payload = JSON.parse(raw);
+    const raw = await request.arrayBuffer();
+    if (raw.byteLength > 16_384) throw new Error('oversized');
+    payload = parseStrictJsonBytes(raw);
   } catch {
     return Response.json({ error: 'Expected a small signed acceptance JSON document.' }, { status: 400 });
   }

@@ -1,0 +1,152 @@
+{
+  "schema": "technocore-foundry-protocol-fixtures-v1",
+  "generated_at": "2026-08-27T00:00:00.000Z",
+  "sources": {
+    "technocore_chat_commit": "9c7df0e3616cf28d17e7c8ebeb0c05de6adf117c",
+    "tcr1_receipts_commit": "37c9a0eddcc56e414fe9c462c14b7f9f424dc596"
+  },
+  "key": {
+    "algorithm": "Ed25519",
+    "public_key_hex": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+    "did": "did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw",
+    "note": "RFC 8032 public test key; never use fixture keys for real identities."
+  },
+  "vectors": {
+    "foundry_event": {
+      "domain": "foundry-event-v1",
+      "canonical_unsigned": "{\"actor\":\"did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw\",\"createdAt\":\"2026-08-27T00:00:00.000Z\",\"missionId\":\"F-F17E2026\",\"nonce\":\"1787760000000000001\",\"requirementsHash\":\"sha256:4fdd2ea489d48bb0012c4a7a2b43f3090a548bfd6a8a53f7e51ed97c9866c8aa\",\"schema\":\"foundry-event-v1\",\"type\":\"claim\"}",
+      "signing_payload_hex": "666f756e6472792d6576656e742d7631007b226163746f72223a226469643a6b65793a7a364d6b74777570646d4c58565671547a43773469343672347547796f734758526e5233586a4e345a71376f4d4d7377222c22637265617465644174223a22323032362d30382d32375430303a30303a30302e3030305a222c226d697373696f6e4964223a22462d4631374532303236222c226e6f6e6365223a2231373837373630303030303030303030303031222c22726571756972656d656e747348617368223a227368613235363a34666464326561343839643438626230303132633461376132623433663330393061353438626664366138613533663765353165643937633938363663386161222c22736368656d61223a22666f756e6472792d6576656e742d7631222c2274797065223a22636c61696d227d",
+      "envelope": {
+        "event": {
+          "schema": "foundry-event-v1",
+          "type": "claim",
+          "missionId": "F-F17E2026",
+          "requirementsHash": "sha256:4fdd2ea489d48bb0012c4a7a2b43f3090a548bfd6a8a53f7e51ed97c9866c8aa",
+          "actor": "did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw",
+          "nonce": "1787760000000000001",
+          "createdAt": "2026-08-27T00:00:00.000Z"
+        },
+        "signature": "-Ce2eOxw-OY2iBmP8mL3ZsQMcEfeJksdd4TMXQ6-phZnM14zYkEcTx3fpqycD7vPo-UDjN-FXgNJ9N5UScvaCQ"
+      }
+    },
+    "tcr1_receipt": {
+      "domain": "technocore-task-receipt:v1",
+      "canonical_unsigned": "{\"artifacts\":[{\"sha256\":\"19175a71357385d33c21dea3c867a6d44f3b7eea5b0e9c3a6298fe05b471e636\",\"size\":42,\"type\":\"text/plain\",\"uri\":\"https://example.org/artifacts/foundry-fixture.txt\"}],\"claimant\":{\"did\":\"did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw\"},\"created_at\":\"2026-08-27T00:00:01.000Z\",\"evidence\":{\"acceptance_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"commit\":\"9c7df0e3616cf28d17e7c8ebeb0c05de6adf117c\",\"repository\":\"https://github.com/flop-labs/technocore-chat\"},\"task\":{\"id\":\"F-F17E2026\",\"issuer\":\"did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw\",\"requirements_sha256\":\"4fdd2ea489d48bb0012c4a7a2b43f3090a548bfd6a8a53f7e51ed97c9866c8aa\"},\"type\":\"technocore-task-receipt\",\"version\":1}",
+      "signing_payload_hex": "746563686e6f636f72652d7461736b2d726563656970743a7631007b22617274696661637473223a5b7b22736861323536223a2231393137356137313335373338356433336332316465613363383637613664343466336237656561356230653963336136323938666530356234373165363336222c2273697a65223a34322c2274797065223a22746578742f706c61696e222c22757269223a2268747470733a2f2f6578616d706c652e6f72672f6172746966616374732f666f756e6472792d666978747572652e747874227d5d2c22636c61696d616e74223a7b22646964223a226469643a6b65793a7a364d6b74777570646d4c58565671547a43773469343672347547796f734758526e5233586a4e345a71376f4d4d7377227d2c22637265617465645f6174223a22323032362d30382d32375430303a30303a30312e3030305a222c2265766964656e6365223a7b22616363657074616e63655f736861323536223a2262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262222c22636f6d6d6974223a2239633764663065333631366366323864313765376338656265623063303564653661646631313763222c227265706f7369746f7279223a2268747470733a2f2f6769746875622e636f6d2f666c6f702d6c6162732f746563686e6f636f72652d63686174227d2c227461736b223a7b226964223a22462d4631374532303236222c22697373756572223a226469643a6b65793a7a364d6b74777570646d4c58565671547a43773469343672347547796f734758526e5233586a4e345a71376f4d4d7377222c22726571756972656d656e74735f736861323536223a2234666464326561343839643438626230303132633461376132623433663330393061353438626664366138613533663765353165643937633938363663386161227d2c2274797065223a22746563686e6f636f72652d7461736b2d72656365697074222c2276657273696f6e223a317d",
+      "receipt": {
+        "type": "technocore-task-receipt",
+        "version": 1,
+        "task": {
+          "id": "F-F17E2026",
+          "issuer": "did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw",
+          "requirements_sha256": "4fdd2ea489d48bb0012c4a7a2b43f3090a548bfd6a8a53f7e51ed97c9866c8aa"
+        },
+        "claimant": {
+          "did": "did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw"
+        },
+        "artifacts": [
+          {
+            "type": "text/plain",
+            "uri": "https://example.org/artifacts/foundry-fixture.txt",
+            "sha256": "19175a71357385d33c21dea3c867a6d44f3b7eea5b0e9c3a6298fe05b471e636",
+            "size": 42
+          }
+        ],
+        "created_at": "2026-08-27T00:00:01.000Z",
+        "evidence": {
+          "repository": "https://github.com/flop-labs/technocore-chat",
+          "commit": "9c7df0e3616cf28d17e7c8ebeb0c05de6adf117c",
+          "acceptance_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "signature": {
+          "algorithm": "Ed25519",
+          "domain": "technocore-task-receipt:v1",
+          "value": "-FAOOpgk1vUDiRCCZ68T44rO1SPgRdtVeWHPnLL-_OpQ-xRax9gpvu9qmWzKP5goaymA35WNdGYawIjS5Vv4Dw"
+        }
+      }
+    },
+    "technocore_message": {
+      "domain": "<room>|<nonce>|<text>",
+      "raw_text_before_sweep": "Café\nNFC stays distinct from Café‍.",
+      "swept_text": "Café NFC stays distinct from Café .",
+      "signing_payload_hex": "666f756e6472792d636f6e747269627574696f6e737c313738373736303030303030303030303030327c43616665cc81204e46432073746179732064697374696e63742066726f6d20436166c3a9202e",
+      "message": {
+        "room": "foundry-contributions",
+        "did": "did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw",
+        "nonce": "1787760000000000002",
+        "text": "Café NFC stays distinct from Café .",
+        "sig": "kMF58tAuVjhKHKSdZuwScAKjsUjk_2PYOkVjWBP86DGocB6wm2WqhSbKa42y2DLmk0neIlZUM9NXyYWzZukmDQ"
+      }
+    }
+  },
+  "canonical_json": {
+    "input": {
+      "2": "two",
+      "10": "ten",
+      "z": 0,
+      "é": "composed",
+      "é": "decomposed",
+      "😀": "astral",
+      "": "private-use-key",
+      "nested": [
+        null,
+        true,
+        false,
+        42,
+        "Türkçe"
+      ]
+    },
+    "output": "{\"10\":\"ten\",\"2\":\"two\",\"é\":\"decomposed\",\"nested\":[null,true,false,42,\"Türkçe\"],\"z\":0,\"é\":\"composed\",\"\":\"private-use-key\",\"😀\":\"astral\"}"
+  },
+  "invalid_json": [
+    {
+      "name": "duplicate-key",
+      "source": "{\"key\":1,\"key\":2}",
+      "expected": "reject"
+    },
+    {
+      "name": "floating-point",
+      "source": "{\"value\":1.5}",
+      "expected": "reject"
+    },
+    {
+      "name": "unsafe-integer",
+      "source": "{\"value\":9007199254740992}",
+      "expected": "reject"
+    },
+    {
+      "name": "lone-surrogate",
+      "source": "{\"value\":\"\\ud800\"}",
+      "expected": "reject"
+    },
+    {
+      "name": "non-json-constant",
+      "source": "{\"value\":NaN}",
+      "expected": "reject"
+    }
+  ],
+  "invalid_utf8": [
+    {
+      "name": "invalid-byte-in-string",
+      "hex": "7b2276616c7565223a22ff227d",
+      "expected": "reject"
+    }
+  ],
+  "technocore_sweep": [
+    {
+      "name": "line-and-format-to-space",
+      "input": "Café\nNFC stays distinct from Café‍.",
+      "output": "Café NFC stays distinct from Café ."
+    },
+    {
+      "name": "nfc-and-nfd-remain-distinct",
+      "input": "Café|Café",
+      "output": "Café|Café"
+    },
+    {
+      "name": "line-separators-to-space",
+      "input": "a b c",
+      "output": "a b c"
+    }
+  ]
+}

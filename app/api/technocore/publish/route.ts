@@ -1,4 +1,5 @@
 import { type TechnocoreSignedMessage, verifyTechnocoreMessage } from '@/lib/foundry-crypto';
+import { parseStrictJsonBytes } from '@/lib/strict-json';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +13,7 @@ function looksLikeMessage(value: unknown): value is TechnocoreSignedMessage {
     message.room === ROOM &&
     typeof message.did === 'string' && message.did.length <= 160 &&
     typeof message.sig === 'string' && message.sig.length <= 100 &&
-    typeof message.nonce === 'string' && /^\d{1,40}$/.test(message.nonce) &&
+    typeof message.nonce === 'string' && /^\d{1,19}$/.test(message.nonce) &&
     typeof message.text === 'string' && message.text.length >= 30 && message.text.length <= 4096,
   );
 }
@@ -20,14 +21,14 @@ function looksLikeMessage(value: unknown): value is TechnocoreSignedMessage {
 export async function POST(request: Request) {
   let message: unknown;
   try {
-    const raw = await request.text();
-    if (new TextEncoder().encode(raw).byteLength > 8192) throw new Error('oversized');
-    message = JSON.parse(raw);
+    const raw = await request.arrayBuffer();
+    if (raw.byteLength > 8192) throw new Error('oversized');
+    message = parseStrictJsonBytes(raw);
   } catch {
     return Response.json({ error: 'Expected a signed Technocore announcement.' }, { status: 400 });
   }
   if (!looksLikeMessage(message)) return Response.json({ error: 'Malformed Technocore announcement.' }, { status: 400 });
-  if (!message.text.startsWith('[FOUNDRY]') || !message.text.includes('/api/receipts/')) {
+  if (!message.text.startsWith('[FOUNDRY]') || !message.text.includes('/receipt/')) {
     return Response.json({ error: 'Only Foundry receipt announcements can use this relay.' }, { status: 400 });
   }
   try {

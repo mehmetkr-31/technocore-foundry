@@ -108,7 +108,7 @@ const artifacts = [{
 }];
 const evidence = { repository: 'https://github.com/flop-labs/technocore-chat', commit: publicCommit };
 const initialReceipt = await signTcr(keyPair, {
-  type: 'technocore-task-receipt', version: 1, task, claimant: did,
+  type: 'technocore-task-receipt', version: 1, task, claimant: { did },
   artifacts, created_at: new Date().toISOString(), evidence,
 });
 const upload = new FormData();
@@ -130,7 +130,7 @@ const acceptance = await jsonRequest('/api/acceptances', await signFoundry({
   actor: did, nonce: nonce(), createdAt: new Date().toISOString(),
 }));
 const finalReceipt = await signTcr(keyPair, {
-  type: 'technocore-task-receipt', version: 1, task, claimant: did,
+  type: 'technocore-task-receipt', version: 1, task, claimant: { did },
   artifacts, created_at: new Date().toISOString(),
   evidence: { ...evidence, acceptance_sha256: acceptance.sha256.slice('sha256:'.length) },
 });

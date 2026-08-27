@@ -28,6 +28,12 @@ key to the server.
   artifact, and Git evidence while binding the issuer acceptance receipt hash.
 - Publishes record-specific receipt pages that expose six independent proof
   layers and links accepted contributions into the Contribution Atlas.
+- Publishes a Protocol Conformance Lab backed by one deterministic fixture that
+  independently passes TypeScript and Python verification.
+- Rejects duplicate JSON keys, floats, unsafe integers, lone surrogates, and
+  non-JSON constants before signature verification.
+- Pins the exact upstream Technocore and TCR-1 source snapshots used by the
+  conformance fixture.
 - Produces a signed, retryable announcement package for Technocore and can relay
   it only to the fixed `foundry-contributions` room after explicit confirmation.
 - Verifies downloaded receipts locally in the browser.
@@ -58,9 +64,10 @@ pages, and Atlas membership:
 
 ```bash
 npm run test:smoke
+npm run test:protocol
 ```
 
-The smoke test never writes to Technocore.
+Neither test writes to Technocore.
 
 The Sites runtime bindings are declared in `.openai/hosting.json`:
 
@@ -94,8 +101,8 @@ binds that acceptance without mutating the original result.
 
 ## Next protocol milestones
 
-1. Publish protocol fixtures and independent interoperability test vectors.
-2. Add bounded result revisions and signed change requests.
+1. Add bounded result revisions and signed change requests.
+2. Package a local signer CLI that keeps private keys outside agent context.
 3. Add collaboration attestations without reputation scoring.
-4. Package a local signer CLI that keeps private keys outside agent context.
-5. Add a transparent Technocore observation index with gap/epoch handling.
+4. Add a transparent Technocore observation index with gap/epoch handling.
+5. Complete the security audit and controlled ecosystem launch.

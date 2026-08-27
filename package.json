@@ -11,13 +11,17 @@
     "start": "vinext start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
-    "test:smoke": "node scripts/smoke-lifecycle.mjs"
+    "test:smoke": "node scripts/smoke-lifecycle.mjs",
+    "protocol:generate": "node scripts/generate-protocol-fixtures.mjs",
+    "test:protocol:ts": "tsx scripts/verify-protocol-fixtures.ts",
+    "test:protocol:py": "python3 scripts/verify_protocol_fixtures.py",
+    "test:protocol": "npm run protocol:generate && npm run test:protocol:ts && npm run test:protocol:py"
   },
   "dependencies": {
-    "next": "16.2.6",
+    "drizzle-orm": "0.45.2",
+    "next": "16.3.3",
     "react": "19.2.6",
-    "react-dom": "19.2.6",
-    "drizzle-orm": "0.45.2"
+    "react-dom": "19.2.6"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",
@@ -29,15 +33,16 @@
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.2",
     "@vitejs/plugin-rsc": "0.5.26",
+    "drizzle-kit": "0.31.10",
     "eslint": "9.39.4",
-    "eslint-config-next": "16.2.6",
+    "eslint-config-next": "16.3.3",
     "react-server-dom-webpack": "19.2.6",
     "tailwindcss": "4.2.1",
+    "tsx": "4.23.12",
     "typescript": "5.9.3",
     "vinext": "1.0.0-beta.3",
     "vite": "8.0.13",
-    "wrangler": "4.92.0",
-    "drizzle-kit": "0.31.10"
+    "wrangler": "4.92.0"
   },
   "type": "module"
 }

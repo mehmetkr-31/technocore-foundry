@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { findReceiptMetadata, findResult } from '@/db/queries';
 import { EVENT_SCHEMA, type SignedFoundryEvent, type Tcr1Receipt, verifySignedEvent, verifyTcr1Receipt } from '@/lib/foundry-crypto';
+import { parseStrictJson } from '@/lib/strict-json';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +16,7 @@ async function loadReceipt(id: string) {
   if (!metadata || !env.FILES) return null;
   const object = await env.FILES.get(metadata.objectKey);
   if (!object) return null;
-  const payload = JSON.parse(await object.text()) as Tcr1Receipt | SignedFoundryEvent;
+  const payload = parseStrictJson(await object.text()) as Tcr1Receipt | SignedFoundryEvent;
   const result = metadata.resultId ? await findResult(metadata.resultId) : null;
   return { metadata, payload, result };
 }

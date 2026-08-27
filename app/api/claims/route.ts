@@ -8,6 +8,7 @@ import {
   verifySignedEvent,
 } from '@/lib/foundry-crypto';
 import { persistReceipt } from '@/lib/server-receipts';
+import { parseStrictJsonBytes } from '@/lib/strict-json';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,9 +44,9 @@ export async function POST(request: Request) {
 
   let payload: unknown;
   try {
-    const raw = await request.text();
-    if (new TextEncoder().encode(raw).byteLength > MAX_BODY_BYTES) throw new Error('oversized');
-    payload = JSON.parse(raw);
+    const raw = await request.arrayBuffer();
+    if (raw.byteLength > MAX_BODY_BYTES) throw new Error('oversized');
+    payload = parseStrictJsonBytes(raw);
   } catch {
     return Response.json({ error: 'Expected a small JSON signed claim.' }, { status: 400 });
   }

@@ -1,3 +1,5 @@
+import { canonicalJson } from './strict-json';
+
 export const VAULT_SCHEMA = 'foundry-vault-v1' as const;
 export const EVENT_SCHEMA = 'foundry-event-v1' as const;
 export const TCR1_TYPE = 'technocore-task-receipt' as const;
@@ -73,9 +75,10 @@ export type Tcr1Receipt = {
     issuer: string;
     requirements_sha256: string;
   };
-  claimant: string;
+  claimant: { did: string } | string;
   artifacts: Tcr1Artifact[];
   created_at: string;
+  expires_at?: string;
   evidence?: {
     repository?: string;
     commit?: string;
@@ -276,21 +279,7 @@ export async function unlockVault(vault: FoundryVault, passphrase: string) {
   return privateKey;
 }
 
-function sortCanonical(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(sortCanonical);
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>)
-        .sort(([left], [right]) => left.localeCompare(right))
-        .map(([key, item]) => [key, sortCanonical(item)]),
-    );
-  }
-  return value;
-}
-
-export function canonicalJson(value: unknown) {
-  return JSON.stringify(sortCanonical(value));
-}
+export { canonicalJson };
 
 export async function sha256Hex(value: string | ArrayBuffer | Uint8Array) {
   const bytes = typeof value === 'string'
@@ -316,8 +305,13 @@ async function signFoundryEvent<T extends FoundryEvent>(vault: FoundryVault, pas
   return { event, signature: bytesToBase64Url(new Uint8Array(signature)) } satisfies SignedFoundryEvent<T>;
 }
 
+let lastNonce = 0n;
+
 function nonce() {
-  return `${Date.now()}${crypto.getRandomValues(new Uint32Array(1))[0].toString().padStart(10, '0')}`;
+  const random = BigInt(crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000);
+  const candidate = BigInt(Date.now()) * 1_000_000n + random;
+  lastNonce = candidate > lastNonce ? candidate : lastNonce + 1n;
+  return lastNonce.toString();
 }
 
 export async function signMission(
@@ -371,20 +365,58 @@ export async function signAcceptance(
 }
 
 export async function verifySignedEvent(receipt: SignedFoundryEvent) {
-  if (!receipt?.event || receipt.event.schema !== EVENT_SCHEMA || !/^[A-Za-z0-9_-]{86}$/.test(receipt.signature)) return false;
-  const publicKey = await crypto.subtle.importKey(
-    'raw',
-    publicKeyFromDid(receipt.event.actor),
-    { name: 'Ed25519' },
-    false,
-    ['verify'],
-  );
-  return crypto.subtle.verify(
-    'Ed25519',
-    publicKey,
-    base64UrlToBytes(receipt.signature),
-    eventSigningBytes(receipt.event),
-  );
+  try {
+    if (!isFoundryEvent(receipt?.event) || !/^[A-Za-z0-9_-]{86}$/.test(receipt.signature)) return false;
+    const publicKey = await crypto.subtle.importKey(
+      'raw',
+      publicKeyFromDid(receipt.event.actor),
+      { name: 'Ed25519' },
+      false,
+      ['verify'],
+    );
+    return crypto.subtle.verify(
+      'Ed25519',
+      publicKey,
+      base64UrlToBytes(receipt.signature),
+      eventSigningBytes(receipt.event),
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isFoundryEvent(value: unknown): value is FoundryEvent {
+  if (!value || typeof value !== 'object') return false;
+  const event = value as Record<string, unknown>;
+  if (
+    event.schema !== EVENT_SCHEMA ||
+    !['mission', 'claim', 'acceptance'].includes(typeof event.type === 'string' ? event.type : '') ||
+    typeof event.actor !== 'string' ||
+    typeof event.nonce !== 'string' || !/^\d{1,80}$/.test(event.nonce) ||
+    typeof event.createdAt !== 'string' ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(event.createdAt) ||
+    !Number.isFinite(Date.parse(event.createdAt))
+  ) return false;
+  if (event.type === 'mission') {
+    return hasOnlyKeys(event, ['schema', 'type', 'missionId', 'title', 'lane', 'summary', 'requirements', 'requirementsHash', 'actor', 'nonce', 'createdAt']) &&
+      typeof event.missionId === 'string' && /^F-[A-F0-9]{8}$/.test(event.missionId) &&
+      typeof event.title === 'string' && event.title.length >= 8 && event.title.length <= 100 &&
+      typeof event.lane === 'string' && event.lane.length >= 3 && event.lane.length <= 40 &&
+      typeof event.summary === 'string' && event.summary.length >= 20 && event.summary.length <= 300 &&
+      typeof event.requirements === 'string' && event.requirements.length >= 20 && event.requirements.length <= 4000 &&
+      typeof event.requirementsHash === 'string' && /^sha256:[a-f0-9]{64}$/.test(event.requirementsHash);
+  }
+  if (event.type === 'claim') {
+    return hasOnlyKeys(event, ['schema', 'type', 'missionId', 'requirementsHash', 'actor', 'nonce', 'createdAt']) &&
+      typeof event.missionId === 'string' && /^(M-[0-9]{3}|F-[A-F0-9]{8})$/.test(event.missionId) &&
+      typeof event.requirementsHash === 'string' && /^sha256:[a-f0-9]{64}$/.test(event.requirementsHash);
+  }
+  return hasOnlyKeys(event, ['schema', 'type', 'missionId', 'resultId', 'resultSha256', 'decision', 'note', 'actor', 'nonce', 'createdAt']) &&
+    typeof event.missionId === 'string' && /^(M-[0-9]{3}|F-[A-F0-9]{8})$/.test(event.missionId) &&
+    typeof event.resultId === 'string' && /^res_[a-f0-9]{24}$/.test(event.resultId) &&
+    typeof event.resultSha256 === 'string' && /^sha256:[a-f0-9]{64}$/.test(event.resultSha256) &&
+    (event.decision === 'accepted' || event.decision === 'rejected') &&
+    typeof event.note === 'string' && event.note.length <= 500;
 }
 
 function tcr1Unsigned(receipt: Tcr1Receipt) {
@@ -407,7 +439,7 @@ export async function signTcr1Receipt(
     type: TCR1_TYPE,
     version: 1 as const,
     task: input.task,
-    claimant: vault.did,
+    claimant: { did: vault.did },
     artifacts: [input.artifact],
     created_at: new Date().toISOString(),
     ...(input.evidence && Object.keys(input.evidence).length ? { evidence: input.evidence } : {}),
@@ -423,47 +455,79 @@ function hasOnlyKeys(value: Record<string, unknown>, allowed: string[]) {
   return Object.keys(value).every((key) => allowed.includes(key));
 }
 
+function hasForbiddenReceiptKey(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(hasForbiddenReceiptKey);
+  if (value && typeof value === 'object') {
+    return Object.entries(value as Record<string, unknown>).some(
+      ([key, item]) => /secret|private|password|token|airdrop|eligib/i.test(key) || hasForbiddenReceiptKey(item),
+    );
+  }
+  return false;
+}
+
 export async function verifyTcr1Receipt(receipt: Tcr1Receipt) {
-  if (!receipt || typeof receipt !== 'object' || !hasOnlyKeys(receipt as unknown as Record<string, unknown>, ['type', 'version', 'task', 'claimant', 'artifacts', 'created_at', 'evidence', 'signature'])) return false;
-  if (receipt.type !== TCR1_TYPE || receipt.version !== 1 || !receipt.task || !receipt.signature) return false;
-  if (!hasOnlyKeys(receipt.task as unknown as Record<string, unknown>, ['id', 'issuer', 'requirements_sha256'])) return false;
-  if (!hasOnlyKeys(receipt.signature as unknown as Record<string, unknown>, ['algorithm', 'domain', 'value'])) return false;
-  if (receipt.signature.algorithm !== 'Ed25519' || receipt.signature.domain !== TCR1_DOMAIN || !/^[A-Za-z0-9_-]{86}$/.test(receipt.signature.value)) return false;
-  if (typeof receipt.task.id !== 'string' || typeof receipt.task.issuer !== 'string' || typeof receipt.claimant !== 'string') return false;
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(receipt.created_at) || !Number.isFinite(Date.parse(receipt.created_at))) return false;
-  if (!Array.isArray(receipt.artifacts) || receipt.artifacts.length < 1) return false;
-  if (!/^[a-f0-9]{64}$/.test(receipt.task.requirements_sha256)) return false;
-  if (!receipt.artifacts.every((artifact) =>
-    artifact &&
-    hasOnlyKeys(artifact as unknown as Record<string, unknown>, ['type', 'uri', 'sha256', 'size']) &&
-    /^[a-f0-9]{64}$/.test(artifact.sha256) &&
-    typeof artifact.uri === 'string' && artifact.uri.length > 0 &&
-    typeof artifact.type === 'string' && artifact.type.length > 0 &&
-    (artifact.size === undefined || (Number.isSafeInteger(artifact.size) && artifact.size >= 0)),
-  )) return false;
-  if (receipt.evidence && (
-    !hasOnlyKeys(receipt.evidence as unknown as Record<string, unknown>, ['repository', 'commit', 'pull_request', 'ci_url', 'ci_status', 'acceptance_sha256']) ||
-    (receipt.evidence.repository !== undefined && typeof receipt.evidence.repository !== 'string') ||
-    (receipt.evidence.commit !== undefined && !/^[a-f0-9]{40}$/.test(receipt.evidence.commit)) ||
-    (receipt.evidence.pull_request !== undefined && typeof receipt.evidence.pull_request !== 'string') ||
-    (receipt.evidence.ci_url !== undefined && typeof receipt.evidence.ci_url !== 'string') ||
-    (receipt.evidence.ci_status !== undefined && !['success', 'failure', 'pending', 'cancelled'].includes(receipt.evidence.ci_status)) ||
-    (receipt.evidence.acceptance_sha256 !== undefined && !/^[a-f0-9]{64}$/.test(receipt.evidence.acceptance_sha256))
-  )) return false;
-  const claimantPublicKey = publicKeyFromDid(receipt.claimant);
-  if (didFromPublicKey(claimantPublicKey) !== receipt.claimant || publicKeyFromDid(receipt.task.issuer).length !== 32) return false;
-  const publicKey = await crypto.subtle.importKey('raw', claimantPublicKey, { name: 'Ed25519' }, false, ['verify']);
-  return crypto.subtle.verify(
-    'Ed25519',
-    publicKey,
-    base64UrlToBytes(receipt.signature.value),
-    domainBytes(TCR1_DOMAIN, tcr1Unsigned(receipt)),
-  );
+  try {
+    if (!receipt || typeof receipt !== 'object' || !hasOnlyKeys(receipt as unknown as Record<string, unknown>, ['type', 'version', 'task', 'claimant', 'artifacts', 'created_at', 'expires_at', 'evidence', 'signature'])) return false;
+    if (hasForbiddenReceiptKey(receipt)) return false;
+    if (receipt.type !== TCR1_TYPE || receipt.version !== 1 || !receipt.task || !receipt.signature) return false;
+    if (!hasOnlyKeys(receipt.task as unknown as Record<string, unknown>, ['id', 'issuer', 'requirements_sha256'])) return false;
+    if (!hasOnlyKeys(receipt.signature as unknown as Record<string, unknown>, ['algorithm', 'domain', 'value'])) return false;
+    if (receipt.signature.algorithm !== 'Ed25519' || receipt.signature.domain !== TCR1_DOMAIN || !/^[A-Za-z0-9_-]{86}$/.test(receipt.signature.value)) return false;
+    if (typeof receipt.task.id !== 'string' || typeof receipt.task.issuer !== 'string') return false;
+    const claimantDid = tcr1ClaimantDid(receipt);
+    if (!claimantDid) return false;
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(receipt.created_at) || !Number.isFinite(Date.parse(receipt.created_at))) return false;
+    if (receipt.expires_at !== undefined && (
+      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(receipt.expires_at) ||
+      !Number.isFinite(Date.parse(receipt.expires_at)) ||
+      Date.parse(receipt.expires_at) <= Date.now()
+    )) return false;
+    if (!Array.isArray(receipt.artifacts) || receipt.artifacts.length < 1) return false;
+    if (!/^[a-f0-9]{64}$/.test(receipt.task.requirements_sha256)) return false;
+    if (!receipt.artifacts.every((artifact) =>
+      artifact &&
+      hasOnlyKeys(artifact as unknown as Record<string, unknown>, ['type', 'uri', 'sha256', 'size']) &&
+      /^[a-f0-9]{64}$/.test(artifact.sha256) &&
+      typeof artifact.uri === 'string' && artifact.uri.length > 0 &&
+      typeof artifact.type === 'string' && artifact.type.length > 0 &&
+      (artifact.size === undefined || (Number.isSafeInteger(artifact.size) && artifact.size >= 0)),
+    )) return false;
+    if (receipt.evidence && (
+      !hasOnlyKeys(receipt.evidence as unknown as Record<string, unknown>, ['repository', 'commit', 'pull_request', 'ci_url', 'ci_status', 'acceptance_sha256']) ||
+      (receipt.evidence.repository !== undefined && typeof receipt.evidence.repository !== 'string') ||
+      (receipt.evidence.commit !== undefined && !/^[a-f0-9]{40}$/.test(receipt.evidence.commit)) ||
+      (receipt.evidence.pull_request !== undefined && typeof receipt.evidence.pull_request !== 'string') ||
+      (receipt.evidence.ci_url !== undefined && typeof receipt.evidence.ci_url !== 'string') ||
+      (receipt.evidence.ci_status !== undefined && !['success', 'failure', 'pending', 'cancelled'].includes(receipt.evidence.ci_status)) ||
+      (receipt.evidence.acceptance_sha256 !== undefined && !/^[a-f0-9]{64}$/.test(receipt.evidence.acceptance_sha256))
+    )) return false;
+    const claimantPublicKey = publicKeyFromDid(claimantDid);
+    if (didFromPublicKey(claimantPublicKey) !== claimantDid || publicKeyFromDid(receipt.task.issuer).length !== 32) return false;
+    const publicKey = await crypto.subtle.importKey('raw', claimantPublicKey, { name: 'Ed25519' }, false, ['verify']);
+    return crypto.subtle.verify(
+      'Ed25519',
+      publicKey,
+      base64UrlToBytes(receipt.signature.value),
+      domainBytes(TCR1_DOMAIN, tcr1Unsigned(receipt)),
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function tcr1ClaimantDid(receipt: Pick<Tcr1Receipt, 'claimant'>) {
+  if (typeof receipt.claimant === 'string') return receipt.claimant;
+  if (
+    receipt.claimant && typeof receipt.claimant === 'object' &&
+    hasOnlyKeys(receipt.claimant as unknown as Record<string, unknown>, ['did']) &&
+    typeof receipt.claimant.did === 'string'
+  ) return receipt.claimant.did;
+  return null;
 }
 
 export function sweepTechnocoreText(text: string) {
-  return Array.from(text.normalize('NFC'))
-    .map((character) => /[\p{Cc}\p{Cf}\p{Cs}\p{Co}]/u.test(character) ? ' ' : character)
+  return Array.from(text)
+    .map((character) => /[\p{Cc}\p{Cf}\p{Cs}\p{Co}\p{Zl}\p{Zp}]/u.test(character) ? ' ' : character)
     .join('')
     .slice(0, 4096);
 }
@@ -478,14 +542,18 @@ export async function signTechnocoreAnnouncement(vault: FoundryVault, passphrase
 }
 
 export async function verifyTechnocoreMessage(message: TechnocoreSignedMessage) {
-  if (message.text !== sweepTechnocoreText(message.text) || !/^[A-Za-z0-9_-]{86}$/.test(message.sig)) return false;
-  const publicKey = await crypto.subtle.importKey('raw', publicKeyFromDid(message.did), { name: 'Ed25519' }, false, ['verify']);
-  return crypto.subtle.verify(
-    'Ed25519',
-    publicKey,
-    base64UrlToBytes(message.sig),
-    new TextEncoder().encode(`${message.room}|${message.nonce}|${message.text}`),
-  );
+  try {
+    if (message.text !== sweepTechnocoreText(message.text) || !/^\d{1,19}$/.test(message.nonce) || !/^[A-Za-z0-9_-]{86}$/.test(message.sig)) return false;
+    const publicKey = await crypto.subtle.importKey('raw', publicKeyFromDid(message.did), { name: 'Ed25519' }, false, ['verify']);
+    return crypto.subtle.verify(
+      'Ed25519',
+      publicKey,
+      base64UrlToBytes(message.sig),
+      new TextEncoder().encode(`${message.room}|${message.nonce}|${message.text}`),
+    );
+  } catch {
+    return false;
+  }
 }
 
 export function downloadVault(vault: FoundryVault) {

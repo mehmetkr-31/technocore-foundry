@@ -1,8 +1,9 @@
 import { env } from 'cloudflare:workers';
 import { createResult, findClaimById, findMission } from '@/db/queries';
-import { canonicalJson, sha256Hex, type Tcr1Receipt, verifyTcr1Receipt } from '@/lib/foundry-crypto';
+import { canonicalJson, sha256Hex, tcr1ClaimantDid, type Tcr1Receipt, verifyTcr1Receipt } from '@/lib/foundry-crypto';
 import { validateGitHubEvidence } from '@/lib/github-evidence';
 import { persistReceipt } from '@/lib/server-receipts';
+import { parseStrictJson } from '@/lib/strict-json';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
 
   let receipt: Tcr1Receipt;
   try {
-    receipt = JSON.parse(receiptRaw) as Tcr1Receipt;
+    receipt = parseStrictJson(receiptRaw) as Tcr1Receipt;
   } catch {
     return Response.json({ error: 'Malformed TCR-1 receipt JSON.' }, { status: 400 });
   }
@@ -43,13 +44,15 @@ export async function POST(request: Request) {
     if (!(await verifyTcr1Receipt(receipt))) {
       return Response.json({ error: 'TCR-1 schema or claimant signature is invalid.' }, { status: 400 });
     }
+    const claimantDid = tcr1ClaimantDid(receipt);
+    if (!claimantDid) return Response.json({ error: 'TCR-1 claimant DID is invalid.' }, { status: 400 });
     if (Math.abs(Date.now() - Date.parse(receipt.created_at)) > 10 * 60 * 1000) {
       return Response.json({ error: 'Result timestamp is outside the 10 minute window.' }, { status: 400 });
     }
     const mission = await findMission(receipt.task.id);
     const claim = await findClaimById(claimId);
     if (!mission || mission.status !== 'open') return Response.json({ error: 'Mission is missing or closed.' }, { status: 404 });
-    if (!claim || claim.missionId !== mission.id || claim.actorDid !== receipt.claimant) {
+    if (!claim || claim.missionId !== mission.id || claim.actorDid !== claimantDid) {
       return Response.json({ error: 'This claimant does not hold the referenced mission claim.' }, { status: 403 });
     }
     if (
@@ -83,13 +86,13 @@ export async function POST(request: Request) {
     if (!env.FILES) throw new Error('R2 binding unavailable');
     await env.FILES.put(artifactObjectKey, artifactBytes, {
       httpMetadata: { contentType: mediaType },
-      customMetadata: { resultId, actorDid: receipt.claimant, sha256: artifactSha256 },
+      customMetadata: { resultId, actorDid: claimantDid, sha256: artifactSha256 },
     });
     const receiptSha256 = await sha256Hex(canonicalJson(receipt));
     await persistReceipt({
       id: resultId,
       schema: 'technocore-task-receipt:1',
-      actorDid: receipt.claimant,
+      actorDid: claimantDid,
       missionId: mission.id,
       createdAt: receipt.created_at,
       payload: receipt,
@@ -98,7 +101,7 @@ export async function POST(request: Request) {
       id: resultId,
       missionId: mission.id,
       claimId,
-      actorDid: receipt.claimant,
+      actorDid: claimantDid,
       receiptJson: canonicalJson(receipt),
       receiptSha256,
       artifactObjectKey,

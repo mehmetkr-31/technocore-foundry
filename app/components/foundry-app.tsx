@@ -22,6 +22,7 @@ import {
   verifyTcr1Receipt,
 } from '@/lib/foundry-crypto';
 import { loadVault, saveVault } from '@/lib/vault-storage';
+import { decodeStrictUtf8, parseStrictJson } from '@/lib/strict-json';
 
 type Mission = {
   id: string;
@@ -545,7 +546,7 @@ export default function FoundryApp() {
     setError('');
     setVerifyResult(undefined);
     try {
-      const receipt = JSON.parse(verifyInput) as Tcr1Receipt | SignedFoundryEvent;
+      const receipt = parseStrictJson(verifyInput) as Tcr1Receipt | SignedFoundryEvent;
       if ('type' in receipt && receipt.type === 'technocore-task-receipt') {
         setVerifyResult({ valid: await verifyTcr1Receipt(receipt), kind: 'TCR-1 TASK RECEIPT' });
       } else {
@@ -573,7 +574,7 @@ export default function FoundryApp() {
     <main>
       <nav className="nav-shell" aria-label="Primary navigation">
         <a className="brand" href="#top" aria-label="Technocore Foundry home"><span className="brand-mark" aria-hidden="true">TF</span><span>TECHNOCORE / FOUNDRY</span></a>
-        <div className="nav-links"><a href="#missions">Missions</a><a href="/atlas">Atlas</a><button type="button" onClick={() => openDialog('verify')}>Verify</button><a href="#protocol">Protocol</a></div>
+        <div className="nav-links"><a href="#missions">Missions</a><a href="/atlas">Atlas</a><a href="/protocol">Protocol Lab</a><button type="button" onClick={() => openDialog('verify')}>Verify</button></div>
         <button className="nav-cta" type="button" onClick={() => openDialog(vault ? 'restore' : 'forge')}>{vault ? `DID ${compactDid(vault.did)}` : 'Enter Foundry'} <span aria-hidden="true">↗</span></button>
       </nav>
 
@@ -640,7 +641,7 @@ export default function FoundryApp() {
 
         {dialog === 'announce' && selectedResult && vault && <form onSubmit={publishAnnouncement}><div className="mission-detail"><span>TECHNOCORE / foundry-contributions</span><h3>{selectedResult.id}</h3><p>A compact receipt pointer and separate proof statuses will be published under your active DID.</p><code>{selectedResult.receiptSha256}</code></div><p className="form-warning">This is an irreversible public write to technocore.chat. A reusable signed POST package is downloaded before the relay runs.</p><label>Unlock announcing DID <input name="passphrase" type="password" autoComplete="current-password" required /></label>{announcementStatus === 'published' && <div className="verify-banner valid">● PUBLISHED TO TECHNOCORE<small>Room: foundry-contributions</small></div>}{announcement && announcementStatus !== 'published' && <div className="verify-banner invalid">○ SIGNED PACKAGE READY<small>The public relay did not confirm storage; the downloaded package can be retried.</small></div>}{error && <p className="form-error" role="alert">{error}</p>}<div className="dialog-actions"><button className="button button-primary" type="submit" disabled={busy || announcementStatus === 'published'}>{busy ? 'Signing + publishing…' : announcementStatus === 'published' ? 'Published' : 'Sign + publish publicly'}</button></div></form>}
 
-        {dialog === 'verify' && <form onSubmit={verifyReceipt}><p className="dialog-copy">Paste a Foundry event or TCR-1 receipt. Key-control verification runs in this browser without contacting a resolver.</p><label>Receipt JSON <textarea rows={10} value={verifyInput} onChange={(event) => setVerifyInput(event.target.value)} placeholder={'{"type":"technocore-task-receipt", …}'} required /></label><label className="file-inline">Or choose a file <input type="file" accept="application/json,.json" onChange={(event) => { const file = event.target.files?.[0]; if (file) file.text().then(setVerifyInput); }} /></label>{verifyResult && <div className={`verify-banner ${verifyResult.valid ? 'valid' : 'invalid'}`} role="status">{verifyResult.valid ? '● VALID KEY-CONTROL SIGNATURE' : '○ INVALID OR MALFORMED RECEIPT'}<small>{verifyResult.kind} · This does not establish truth, acceptance, or eligibility.</small></div>}<div className="dialog-actions"><button className="button button-primary" type="submit" disabled={busy}>{busy ? 'Verifying…' : 'Verify offline'}</button></div></form>}
+        {dialog === 'verify' && <form onSubmit={verifyReceipt}><p className="dialog-copy">Paste a Foundry event or TCR-1 receipt. Strict JSON parsing and key-control verification run in this browser without contacting a resolver.</p><label>Receipt JSON <textarea rows={10} value={verifyInput} onChange={(event) => setVerifyInput(event.target.value)} placeholder={'{"type":"technocore-task-receipt", …}'} required /></label><label className="file-inline">Or choose a file <input type="file" accept="application/json,.json" onChange={(event) => { const file = event.target.files?.[0]; if (file) file.arrayBuffer().then(decodeStrictUtf8).then(setVerifyInput).catch(() => setVerifyResult({ valid: false, kind: 'INVALID UTF-8' })); }} /></label>{verifyResult && <div className={`verify-banner ${verifyResult.valid ? 'valid' : 'invalid'}`} role="status">{verifyResult.valid ? '● VALID KEY-CONTROL SIGNATURE' : '○ INVALID OR MALFORMED RECEIPT'}<small>{verifyResult.kind} · This does not establish truth, acceptance, or eligibility.</small></div>}<div className="dialog-actions"><button className="button button-primary" type="submit" disabled={busy}>{busy ? 'Verifying…' : 'Verify offline'}</button></div></form>}
       </section></div>}
     </main>
   );

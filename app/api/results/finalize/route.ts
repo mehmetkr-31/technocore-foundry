@@ -1,7 +1,8 @@
 import { createFinalization, findFinalization, findResult } from '@/db/queries';
-import { canonicalJson, sha256Hex, type Tcr1Receipt, verifyTcr1Receipt } from '@/lib/foundry-crypto';
+import { canonicalJson, sha256Hex, tcr1ClaimantDid, type Tcr1Receipt, verifyTcr1Receipt } from '@/lib/foundry-crypto';
 import { validateGitHubEvidence } from '@/lib/github-evidence';
 import { persistReceipt } from '@/lib/server-receipts';
+import { parseStrictJsonBytes } from '@/lib/strict-json';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,9 +16,9 @@ export async function POST(request: Request) {
   let resultId = '';
   let receipt: Tcr1Receipt;
   try {
-    const raw = await request.text();
-    if (new TextEncoder().encode(raw).byteLength > 64 * 1024) throw new Error('oversized');
-    const payload = JSON.parse(raw) as { resultId?: unknown; receipt?: unknown };
+    const raw = await request.arrayBuffer();
+    if (raw.byteLength > 64 * 1024) throw new Error('oversized');
+    const payload = parseStrictJsonBytes(raw) as { resultId?: unknown; receipt?: unknown };
     resultId = typeof payload.resultId === 'string' ? payload.resultId : '';
     receipt = payload.receipt as Tcr1Receipt;
   } catch {
@@ -27,6 +28,8 @@ export async function POST(request: Request) {
 
   try {
     if (!(await verifyTcr1Receipt(receipt))) return Response.json({ error: 'Final TCR-1 schema or signature is invalid.' }, { status: 400 });
+    const claimantDid = tcr1ClaimantDid(receipt);
+    if (!claimantDid) return Response.json({ error: 'Final TCR-1 claimant DID is invalid.' }, { status: 400 });
     if (Math.abs(Date.now() - Date.parse(receipt.created_at)) > 10 * 60 * 1000) {
       return Response.json({ error: 'Finalization timestamp is outside the 10 minute window.' }, { status: 400 });
     }
@@ -38,7 +41,7 @@ export async function POST(request: Request) {
     }
     const original = JSON.parse(result.receiptJson) as Tcr1Receipt;
     if (
-      receipt.claimant !== result.actorDid ||
+      claimantDid !== result.actorDid ||
       canonicalJson(receipt.task) !== canonicalJson(original.task) ||
       canonicalJson(receipt.artifacts) !== canonicalJson(original.artifacts) ||
       canonicalJson(withoutAcceptance(receipt.evidence)) !== canonicalJson(withoutAcceptance(original.evidence))
@@ -54,7 +57,7 @@ export async function POST(request: Request) {
     await persistReceipt({
       id: receiptId,
       schema: 'technocore-task-receipt:1:final',
-      actorDid: receipt.claimant,
+      actorDid: claimantDid,
       missionId: result.missionId,
       createdAt: receipt.created_at,
       payload: receipt,
