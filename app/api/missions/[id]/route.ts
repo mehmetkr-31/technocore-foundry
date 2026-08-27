@@ -1,4 +1,5 @@
 import { findActorResult, findClaim, findMission, listMissionResults } from '@/db/queries';
+import { parseStrictJson } from '@/lib/strict-json';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,7 +38,8 @@ function presentResult(result: Awaited<ReturnType<typeof findActorResult>> & {})
     missionId: result.missionId,
     claimId: result.claimId,
     actorDid: result.actorDid,
-    receipt: JSON.parse(result.receiptJson),
+    revision: result.revision,
+    receipt: parseStrictJson(result.receiptJson),
     receiptSha256: `sha256:${result.receiptSha256}`,
     portableUrl: `/receipt/${result.finalReceiptId ?? result.id}`,
     rawUrl: `/api/receipts/${result.id}`,
@@ -51,6 +53,24 @@ function presentResult(result: Awaited<ReturnType<typeof findActorResult>> & {})
     repositoryUrl: result.repositoryUrl,
     commitSha: result.commitSha,
     createdAt: result.createdAt,
+    parent: result.parentResultId ? {
+      resultId: result.parentResultId,
+      receiptSha256: result.parentReceiptSha256 ? `sha256:${result.parentReceiptSha256}` : null,
+    } : null,
+    revisionReceipt: result.revisionReceiptId ? {
+      id: result.revisionReceiptId,
+      event: result.revisionEventJson ? parseStrictJson(result.revisionEventJson) : null,
+      portableUrl: `/receipt/${result.revisionReceiptId}`,
+      rawUrl: `/api/receipts/${result.revisionReceiptId}`,
+    } : null,
+    changeRequest: result.changeRequestId ? {
+      id: result.changeRequestId,
+      note: result.changeRequestNote,
+      receiptSha256: result.changeRequestReceiptSha256 ? `sha256:${result.changeRequestReceiptSha256}` : null,
+      createdAt: result.changeRequestCreatedAt,
+      portableUrl: `/receipt/${result.changeRequestId}`,
+      rawUrl: `/api/receipts/${result.changeRequestId}`,
+    } : null,
     acceptance: result.acceptanceId ? {
       id: result.acceptanceId,
       decision: result.acceptanceDecision,
@@ -68,7 +88,7 @@ function presentResult(result: Awaited<ReturnType<typeof findActorResult>> & {})
     } : null,
     finalization: result.finalReceiptId ? {
       id: result.finalReceiptId,
-      receipt: result.finalReceiptJson ? JSON.parse(result.finalReceiptJson) : null,
+      receipt: result.finalReceiptJson ? parseStrictJson(result.finalReceiptJson) : null,
       receiptSha256: result.finalReceiptSha256 ? `sha256:${result.finalReceiptSha256}` : null,
       createdAt: result.finalCreatedAt,
       portableUrl: `/receipt/${result.finalReceiptId}`,

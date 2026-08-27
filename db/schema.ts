@@ -79,6 +79,62 @@ export const results = sqliteTable(
   ],
 );
 
+export const resultRevisions = sqliteTable(
+  'result_revisions',
+  {
+    id: text('id').primaryKey(),
+    missionId: text('mission_id').notNull(),
+    claimId: text('claim_id').notNull(),
+    actorDid: text('actor_did').notNull(),
+    revision: integer('revision').notNull(),
+    parentResultId: text('parent_result_id'),
+    parentReceiptSha256: text('parent_receipt_sha256'),
+    changeRequestId: text('change_request_id'),
+    changeRequestSha256: text('change_request_sha256'),
+    revisionReceiptId: text('revision_receipt_id'),
+    revisionEventJson: text('revision_event_json'),
+    revisionSignature: text('revision_signature'),
+    receiptJson: text('receipt_json').notNull(),
+    receiptSha256: text('receipt_sha256').notNull(),
+    artifactObjectKey: text('artifact_object_key').notNull(),
+    artifactName: text('artifact_name').notNull(),
+    artifactMediaType: text('artifact_media_type').notNull(),
+    artifactSha256: text('artifact_sha256').notNull(),
+    artifactBytes: integer('artifact_bytes').notNull(),
+    repositoryUrl: text('repository_url'),
+    commitSha: text('commit_sha'),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('idx_result_revisions_claim_revision').on(table.claimId, table.revision),
+    uniqueIndex('idx_result_revisions_parent').on(table.parentResultId),
+    uniqueIndex('idx_result_revisions_change_request').on(table.changeRequestId),
+    uniqueIndex('idx_result_revisions_receipt').on(table.revisionReceiptId),
+    index('idx_result_revisions_mission_created').on(table.missionId, table.createdAt),
+    index('idx_result_revisions_actor_created').on(table.actorDid, table.createdAt),
+  ],
+);
+
+export const changeRequests = sqliteTable(
+  'change_requests',
+  {
+    id: text('id').primaryKey(),
+    resultId: text('result_id').notNull(),
+    missionId: text('mission_id').notNull(),
+    issuerDid: text('issuer_did').notNull(),
+    resultSha256: text('result_sha256').notNull(),
+    note: text('note').notNull(),
+    eventJson: text('event_json').notNull(),
+    signature: text('signature').notNull(),
+    receiptSha256: text('receipt_sha256').notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('idx_change_requests_result').on(table.resultId),
+    index('idx_change_requests_mission_created').on(table.missionId, table.createdAt),
+  ],
+);
+
 export const acceptances = sqliteTable(
   'acceptances',
   {

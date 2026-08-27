@@ -11,6 +11,8 @@ export type MissionRecord = {
   createdAt: string;
   claimCount: number;
   resultCount: number;
+  revisionCount: number;
+  changeRequestCount: number;
   acceptedCount: number;
 };
 
@@ -28,6 +30,11 @@ export type ResultRecord = {
   missionId: string;
   claimId: string;
   actorDid: string;
+  revision: number;
+  parentResultId: string | null;
+  parentReceiptSha256: string | null;
+  revisionReceiptId: string | null;
+  revisionEventJson: string | null;
   receiptJson: string;
   receiptSha256: string;
   artifactObjectKey: string;
@@ -42,6 +49,10 @@ export type ResultRecord = {
   acceptanceDecision: 'accepted' | 'rejected' | null;
   acceptanceNote: string | null;
   acceptanceReceiptSha256: string | null;
+  changeRequestId: string | null;
+  changeRequestNote: string | null;
+  changeRequestReceiptSha256: string | null;
+  changeRequestCreatedAt: string | null;
   evidenceGithubStatus: string | null;
   evidenceCiStatus: string | null;
   evidenceIdentityBinding: string | null;
@@ -51,6 +62,19 @@ export type ResultRecord = {
   finalReceiptJson: string | null;
   finalReceiptSha256: string | null;
   finalCreatedAt: string | null;
+};
+
+export type ChangeRequestRecord = {
+  id: string;
+  resultId: string;
+  missionId: string;
+  issuerDid: string;
+  resultSha256: string;
+  note: string;
+  eventJson: string;
+  signature: string;
+  receiptSha256: string;
+  createdAt: string;
 };
 
 export type EvidenceCheckRecord = {
@@ -180,6 +204,59 @@ export async function ensureDatabase() {
     db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_results_claim ON results(claim_id)'),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_results_mission_created ON results(mission_id, created_at)'),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_results_actor_created ON results(actor_did, created_at)'),
+    db.prepare(`CREATE TABLE IF NOT EXISTS result_revisions (
+      id TEXT PRIMARY KEY,
+      mission_id TEXT NOT NULL,
+      claim_id TEXT NOT NULL,
+      actor_did TEXT NOT NULL,
+      revision INTEGER NOT NULL,
+      parent_result_id TEXT,
+      parent_receipt_sha256 TEXT,
+      change_request_id TEXT,
+      change_request_sha256 TEXT,
+      revision_receipt_id TEXT,
+      revision_event_json TEXT,
+      revision_signature TEXT,
+      receipt_json TEXT NOT NULL,
+      receipt_sha256 TEXT NOT NULL,
+      artifact_object_key TEXT NOT NULL,
+      artifact_name TEXT NOT NULL,
+      artifact_media_type TEXT NOT NULL,
+      artifact_sha256 TEXT NOT NULL,
+      artifact_bytes INTEGER NOT NULL,
+      repository_url TEXT,
+      commit_sha TEXT,
+      created_at TEXT NOT NULL
+    )`),
+    db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_result_revisions_claim_revision ON result_revisions(claim_id, revision)'),
+    db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_result_revisions_parent ON result_revisions(parent_result_id)'),
+    db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_result_revisions_change_request ON result_revisions(change_request_id)'),
+    db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_result_revisions_receipt ON result_revisions(revision_receipt_id)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_result_revisions_mission_created ON result_revisions(mission_id, created_at)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_result_revisions_actor_created ON result_revisions(actor_did, created_at)'),
+    db.prepare(`INSERT OR IGNORE INTO result_revisions (
+      id, mission_id, claim_id, actor_did, revision, receipt_json, receipt_sha256,
+      artifact_object_key, artifact_name, artifact_media_type, artifact_sha256,
+      artifact_bytes, repository_url, commit_sha, created_at
+    ) SELECT
+      id, mission_id, claim_id, actor_did, 1, receipt_json, receipt_sha256,
+      artifact_object_key, artifact_name, artifact_media_type, artifact_sha256,
+      artifact_bytes, repository_url, commit_sha, created_at
+    FROM results`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS change_requests (
+      id TEXT PRIMARY KEY,
+      result_id TEXT NOT NULL,
+      mission_id TEXT NOT NULL,
+      issuer_did TEXT NOT NULL,
+      result_sha256 TEXT NOT NULL,
+      note TEXT NOT NULL,
+      event_json TEXT NOT NULL,
+      signature TEXT NOT NULL,
+      receipt_sha256 TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )`),
+    db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_change_requests_result ON change_requests(result_id)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_change_requests_mission_created ON change_requests(mission_id, created_at)'),
     db.prepare(`CREATE TABLE IF NOT EXISTS acceptances (
       id TEXT PRIMARY KEY,
       result_id TEXT NOT NULL,
@@ -236,7 +313,9 @@ export async function listMissions(): Promise<MissionRecord[]> {
     m.status,
     m.created_at AS createdAt,
     (SELECT COUNT(*) FROM claims c WHERE c.mission_id = m.id) AS claimCount,
-    (SELECT COUNT(*) FROM results r WHERE r.mission_id = m.id) AS resultCount,
+    (SELECT COUNT(*) FROM result_revisions r WHERE r.mission_id = m.id AND r.revision = 1) AS resultCount,
+    (SELECT COUNT(*) FROM result_revisions r WHERE r.mission_id = m.id) AS revisionCount,
+    (SELECT COUNT(*) FROM change_requests cr WHERE cr.mission_id = m.id) AS changeRequestCount,
     (SELECT COUNT(*) FROM acceptances a WHERE a.mission_id = m.id AND a.decision = 'accepted') AS acceptedCount
   FROM missions m
   ORDER BY m.created_at DESC`).all<MissionRecord>();
@@ -244,13 +323,15 @@ export async function listMissions(): Promise<MissionRecord[]> {
     ...mission,
     claimCount: Number(mission.claimCount),
     resultCount: Number(mission.resultCount),
+    revisionCount: Number(mission.revisionCount),
+    changeRequestCount: Number(mission.changeRequestCount),
     acceptedCount: Number(mission.acceptedCount),
   }));
 }
 
 export async function findMission(id: string) {
   await ensureDatabase();
-  return database().prepare(`SELECT
+  const mission = await database().prepare(`SELECT
     id,
     title,
     lane,
@@ -260,9 +341,19 @@ export async function findMission(id: string) {
     status,
     created_at AS createdAt,
     (SELECT COUNT(*) FROM claims c WHERE c.mission_id = missions.id) AS claimCount,
-    (SELECT COUNT(*) FROM results r WHERE r.mission_id = missions.id) AS resultCount,
+    (SELECT COUNT(*) FROM result_revisions r WHERE r.mission_id = missions.id AND r.revision = 1) AS resultCount,
+    (SELECT COUNT(*) FROM result_revisions r WHERE r.mission_id = missions.id) AS revisionCount,
+    (SELECT COUNT(*) FROM change_requests cr WHERE cr.mission_id = missions.id) AS changeRequestCount,
     (SELECT COUNT(*) FROM acceptances a WHERE a.mission_id = missions.id AND a.decision = 'accepted') AS acceptedCount
   FROM missions WHERE id = ?`).bind(id).first<MissionRecord>();
+  return mission ? {
+    ...mission,
+    claimCount: Number(mission.claimCount),
+    resultCount: Number(mission.resultCount),
+    revisionCount: Number(mission.revisionCount),
+    changeRequestCount: Number(mission.changeRequestCount),
+    acceptedCount: Number(mission.acceptedCount),
+  } : null;
 }
 
 export async function createMission(input: {
@@ -346,16 +437,73 @@ export async function createResult(input: {
   commitSha: string | null;
   createdAt: string;
 }) {
-  await database().prepare(`INSERT INTO results
-    (id, mission_id, claim_id, actor_did, receipt_json, receipt_sha256,
-     artifact_object_key, artifact_name, artifact_media_type, artifact_sha256,
-     artifact_bytes, repository_url, commit_sha, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+  const db = database();
+  await db.batch([
+    db.prepare(`INSERT INTO results
+      (id, mission_id, claim_id, actor_did, receipt_json, receipt_sha256,
+       artifact_object_key, artifact_name, artifact_media_type, artifact_sha256,
+       artifact_bytes, repository_url, commit_sha, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .bind(
+        input.id, input.missionId, input.claimId, input.actorDid, input.receiptJson,
+        input.receiptSha256, input.artifactObjectKey, input.artifactName,
+        input.artifactMediaType, input.artifactSha256, input.artifactBytes,
+        input.repositoryUrl, input.commitSha, input.createdAt,
+      ),
+    db.prepare(`INSERT INTO result_revisions
+      (id, mission_id, claim_id, actor_did, revision, receipt_json, receipt_sha256,
+       artifact_object_key, artifact_name, artifact_media_type, artifact_sha256,
+       artifact_bytes, repository_url, commit_sha, created_at)
+      VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .bind(
+        input.id, input.missionId, input.claimId, input.actorDid, input.receiptJson,
+        input.receiptSha256, input.artifactObjectKey, input.artifactName,
+        input.artifactMediaType, input.artifactSha256, input.artifactBytes,
+        input.repositoryUrl, input.commitSha, input.createdAt,
+      ),
+  ]);
+}
+
+export async function createRevision(input: {
+  id: string;
+  missionId: string;
+  claimId: string;
+  actorDid: string;
+  revision: number;
+  parentResultId: string;
+  parentReceiptSha256: string;
+  changeRequestId: string;
+  changeRequestSha256: string;
+  revisionReceiptId: string;
+  revisionEventJson: string;
+  revisionSignature: string;
+  receiptJson: string;
+  receiptSha256: string;
+  artifactObjectKey: string;
+  artifactName: string;
+  artifactMediaType: string;
+  artifactSha256: string;
+  artifactBytes: number;
+  repositoryUrl: string | null;
+  commitSha: string | null;
+  createdAt: string;
+}) {
+  await database().prepare(`INSERT INTO result_revisions
+    (id, mission_id, claim_id, actor_did, revision, parent_result_id,
+     parent_receipt_sha256, change_request_id, change_request_sha256,
+     revision_receipt_id, revision_event_json, revision_signature,
+     receipt_json, receipt_sha256, artifact_object_key, artifact_name,
+     artifact_media_type, artifact_sha256, artifact_bytes, repository_url,
+     commit_sha, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .bind(
-      input.id, input.missionId, input.claimId, input.actorDid, input.receiptJson,
-      input.receiptSha256, input.artifactObjectKey, input.artifactName,
-      input.artifactMediaType, input.artifactSha256, input.artifactBytes,
-      input.repositoryUrl, input.commitSha, input.createdAt,
+      input.id, input.missionId, input.claimId, input.actorDid, input.revision,
+      input.parentResultId, input.parentReceiptSha256, input.changeRequestId,
+      input.changeRequestSha256, input.revisionReceiptId, input.revisionEventJson,
+      input.revisionSignature, input.receiptJson, input.receiptSha256,
+      input.artifactObjectKey, input.artifactName, input.artifactMediaType,
+      input.artifactSha256, input.artifactBytes, input.repositoryUrl,
+      input.commitSha, input.createdAt,
     ).run();
 }
 
@@ -364,6 +512,11 @@ const resultSelect = `SELECT
   r.mission_id AS missionId,
   r.claim_id AS claimId,
   r.actor_did AS actorDid,
+  r.revision,
+  r.parent_result_id AS parentResultId,
+  r.parent_receipt_sha256 AS parentReceiptSha256,
+  r.revision_receipt_id AS revisionReceiptId,
+  r.revision_event_json AS revisionEventJson,
   r.receipt_json AS receiptJson,
   r.receipt_sha256 AS receiptSha256,
   r.artifact_object_key AS artifactObjectKey,
@@ -378,6 +531,10 @@ const resultSelect = `SELECT
   a.decision AS acceptanceDecision,
   a.note AS acceptanceNote,
   a.receipt_sha256 AS acceptanceReceiptSha256,
+  cr.id AS changeRequestId,
+  cr.note AS changeRequestNote,
+  cr.receipt_sha256 AS changeRequestReceiptSha256,
+  cr.created_at AS changeRequestCreatedAt,
   e.github_status AS evidenceGithubStatus,
   e.ci_status AS evidenceCiStatus,
   e.identity_binding AS evidenceIdentityBinding,
@@ -387,13 +544,18 @@ const resultSelect = `SELECT
   f.receipt_json AS finalReceiptJson,
   f.receipt_sha256 AS finalReceiptSha256,
   f.created_at AS finalCreatedAt
-FROM results r
+FROM result_revisions r
 LEFT JOIN acceptances a ON a.result_id = r.id
+LEFT JOIN change_requests cr ON cr.result_id = r.id
 LEFT JOIN evidence_checks e ON e.result_id = r.id
 LEFT JOIN result_finalizations f ON f.result_id = r.id`;
 
 function normalizeResult(result: ResultRecord | null) {
-  return result ? { ...result, artifactBytes: Number(result.artifactBytes) } : null;
+  return result ? {
+    ...result,
+    revision: Number(result.revision),
+    artifactBytes: Number(result.artifactBytes),
+  } : null;
 }
 
 export async function findResult(id: string) {
@@ -404,14 +566,21 @@ export async function findResult(id: string) {
 
 export async function findActorResult(missionId: string, actorDid: string) {
   await ensureDatabase();
-  const result = await database().prepare(`${resultSelect} WHERE r.mission_id = ? AND r.actor_did = ?`)
+  const result = await database().prepare(`${resultSelect} WHERE r.mission_id = ? AND r.actor_did = ? ORDER BY r.revision DESC LIMIT 1`)
     .bind(missionId, actorDid).first<ResultRecord>();
+  return normalizeResult(result);
+}
+
+export async function findLatestResultForClaim(claimId: string) {
+  await ensureDatabase();
+  const result = await database().prepare(`${resultSelect} WHERE r.claim_id = ? ORDER BY r.revision DESC LIMIT 1`)
+    .bind(claimId).first<ResultRecord>();
   return normalizeResult(result);
 }
 
 export async function listMissionResults(missionId: string) {
   await ensureDatabase();
-  const result = await database().prepare(`${resultSelect} WHERE r.mission_id = ? ORDER BY r.created_at DESC`)
+  const result = await database().prepare(`${resultSelect} WHERE r.mission_id = ? ORDER BY r.created_at ASC`)
     .bind(missionId).all<ResultRecord>();
   return result.results.map((row) => normalizeResult(row) as ResultRecord);
 }
@@ -435,6 +604,34 @@ export async function createAcceptance(input: {
       input.id, input.resultId, input.missionId, input.issuerDid, input.decision,
       input.note, input.eventJson, input.signature, input.receiptSha256, input.createdAt,
     ).run();
+}
+
+export async function createChangeRequest(input: ChangeRequestRecord) {
+  await database().prepare(`INSERT INTO change_requests
+    (id, result_id, mission_id, issuer_did, result_sha256, note,
+     event_json, signature, receipt_sha256, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .bind(
+      input.id, input.resultId, input.missionId, input.issuerDid,
+      input.resultSha256, input.note, input.eventJson, input.signature,
+      input.receiptSha256, input.createdAt,
+    ).run();
+}
+
+export async function findChangeRequest(resultId: string) {
+  await ensureDatabase();
+  return database().prepare(`SELECT
+    id,
+    result_id AS resultId,
+    mission_id AS missionId,
+    issuer_did AS issuerDid,
+    result_sha256 AS resultSha256,
+    note,
+    event_json AS eventJson,
+    signature,
+    receipt_sha256 AS receiptSha256,
+    created_at AS createdAt
+  FROM change_requests WHERE result_id = ?`).bind(resultId).first<ChangeRequestRecord>();
 }
 
 export async function createReceipt(input: {
@@ -518,8 +715,10 @@ export async function findReceiptMetadata(id: string) {
     m.title AS missionTitle,
     m.lane AS missionLane,
     COALESCE(
-      (SELECT r.id FROM results r WHERE r.id = rec.id),
+      (SELECT r.id FROM result_revisions r WHERE r.id = rec.id),
       (SELECT a.result_id FROM acceptances a WHERE a.id = rec.id),
+      (SELECT cr.result_id FROM change_requests cr WHERE cr.id = rec.id),
+      (SELECT rr.id FROM result_revisions rr WHERE rr.revision_receipt_id = rec.id),
       (SELECT f.result_id FROM result_finalizations f WHERE f.receipt_id = rec.id)
     ) AS resultId
   FROM receipts rec
@@ -556,7 +755,7 @@ export async function getAtlas() {
       COUNT(*) AS accepted,
       COALESCE(SUM(r.artifact_bytes), 0) AS artifactBytes
     FROM acceptances a
-    JOIN results r ON r.id = a.result_id
+    JOIN result_revisions r ON r.id = a.result_id
     WHERE a.decision = 'accepted'`).first<{ accepted: number; artifactBytes: number }>(),
     database().prepare(`SELECT
       r.id AS resultId,
@@ -572,7 +771,7 @@ export async function getAtlas() {
       e.ci_status AS evidenceCi,
       f.receipt_id AS finalizedReceiptId
     FROM acceptances a
-    JOIN results r ON r.id = a.result_id
+    JOIN result_revisions r ON r.id = a.result_id
     JOIN missions m ON m.id = r.mission_id
     LEFT JOIN evidence_checks e ON e.result_id = r.id
     LEFT JOIN result_finalizations f ON f.result_id = r.id

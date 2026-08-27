@@ -23,6 +23,10 @@
   `api.github.com` request paths with a timeout.
 - Acceptance substitution: the issuer signs the stored result hash; final TCR-1 preserves original
   task/artifact/Git evidence and adds that exact acceptance hash.
+- History rewriting: result revisions are separate immutable TCR-1 objects. The claimant-signed
+  revision event binds the exact parent receipt, issuer change-request receipt, and new receipt.
+- Revision branching/replay: only the latest result can be reviewed or revised; unique parent,
+  change-request, and `(claim, revision)` indexes enforce a linear chain capped at five revisions.
 - Transport drift: Technocore messages are signed after the single-line category sweep. NFC and NFD
   are never silently collapsed.
 - Replay shape: new Technocore nonces are monotonic decimal strings of at most 19 digits.

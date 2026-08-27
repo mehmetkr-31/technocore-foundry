@@ -22,6 +22,13 @@
       "when": 1787822805460,
       "tag": "0002_lyrical_christian_walker",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1787826634309,
+      "tag": "0003_yielding_speed",
+      "breakpoints": true
     }
   ]
 }

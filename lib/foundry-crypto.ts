@@ -4,6 +4,7 @@ export const VAULT_SCHEMA = 'foundry-vault-v1' as const;
 export const EVENT_SCHEMA = 'foundry-event-v1' as const;
 export const TCR1_TYPE = 'technocore-task-receipt' as const;
 export const TCR1_DOMAIN = 'technocore-task-receipt:v1' as const;
+export const MAX_RESULT_REVISIONS = 5 as const;
 
 const BASE58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 const ED25519_MULTICODEC = new Uint8Array([0xed, 0x01]);
@@ -53,7 +54,33 @@ export type FoundryAcceptanceEvent = EventBase & {
   note: string;
 };
 
-export type FoundryEvent = FoundryMissionEvent | FoundryClaimEvent | FoundryAcceptanceEvent;
+export type FoundryChangeRequestEvent = EventBase & {
+  type: 'change_request';
+  missionId: string;
+  resultId: string;
+  resultSha256: string;
+  note: string;
+};
+
+export type FoundryRevisionEvent = EventBase & {
+  type: 'revision';
+  missionId: string;
+  claimId: string;
+  resultId: string;
+  resultSha256: string;
+  parentResultId: string;
+  parentResultSha256: string;
+  changeRequestId: string;
+  changeRequestSha256: string;
+  revision: number;
+};
+
+export type FoundryEvent =
+  | FoundryMissionEvent
+  | FoundryClaimEvent
+  | FoundryAcceptanceEvent
+  | FoundryChangeRequestEvent
+  | FoundryRevisionEvent;
 
 export type SignedFoundryEvent<T extends FoundryEvent = FoundryEvent> = {
   event: T;
@@ -364,6 +391,36 @@ export async function signAcceptance(
   });
 }
 
+export async function signChangeRequest(
+  vault: FoundryVault,
+  passphrase: string,
+  input: { missionId: string; resultId: string; resultSha256: string; note: string },
+) {
+  return signFoundryEvent(vault, passphrase, {
+    schema: EVENT_SCHEMA,
+    type: 'change_request',
+    ...input,
+    actor: vault.did,
+    nonce: nonce(),
+    createdAt: new Date().toISOString(),
+  });
+}
+
+export async function signRevision(
+  vault: FoundryVault,
+  passphrase: string,
+  input: Omit<FoundryRevisionEvent, keyof EventBase | 'type' | 'schema'>,
+) {
+  return signFoundryEvent(vault, passphrase, {
+    schema: EVENT_SCHEMA,
+    type: 'revision',
+    ...input,
+    actor: vault.did,
+    nonce: nonce(),
+    createdAt: new Date().toISOString(),
+  });
+}
+
 export async function verifySignedEvent(receipt: SignedFoundryEvent) {
   try {
     if (!isFoundryEvent(receipt?.event) || !/^[A-Za-z0-9_-]{86}$/.test(receipt.signature)) return false;
@@ -390,7 +447,7 @@ function isFoundryEvent(value: unknown): value is FoundryEvent {
   const event = value as Record<string, unknown>;
   if (
     event.schema !== EVENT_SCHEMA ||
-    !['mission', 'claim', 'acceptance'].includes(typeof event.type === 'string' ? event.type : '') ||
+    !['mission', 'claim', 'acceptance', 'change_request', 'revision'].includes(typeof event.type === 'string' ? event.type : '') ||
     typeof event.actor !== 'string' ||
     typeof event.nonce !== 'string' || !/^\d{1,80}$/.test(event.nonce) ||
     typeof event.createdAt !== 'string' ||
@@ -411,12 +468,34 @@ function isFoundryEvent(value: unknown): value is FoundryEvent {
       typeof event.missionId === 'string' && /^(M-[0-9]{3}|F-[A-F0-9]{8})$/.test(event.missionId) &&
       typeof event.requirementsHash === 'string' && /^sha256:[a-f0-9]{64}$/.test(event.requirementsHash);
   }
-  return hasOnlyKeys(event, ['schema', 'type', 'missionId', 'resultId', 'resultSha256', 'decision', 'note', 'actor', 'nonce', 'createdAt']) &&
+  if (event.type === 'acceptance') {
+    return hasOnlyKeys(event, ['schema', 'type', 'missionId', 'resultId', 'resultSha256', 'decision', 'note', 'actor', 'nonce', 'createdAt']) &&
+      typeof event.missionId === 'string' && /^(M-[0-9]{3}|F-[A-F0-9]{8})$/.test(event.missionId) &&
+      typeof event.resultId === 'string' && /^res_[a-f0-9]{24}$/.test(event.resultId) &&
+      typeof event.resultSha256 === 'string' && /^sha256:[a-f0-9]{64}$/.test(event.resultSha256) &&
+      (event.decision === 'accepted' || event.decision === 'rejected') &&
+      typeof event.note === 'string' && event.note.length <= 500;
+  }
+  if (event.type === 'change_request') {
+    return hasOnlyKeys(event, ['schema', 'type', 'missionId', 'resultId', 'resultSha256', 'note', 'actor', 'nonce', 'createdAt']) &&
+      typeof event.missionId === 'string' && /^(M-[0-9]{3}|F-[A-F0-9]{8})$/.test(event.missionId) &&
+      typeof event.resultId === 'string' && /^res_[a-f0-9]{24}$/.test(event.resultId) &&
+      typeof event.resultSha256 === 'string' && /^sha256:[a-f0-9]{64}$/.test(event.resultSha256) &&
+      typeof event.note === 'string' && event.note.length >= 12 && event.note.length <= 1000;
+  }
+  return hasOnlyKeys(event, [
+    'schema', 'type', 'missionId', 'claimId', 'resultId', 'resultSha256', 'parentResultId',
+    'parentResultSha256', 'changeRequestId', 'changeRequestSha256', 'revision', 'actor', 'nonce', 'createdAt',
+  ]) &&
     typeof event.missionId === 'string' && /^(M-[0-9]{3}|F-[A-F0-9]{8})$/.test(event.missionId) &&
+    typeof event.claimId === 'string' && /^frc_[a-f0-9]{24}$/.test(event.claimId) &&
     typeof event.resultId === 'string' && /^res_[a-f0-9]{24}$/.test(event.resultId) &&
     typeof event.resultSha256 === 'string' && /^sha256:[a-f0-9]{64}$/.test(event.resultSha256) &&
-    (event.decision === 'accepted' || event.decision === 'rejected') &&
-    typeof event.note === 'string' && event.note.length <= 500;
+    typeof event.parentResultId === 'string' && /^res_[a-f0-9]{24}$/.test(event.parentResultId) &&
+    typeof event.parentResultSha256 === 'string' && /^sha256:[a-f0-9]{64}$/.test(event.parentResultSha256) &&
+    typeof event.changeRequestId === 'string' && /^fcr_[a-f0-9]{24}$/.test(event.changeRequestId) &&
+    typeof event.changeRequestSha256 === 'string' && /^sha256:[a-f0-9]{64}$/.test(event.changeRequestSha256) &&
+    Number.isInteger(event.revision) && Number(event.revision) >= 2 && Number(event.revision) <= MAX_RESULT_REVISIONS;
 }
 
 function tcr1Unsigned(receipt: Tcr1Receipt) {

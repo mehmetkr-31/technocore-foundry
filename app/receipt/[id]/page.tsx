@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 type PageProps = { params: Promise<{ id: string }> };
 
 async function loadReceipt(id: string) {
-  if (!/^(frc|fms|res|fac|tcf)_[a-f0-9]{24}$/.test(id)) return null;
+  if (!/^(frc|fms|res|fac|fcr|frv|tcf)_[a-f0-9]{24}$/.test(id)) return null;
   const metadata = await findReceiptMetadata(id);
   if (!metadata || !env.FILES) return null;
   const object = await env.FILES.get(metadata.objectKey);
@@ -70,13 +70,13 @@ export default async function ReceiptPage({ params }: PageProps) {
         <article><span>02 / ARTIFACT BYTES</span><strong className={result ? 'good' : 'muted'}>{result ? 'MATCH' : 'NOT APPLICABLE'}</strong><p>{result ? `${result.artifactName} · ${result.artifactBytes} bytes · ${shortHash(result.artifactSha256)}` : 'This receipt does not bind an uploaded result artifact.'}</p></article>
         <article><span>03 / GITHUB OBJECTS</span><strong className={evidence?.github === 'verified' ? 'good' : 'muted'}>{evidence?.github?.toUpperCase() ?? 'NOT CHECKED'}</strong><p>{evidence?.detail ?? 'No user-triggered public GitHub API snapshot is stored.'}</p></article>
         <article><span>04 / CI STATUS</span><strong className={evidence?.ci === 'verified' ? 'good' : 'muted'}>{evidence?.ci?.replace('_', ' ').toUpperCase() ?? 'NOT CHECKED'}</strong><p>{evidence?.checkedAt ? `Snapshot ${evidence.checkedAt}` : 'CI remains separate from GitHub object existence.'}</p></article>
-        <article><span>05 / ISSUER DECISION</span><strong className={result?.acceptanceDecision === 'accepted' ? 'good' : result?.acceptanceDecision === 'rejected' ? 'bad' : 'muted'}>{result?.acceptanceDecision?.toUpperCase() ?? 'NOT PRESENT'}</strong><p>{result?.acceptanceNote || 'Issuer acceptance is a separate signed Foundry event.'}</p></article>
+        <article><span>05 / ISSUER DECISION</span><strong className={result?.acceptanceDecision === 'accepted' ? 'good' : result?.acceptanceDecision === 'rejected' ? 'bad' : result?.changeRequestId ? 'bad' : 'muted'}>{result?.acceptanceDecision?.toUpperCase() ?? (result?.changeRequestId ? 'CHANGES REQUESTED' : 'NOT PRESENT')}</strong><p>{result?.acceptanceNote || result?.changeRequestNote || 'Issuer review is a separate signed Foundry event.'}</p></article>
         <article><span>06 / FINAL TCR-1</span><strong className={result?.finalReceiptId ? 'good' : 'muted'}>{result?.finalReceiptId ? 'ACCEPTANCE BOUND' : 'NOT FINALIZED'}</strong><p>{result?.finalReceiptId ? shortHash(result.finalReceiptSha256) : 'The claimant has not signed a TCR-1 containing the issuer acceptance hash.'}</p></article>
       </section>
 
       <section className="receipt-record">
         <div className="record-heading"><div><p className="eyebrow">CANONICAL RECORD / UTF-8 JSON</p><h2>Inspect the exact object.</h2></div><div><a className="button button-primary" href={`/api/receipts/${id}`} download>Download raw JSON</a>{result && <a className="button button-secondary" href={`/api/artifacts/${result.id}`}>Download artifact</a>}</div></div>
-        <dl><div><dt>ACTOR DID</dt><dd>{metadata.actorDid}</dd></div><div><dt>RECEIPT SHA-256</dt><dd>{metadata.sha256}</dd></div>{tcr?.evidence?.acceptance_sha256 && <div><dt>ACCEPTANCE SHA-256</dt><dd>{tcr.evidence.acceptance_sha256}</dd></div>}</dl>
+        <dl><div><dt>ACTOR DID</dt><dd>{metadata.actorDid}</dd></div><div><dt>RECEIPT SHA-256</dt><dd>{metadata.sha256}</dd></div>{result && <div><dt>IMMUTABLE REVISION</dt><dd>{result.revision} / {result.parentResultId ? `PARENT ${result.parentResultId}` : 'ROOT'}</dd></div>}{result?.parentReceiptSha256 && <div><dt>PARENT RECEIPT SHA-256</dt><dd>{result.parentReceiptSha256}</dd></div>}{result?.changeRequestReceiptSha256 && <div><dt>CHANGE REQUEST SHA-256</dt><dd>{result.changeRequestReceiptSha256}</dd></div>}{tcr?.evidence?.acceptance_sha256 && <div><dt>ACCEPTANCE SHA-256</dt><dd>{tcr.evidence.acceptance_sha256}</dd></div>}</dl>
         <pre>{JSON.stringify(payload, null, 2)}</pre>
       </section>
       <aside className="receipt-caveat"><strong>WHAT THIS DOES NOT PROVE</strong><p>It does not establish real-world identity, sole authorship, contribution truth, payment, reward entitlement, or airdrop eligibility. Each proof layer above is deliberately independent.</p></aside>

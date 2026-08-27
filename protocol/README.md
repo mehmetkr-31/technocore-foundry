@@ -24,7 +24,7 @@ Python. The Python verifier uses `cryptography==49.0.0` from `requirements-dev.t
 The fixture covers:
 
 - canonical Ed25519 `did:key` decoding;
-- `foundry-event-v1` domain separation and signature;
+- `foundry-event-v1` claim, issuer change-request, and claimant revision-chain signatures;
 - current TCR-1 claimant object, canonical bytes, and signature;
 - Technocore's `<room>|<nonce>|<text>` transport signature;
 - Unicode code-point key ordering, including integer-like and astral keys;
@@ -36,6 +36,10 @@ The fixture covers:
 New receipts use the current TCR-1 claimant object: `{"claimant":{"did":"did:key:…"}}`.
 Foundry continues to verify its earlier string claimant receipts so existing proof URLs remain
 portable. New canonical output never emits the legacy shape.
+
+Result history is append-only. Existing results become revision 1 roots; revisions 2–5 require a
+signed issuer change request and a claimant-signed event that commits to the exact parent,
+change-request, and new TCR-1 receipt digests.
 
 Foundry's safe cross-language JSON profile is a strict subset of the upstream restricted JSON
 profile: integers must also fit JavaScript's safe integer range. This prevents Python and browser

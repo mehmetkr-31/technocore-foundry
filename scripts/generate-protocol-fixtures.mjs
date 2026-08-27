@@ -44,6 +44,17 @@ function signature(privateKey, bytes) {
   return sign(null, bytes, privateKey).toString('base64url');
 }
 
+function foundryVector(privateKey, event) {
+  const canonical = canonicalJson(event);
+  const payload = Buffer.concat([Buffer.from('foundry-event-v1\0'), Buffer.from(canonical)]);
+  return {
+    domain: 'foundry-event-v1',
+    canonical_unsigned: canonical,
+    signing_payload_hex: payload.toString('hex'),
+    envelope: { event, signature: signature(privateKey, payload) },
+  };
+}
+
 function sha256(value) {
   return crypto.subtle.digest('SHA-256', typeof value === 'string' ? new TextEncoder().encode(value) : value)
     .then((digest) => Buffer.from(digest).toString('hex'));
@@ -101,6 +112,39 @@ const tcrReceipt = {
   signature: { algorithm: 'Ed25519', domain: 'technocore-task-receipt:v1', value: signature(privateKey, tcrPayload) },
 };
 
+const parentResultId = `res_${'1'.repeat(24)}`;
+const parentReceiptHash = await sha256(canonicalJson(tcrReceipt));
+const changeRequestEvent = {
+  schema: 'foundry-event-v1',
+  type: 'change_request',
+  missionId: foundryEvent.missionId,
+  resultId: parentResultId,
+  resultSha256: `sha256:${parentReceiptHash}`,
+  note: 'Add an independently reproducible revision-chain vector.',
+  actor: did,
+  nonce: '1787760000000000003',
+  createdAt: '2026-08-27T00:00:02.000Z',
+};
+const changeRequestVector = foundryVector(privateKey, changeRequestEvent);
+const changeRequestHash = await sha256(canonicalJson(changeRequestVector.envelope));
+const revisionEvent = {
+  schema: 'foundry-event-v1',
+  type: 'revision',
+  missionId: foundryEvent.missionId,
+  claimId: `frc_${'2'.repeat(24)}`,
+  resultId: `res_${'3'.repeat(24)}`,
+  resultSha256: `sha256:${'c'.repeat(64)}`,
+  parentResultId,
+  parentResultSha256: `sha256:${parentReceiptHash}`,
+  changeRequestId: `fcr_${changeRequestHash.slice(0, 24)}`,
+  changeRequestSha256: `sha256:${changeRequestHash}`,
+  revision: 2,
+  actor: did,
+  nonce: '1787760000000000004',
+  createdAt: '2026-08-27T00:00:03.000Z',
+};
+const revisionVector = foundryVector(privateKey, revisionEvent);
+
 const rawMessage = 'Cafe\u0301\nNFC stays distinct from Café\u200d.';
 const sweptMessage = sweepTechnocore(rawMessage);
 const technocoreMessage = {
@@ -143,6 +187,8 @@ const fixture = {
       signing_payload_hex: foundryPayload.toString('hex'),
       envelope: foundryEnvelope,
     },
+    change_request_event: changeRequestVector,
+    revision_event: revisionVector,
     tcr1_receipt: {
       domain: 'technocore-task-receipt:v1',
       canonical_unsigned: tcrCanonical,
@@ -182,4 +228,4 @@ const projectRoot = fileURLToPath(new URL('..', import.meta.url));
 const fixtureDirectory = `${projectRoot}/protocol/fixtures`;
 await mkdir(fixtureDirectory, { recursive: true });
 await writeFile(`${fixtureDirectory}/v1.json`, `${JSON.stringify(fixture, null, 2)}\n`, 'utf8');
-console.log(JSON.stringify({ fixture: 'protocol/fixtures/v1.json', did, vectors: 3, invalid: fixture.invalid_json.length + fixture.invalid_utf8.length }));
+console.log(JSON.stringify({ fixture: 'protocol/fixtures/v1.json', did, vectors: 5, invalid: fixture.invalid_json.length + fixture.invalid_utf8.length }));

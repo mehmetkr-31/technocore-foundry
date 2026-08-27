@@ -90,8 +90,8 @@ const requirements = 'Deliver one UTF-8 artifact, bind its exact hash, attach pu
 const requirementsHash = `sha256:${await sha256(requirements)}`;
 const mission = await jsonRequest('/api/missions', await signFoundry({
   schema: 'foundry-event-v1', type: 'mission', missionId,
-  title: 'Phase 3 lifecycle smoke-test', lane: 'TESTING / PROTOCOL',
-  summary: 'Exercise evidence checks, issuer acceptance, final TCR-1, receipt pages, and Atlas without a public Technocore write.',
+  title: 'Phase 5 revision-chain smoke-test', lane: 'TESTING / PROTOCOL',
+  summary: 'Exercise immutable revisions, signed change requests, issuer acceptance, final TCR-1, proof pages, and Atlas without a public Technocore write.',
   requirements, requirementsHash, actor: did, nonce: nonce(), createdAt: new Date().toISOString(),
 }));
 const claim = await jsonRequest('/api/claims', await signFoundry({
@@ -99,7 +99,7 @@ const claim = await jsonRequest('/api/claims', await signFoundry({
   actor: did, nonce: nonce(), createdAt: new Date().toISOString(),
 }));
 
-const artifactBytes = new TextEncoder().encode('Technocore Foundry Phase 3 smoke artifact.\n');
+const artifactBytes = new TextEncoder().encode('Technocore Foundry Phase 5 root artifact.\n');
 const resultId = `res_${randomHex(12)}`;
 const task = { id: missionId, issuer: did, requirements_sha256: requirementsHash.slice(7) };
 const artifacts = [{
@@ -115,55 +115,136 @@ const upload = new FormData();
 upload.set('resultId', resultId);
 upload.set('claimId', claim.id);
 upload.set('receipt', JSON.stringify(initialReceipt));
-upload.set('artifact', new File([artifactBytes], 'phase-3-smoke.txt', { type: 'text/plain' }));
+upload.set('artifact', new File([artifactBytes], 'phase-5-root.txt', { type: 'text/plain' }));
 const resultResponse = await fetch(`${ORIGIN}/api/results`, { method: 'POST', body: upload, signal: AbortSignal.timeout(20_000) });
 const result = await resultResponse.json();
 if (!resultResponse.ok) throw new Error(`/api/results ${resultResponse.status}: ${JSON.stringify(result)}`);
 
-const evidenceCheck = await jsonRequest('/api/evidence/github', { resultId });
+const changeRequest = await jsonRequest('/api/change-requests', await signFoundry({
+  schema: 'foundry-event-v1', type: 'change_request', missionId, resultId,
+  resultSha256: result.sha256,
+  note: 'Replace the root artifact with a revision that explicitly records the requested protocol-chain improvement.',
+  actor: did, nonce: nonce(), createdAt: new Date().toISOString(),
+}));
+
+const staleAcceptanceResponse = await fetch(`${ORIGIN}/api/acceptances`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(await signFoundry({
+    schema: 'foundry-event-v1', type: 'acceptance', missionId, resultId,
+    resultSha256: result.sha256, decision: 'accepted', note: 'This stale revision must not be accepted after a change request.',
+    actor: did, nonce: nonce(), createdAt: new Date().toISOString(),
+  })),
+  signal: AbortSignal.timeout(20_000),
+});
+if (staleAcceptanceResponse.status !== 409) {
+  throw new Error(`Stale acceptance was not rejected: ${staleAcceptanceResponse.status}`);
+}
+
+const revisedArtifactBytes = new TextEncoder().encode('Technocore Foundry Phase 5 revised artifact with a hash-linked change-request response.\n');
+const revisedResultId = `res_${randomHex(12)}`;
+const revisedArtifacts = [{
+  type: 'text/plain', uri: `${ORIGIN}/api/artifacts/${revisedResultId}`,
+  sha256: await sha256(revisedArtifactBytes), size: revisedArtifactBytes.length,
+}];
+const revisedReceipt = await signTcr(keyPair, {
+  type: 'technocore-task-receipt', version: 1, task, claimant: { did },
+  artifacts: revisedArtifacts, created_at: new Date().toISOString(), evidence,
+});
+const revisedReceiptSha256 = `sha256:${await sha256(JSON.stringify(canonical(revisedReceipt)))}`;
+const revisionEvent = await signFoundry({
+  schema: 'foundry-event-v1', type: 'revision', missionId, claimId: claim.id,
+  resultId: revisedResultId, resultSha256: revisedReceiptSha256,
+  parentResultId: resultId, parentResultSha256: result.sha256,
+  changeRequestId: changeRequest.id, changeRequestSha256: changeRequest.sha256,
+  revision: 2, actor: did, nonce: nonce(), createdAt: new Date().toISOString(),
+});
+const tamperedRevisionEvent = await signFoundry({
+  ...revisionEvent.event,
+  parentResultSha256: `sha256:${'0'.repeat(64)}`,
+  nonce: nonce(),
+  createdAt: new Date().toISOString(),
+});
+const tamperedUpload = new FormData();
+tamperedUpload.set('resultId', revisedResultId);
+tamperedUpload.set('receipt', JSON.stringify(revisedReceipt));
+tamperedUpload.set('revisionEvent', JSON.stringify(tamperedRevisionEvent));
+tamperedUpload.set('artifact', new File([revisedArtifactBytes], 'phase-5-revision-2.txt', { type: 'text/plain' }));
+const tamperedResponse = await fetch(`${ORIGIN}/api/results/revise`, {
+  method: 'POST', body: tamperedUpload, signal: AbortSignal.timeout(20_000),
+});
+if (tamperedResponse.status !== 409) {
+  throw new Error(`Tampered parent hash was not rejected: ${tamperedResponse.status}`);
+}
+const revisionUpload = new FormData();
+revisionUpload.set('resultId', revisedResultId);
+revisionUpload.set('receipt', JSON.stringify(revisedReceipt));
+revisionUpload.set('revisionEvent', JSON.stringify(revisionEvent));
+revisionUpload.set('artifact', new File([revisedArtifactBytes], 'phase-5-revision-2.txt', { type: 'text/plain' }));
+const revisionResponse = await fetch(`${ORIGIN}/api/results/revise`, {
+  method: 'POST', body: revisionUpload, signal: AbortSignal.timeout(20_000),
+});
+const revision = await revisionResponse.json();
+if (!revisionResponse.ok) throw new Error(`/api/results/revise ${revisionResponse.status}: ${JSON.stringify(revision)}`);
+
+const evidenceCheck = await jsonRequest('/api/evidence/github', { resultId: revisedResultId });
 if (evidenceCheck.github !== 'verified' || evidenceCheck.identityBinding !== 'not_established') {
   throw new Error(`Evidence separation failed: ${JSON.stringify(evidenceCheck)}`);
 }
 const acceptance = await jsonRequest('/api/acceptances', await signFoundry({
-  schema: 'foundry-event-v1', type: 'acceptance', missionId, resultId,
-  resultSha256: result.sha256, decision: 'accepted', note: 'Phase 3 smoke test verified exact bytes and lifecycle bindings.',
+  schema: 'foundry-event-v1', type: 'acceptance', missionId, resultId: revisedResultId,
+  resultSha256: revision.sha256, decision: 'accepted', note: 'Phase 5 smoke test verified the exact revised bytes and both hash-chain bindings.',
   actor: did, nonce: nonce(), createdAt: new Date().toISOString(),
 }));
 const finalReceipt = await signTcr(keyPair, {
   type: 'technocore-task-receipt', version: 1, task, claimant: { did },
-  artifacts, created_at: new Date().toISOString(),
+  artifacts: revisedArtifacts, created_at: new Date().toISOString(),
   evidence: { ...evidence, acceptance_sha256: acceptance.sha256.slice('sha256:'.length) },
 });
-const finalization = await jsonRequest('/api/results/finalize', { resultId, receipt: finalReceipt });
+const finalization = await jsonRequest('/api/results/finalize', { resultId: revisedResultId, receipt: finalReceipt });
 const detail = await jsonRequest(`/api/missions/${missionId}?actorDid=${encodeURIComponent(did)}`);
 if (
+  detail.actorResult?.id !== revisedResultId ||
+  detail.actorResult?.revision !== 2 ||
+  detail.actorResult?.parent?.resultId !== resultId ||
+  detail.results.find((item) => item.id === resultId)?.changeRequest?.id !== changeRequest.id ||
+  detail.actorResult?.revisionReceipt?.id !== revision.revisionReceipt.id ||
   detail.actorResult?.acceptance?.decision !== 'accepted' ||
   detail.actorResult?.evidenceCheck?.github !== 'verified' ||
   detail.actorResult?.finalization?.id !== finalization.id
 ) throw new Error(`Lifecycle detail mismatch: ${JSON.stringify(detail)}`);
 
-const [proofPage, finalProofPage, artifact, atlas] = await Promise.all([
+const [rootProofPage, changeRequestProofPage, revisionProofPage, chainProofPage, finalProofPage, artifact, atlas] = await Promise.all([
   fetch(`${ORIGIN}/receipt/${resultId}`),
+  fetch(`${ORIGIN}${changeRequest.portableUrl}`),
+  fetch(`${ORIGIN}${revision.portableUrl}`),
+  fetch(`${ORIGIN}${revision.revisionReceipt.portableUrl}`),
   fetch(`${ORIGIN}${finalization.portableUrl}`),
-  fetch(`${ORIGIN}${result.artifactUrl}`),
+  fetch(`${ORIGIN}${revision.artifactUrl}`),
   jsonRequest('/api/atlas'),
 ]);
-if (!proofPage.ok || !finalProofPage.ok || !artifact.ok || await artifact.text() !== new TextDecoder().decode(artifactBytes)) {
-  throw new Error('Portable proof or artifact bytes did not round-trip.');
+if (
+  !rootProofPage.ok || !changeRequestProofPage.ok || !revisionProofPage.ok ||
+  !chainProofPage.ok || !finalProofPage.ok || !artifact.ok ||
+  await artifact.text() !== new TextDecoder().decode(revisedArtifactBytes)
+) {
+  throw new Error('Revision proof chain or artifact bytes did not round-trip.');
 }
-if (!atlas.contributions.some((item) => item.resultId === resultId && item.finalizedReceiptId === finalization.id)) {
+if (!atlas.contributions.some((item) => item.resultId === revisedResultId && item.finalizedReceiptId === finalization.id)) {
   throw new Error('Finalized accepted contribution did not appear in Atlas.');
 }
 
 console.log(JSON.stringify({
   mission: mission.mission.id,
   claim: claim.id,
-  result: result.id,
+  rootResult: result.id,
+  changeRequest: changeRequest.id,
+  revision: revision.id,
+  revisionReceipt: revision.revisionReceipt.id,
   github: evidenceCheck.github,
   acceptance: acceptance.id,
   finalization: finalization.id,
-  proofPage: proofPage.status,
-  finalProofPage: finalProofPage.status,
+  proofPages: [rootProofPage.status, changeRequestProofPage.status, revisionProofPage.status, chainProofPage.status, finalProofPage.status],
   artifact: artifact.status,
   atlas: 'present',
 }));

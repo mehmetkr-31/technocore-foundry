@@ -107,14 +107,15 @@ public_key = public_key_from_did(fixture["key"]["did"])
 if public_key.hex() != fixture["key"]["public_key_hex"]:
     raise SystemExit("DID/public-key vector mismatch")
 
-foundry = fixture["vectors"]["foundry_event"]
-foundry_canonical = canonical_json(foundry["envelope"]["event"])
-if foundry_canonical != foundry["canonical_unsigned"]:
-    raise SystemExit("Foundry canonical JSON mismatch")
-foundry_payload = b"foundry-event-v1\0" + foundry_canonical.encode()
-if foundry_payload.hex() != foundry["signing_payload_hex"]:
-    raise SystemExit("Foundry signing bytes mismatch")
-verify(public_key, foundry["envelope"]["signature"], foundry_payload)
+for vector_name in ("foundry_event", "change_request_event", "revision_event"):
+    foundry = fixture["vectors"][vector_name]
+    foundry_canonical = canonical_json(foundry["envelope"]["event"])
+    if foundry_canonical != foundry["canonical_unsigned"]:
+        raise SystemExit(f"{vector_name} canonical JSON mismatch")
+    foundry_payload = b"foundry-event-v1\0" + foundry_canonical.encode()
+    if foundry_payload.hex() != foundry["signing_payload_hex"]:
+        raise SystemExit(f"{vector_name} signing bytes mismatch")
+    verify(public_key, foundry["envelope"]["signature"], foundry_payload)
 
 tcr = fixture["vectors"]["tcr1_receipt"]
 tcr_claimant = tcr["receipt"]["claimant"]["did"]
@@ -160,6 +161,8 @@ print(json.dumps({
     "runtime": "python",
     "did": "valid",
     "foundryEvent": "valid",
+    "changeRequest": "valid",
+    "revisionChain": "valid",
     "tcr1": "valid",
     "technocore": "valid",
     "canonical": "match",

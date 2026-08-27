@@ -18,6 +18,8 @@ type Fixture = {
   key: { public_key_hex: string; did: string };
   vectors: {
     foundry_event: { canonical_unsigned: string; signing_payload_hex: string; envelope: SignedFoundryEvent };
+    change_request_event: { canonical_unsigned: string; signing_payload_hex: string; envelope: SignedFoundryEvent };
+    revision_event: { canonical_unsigned: string; signing_payload_hex: string; envelope: SignedFoundryEvent };
     tcr1_receipt: { canonical_unsigned: string; signing_payload_hex: string; receipt: Tcr1Receipt };
     technocore_message: { signing_payload_hex: string; message: TechnocoreSignedMessage };
   };
@@ -36,10 +38,15 @@ const fixture = parseStrictJson(raw) as Fixture;
 if (fixture.schema !== 'technocore-foundry-protocol-fixtures-v1') throw new Error('Unexpected fixture schema.');
 if (hex(publicKeyFromDid(fixture.key.did)) !== fixture.key.public_key_hex) throw new Error('DID/public-key vector mismatch.');
 
-const event = fixture.vectors.foundry_event;
-if (canonicalJson(event.envelope.event) !== event.canonical_unsigned) throw new Error('Foundry canonical JSON mismatch.');
-if (hex(eventSigningBytes(event.envelope.event)) !== event.signing_payload_hex) throw new Error('Foundry signing bytes mismatch.');
-if (!(await verifySignedEvent(event.envelope))) throw new Error('Foundry event signature is invalid.');
+for (const [name, event] of [
+  ['claim', fixture.vectors.foundry_event],
+  ['change-request', fixture.vectors.change_request_event],
+  ['revision', fixture.vectors.revision_event],
+] as const) {
+  if (canonicalJson(event.envelope.event) !== event.canonical_unsigned) throw new Error(`${name} canonical JSON mismatch.`);
+  if (hex(eventSigningBytes(event.envelope.event)) !== event.signing_payload_hex) throw new Error(`${name} signing bytes mismatch.`);
+  if (!(await verifySignedEvent(event.envelope))) throw new Error(`${name} event signature is invalid.`);
+}
 
 const tcr = fixture.vectors.tcr1_receipt;
 const unsignedTcr = { ...tcr.receipt } as Partial<Tcr1Receipt>;
@@ -81,6 +88,8 @@ console.log(JSON.stringify({
   runtime: 'typescript',
   did: 'valid',
   foundryEvent: 'valid',
+  changeRequest: 'valid',
+  revisionChain: 'valid',
   tcr1: 'valid',
   technocore: 'valid',
   canonical: 'match',

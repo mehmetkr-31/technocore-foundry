@@ -2,7 +2,7 @@ import { createFinalization, findFinalization, findResult } from '@/db/queries';
 import { canonicalJson, sha256Hex, tcr1ClaimantDid, type Tcr1Receipt, verifyTcr1Receipt } from '@/lib/foundry-crypto';
 import { validateGitHubEvidence } from '@/lib/github-evidence';
 import { persistReceipt } from '@/lib/server-receipts';
-import { parseStrictJsonBytes } from '@/lib/strict-json';
+import { parseStrictJson, parseStrictJsonBytes } from '@/lib/strict-json';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     if (result.acceptanceDecision !== 'accepted' || !result.acceptanceReceiptSha256) {
       return Response.json({ error: 'An accepted issuer decision is required before finalization.' }, { status: 409 });
     }
-    const original = JSON.parse(result.receiptJson) as Tcr1Receipt;
+    const original = parseStrictJson(result.receiptJson) as Tcr1Receipt;
     if (
       claimantDid !== result.actorDid ||
       canonicalJson(receipt.task) !== canonicalJson(original.task) ||

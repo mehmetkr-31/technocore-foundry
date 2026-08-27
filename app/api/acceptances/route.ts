@@ -1,4 +1,4 @@
-import { createAcceptance, findMission, findResult } from '@/db/queries';
+import { createAcceptance, findLatestResultForClaim, findMission, findResult } from '@/db/queries';
 import {
   canonicalJson,
   EVENT_SCHEMA,
@@ -54,6 +54,13 @@ export async function POST(request: Request) {
     if (payload.event.actor !== mission.issuerDid) return Response.json({ error: 'Only the mission issuer can sign acceptance.' }, { status: 403 });
     if (payload.event.resultSha256 !== `sha256:${result.receiptSha256}`) {
       return Response.json({ error: 'Acceptance does not bind the stored result receipt.' }, { status: 409 });
+    }
+    if (result.changeRequestId) {
+      return Response.json({ error: 'This revision has a signed change request; review the next revision instead.' }, { status: 409 });
+    }
+    const latest = await findLatestResultForClaim(result.claimId);
+    if (!latest || latest.id !== result.id) {
+      return Response.json({ error: 'Only the latest immutable revision can receive an issuer decision.' }, { status: 409 });
     }
     const receiptSha256 = await sha256Hex(canonicalJson(payload));
     const id = `fac_${receiptSha256.slice(0, 24)}`;
