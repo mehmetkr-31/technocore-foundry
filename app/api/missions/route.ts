@@ -105,7 +105,8 @@ export async function POST(request: Request) {
         acceptedCount: 0,
       },
       receiptId,
-      portableUrl: `/api/receipts/${receiptId}`,
+      portableUrl: `/receipt/${receiptId}`,
+      rawUrl: `/api/receipts/${receiptId}`,
     }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : '';

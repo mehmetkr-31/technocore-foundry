@@ -80,7 +80,8 @@ export async function POST(request: Request) {
       id,
       receipt: payload,
       sha256: `sha256:${receiptSha256}`,
-      portableUrl: `/api/receipts/${id}`,
+      portableUrl: `/receipt/${id}`,
+      rawUrl: `/api/receipts/${id}`,
       decision: payload.event.decision,
     }, { status: 201 });
   } catch (error) {

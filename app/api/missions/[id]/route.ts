@@ -39,7 +39,8 @@ function presentResult(result: Awaited<ReturnType<typeof findActorResult>> & {})
     actorDid: result.actorDid,
     receipt: JSON.parse(result.receiptJson),
     receiptSha256: `sha256:${result.receiptSha256}`,
-    portableUrl: `/api/receipts/${result.id}`,
+    portableUrl: `/receipt/${result.finalReceiptId ?? result.id}`,
+    rawUrl: `/api/receipts/${result.id}`,
     artifact: {
       name: result.artifactName,
       mediaType: result.artifactMediaType,
@@ -55,7 +56,23 @@ function presentResult(result: Awaited<ReturnType<typeof findActorResult>> & {})
       decision: result.acceptanceDecision,
       note: result.acceptanceNote,
       receiptSha256: result.acceptanceReceiptSha256 ? `sha256:${result.acceptanceReceiptSha256}` : null,
-      portableUrl: `/api/receipts/${result.acceptanceId}`,
+      portableUrl: `/receipt/${result.acceptanceId}`,
+      rawUrl: `/api/receipts/${result.acceptanceId}`,
+    } : null,
+    evidenceCheck: result.evidenceCheckedAt ? {
+      github: result.evidenceGithubStatus,
+      ci: result.evidenceCiStatus,
+      identityBinding: result.evidenceIdentityBinding,
+      detail: result.evidenceDetail,
+      checkedAt: result.evidenceCheckedAt,
+    } : null,
+    finalization: result.finalReceiptId ? {
+      id: result.finalReceiptId,
+      receipt: result.finalReceiptJson ? JSON.parse(result.finalReceiptJson) : null,
+      receiptSha256: result.finalReceiptSha256 ? `sha256:${result.finalReceiptSha256}` : null,
+      createdAt: result.finalCreatedAt,
+      portableUrl: `/receipt/${result.finalReceiptId}`,
+      rawUrl: `/api/receipts/${result.finalReceiptId}`,
     } : null,
   };
 }

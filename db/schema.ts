@@ -98,3 +98,25 @@ export const acceptances = sqliteTable(
     index('idx_acceptances_mission_created').on(table.missionId, table.createdAt),
   ],
 );
+
+export const evidenceChecks = sqliteTable('evidence_checks', {
+  resultId: text('result_id').primaryKey(),
+  githubStatus: text('github_status').notNull(),
+  ciStatus: text('ci_status').notNull(),
+  identityBinding: text('identity_binding').notNull(),
+  detail: text('detail').notNull(),
+  snapshotJson: text('snapshot_json').notNull(),
+  checkedAt: text('checked_at').notNull(),
+});
+
+export const resultFinalizations = sqliteTable(
+  'result_finalizations',
+  {
+    resultId: text('result_id').primaryKey(),
+    receiptId: text('receipt_id').notNull(),
+    receiptJson: text('receipt_json').notNull(),
+    receiptSha256: text('receipt_sha256').notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [uniqueIndex('idx_result_finalizations_receipt').on(table.receiptId)],
+);

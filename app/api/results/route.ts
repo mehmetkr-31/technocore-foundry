@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { createResult, findClaimById, findMission } from '@/db/queries';
 import { canonicalJson, sha256Hex, type Tcr1Receipt, verifyTcr1Receipt } from '@/lib/foundry-crypto';
+import { validateGitHubEvidence } from '@/lib/github-evidence';
 import { persistReceipt } from '@/lib/server-receipts';
 
 export const dynamic = 'force-dynamic';
@@ -68,11 +69,13 @@ export async function POST(request: Request) {
     }
     const mediaType = artifactFile.type || 'application/octet-stream';
     if (artifact.type !== mediaType) return Response.json({ error: 'Artifact media type does not match the signed receipt.' }, { status: 400 });
-    if (receipt.evidence?.repository && !/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(receipt.evidence.repository)) {
-      return Response.json({ error: 'Repository evidence must be a GitHub repository URL.' }, { status: 400 });
+    if (receipt.evidence?.acceptance_sha256) {
+      return Response.json({ error: 'Initial results cannot claim issuer acceptance.' }, { status: 400 });
     }
-    if (receipt.evidence?.commit && !/^[a-f0-9]{40}$/.test(receipt.evidence.commit)) {
-      return Response.json({ error: 'Commit evidence must be a lowercase 40-hex SHA.' }, { status: 400 });
+    try {
+      validateGitHubEvidence(receipt.evidence);
+    } catch (error) {
+      return Response.json({ error: error instanceof Error ? error.message : 'Malformed GitHub evidence.' }, { status: 400 });
     }
 
     const safeName = artifactFile.name.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 120) || 'artifact.bin';
@@ -112,7 +115,8 @@ export async function POST(request: Request) {
       id: resultId,
       receipt,
       sha256: `sha256:${receiptSha256}`,
-      portableUrl: `/api/receipts/${resultId}`,
+      portableUrl: `/receipt/${resultId}`,
+      rawUrl: `/api/receipts/${resultId}`,
       artifactUrl: `/api/artifacts/${resultId}`,
       proof: {
         cryptographic: 'valid',

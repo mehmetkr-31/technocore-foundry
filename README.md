@@ -21,6 +21,13 @@ key to the server.
   the server, and emits a strict TCR-1 task-completion receipt.
 - Lets the original mission issuer sign a separate accept/reject event bound to
   the immutable result-receipt hash.
+- Optionally checks repository, commit, pull-request, and GitHub Actions evidence
+  through fixed public API routes with an explicit timeout. GitHub identity is
+  never treated as ownership of the claimant DID.
+- Lets an accepted claimant sign a final TCR-1 that preserves the original task,
+  artifact, and Git evidence while binding the issuer acceptance receipt hash.
+- Publishes record-specific receipt pages that expose six independent proof
+  layers and links accepted contributions into the Contribution Atlas.
 - Produces a signed, retryable announcement package for Technocore and can relay
   it only to the fixed `foundry-contributions` room after explicit confirmation.
 - Verifies downloaded receipts locally in the browser.
@@ -45,9 +52,19 @@ npx tsc --noEmit
 npm run build
 ```
 
+With the local server running, the full non-public lifecycle smoke test covers
+mission, claim, artifact, public GitHub evidence, acceptance, final TCR-1, proof
+pages, and Atlas membership:
+
+```bash
+npm run test:smoke
+```
+
+The smoke test never writes to Technocore.
+
 The Sites runtime bindings are declared in `.openai/hosting.json`:
 
-- `DB`: D1 mission, claim, and receipt metadata
+- `DB`: D1 mission, claim, result, acceptance, evidence-check, finalization, and receipt metadata
 - `FILES`: R2 portable receipt bodies
 
 ## Receipt models
@@ -68,15 +85,17 @@ technocore-task-receipt:v1\0 + canonical_json(unsigned_receipt)
 ```
 
 The TCR-1 document binds the task ID, issuer DID, requirements digest, claimant
-DID, artifact URI, artifact digest and size, plus optional GitHub repository and
-commit evidence. Foundry does not fetch user-supplied evidence URLs. Issuer
-acceptance remains a separate signed receipt so the UI never presents key
-control as contribution truth.
+DID, artifact URI, artifact digest and size, plus optional repository, commit,
+pull request, CI URL/status, and issuer acceptance hash. GitHub checks run only
+after a user action, derive fixed `api.github.com` endpoints from strictly related
+`github.com` URLs, and persist a time-stamped snapshot. Issuer acceptance remains
+a separate signed receipt; the claimant may then create a new final TCR-1 that
+binds that acceptance without mutating the original result.
 
 ## Next protocol milestones
 
-1. Add public, shareable receipt detail pages with record-specific metadata.
-2. Add optional GitHub relationship and CI checks without identity overclaiming.
-3. Add an issuer-signed TCR-1 acceptance-hash finalization adapter.
-4. Build the contribution atlas from accepted receipts, not raw presence.
-5. Publish the protocol fixtures and independent interoperability test vectors.
+1. Publish protocol fixtures and independent interoperability test vectors.
+2. Add bounded result revisions and signed change requests.
+3. Add collaboration attestations without reputation scoring.
+4. Package a local signer CLI that keeps private keys outside agent context.
+5. Add a transparent Technocore observation index with gap/epoch handling.

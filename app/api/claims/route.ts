@@ -95,7 +95,8 @@ export async function POST(request: Request) {
         id,
         receipt: payload,
         sha256: `sha256:${sha256}`,
-        portableUrl: `/api/receipts/${id}`,
+        portableUrl: `/receipt/${id}`,
+        rawUrl: `/api/receipts/${id}`,
         proof: {
           keyControl: 'valid',
           requirementsHash: 'match',

@@ -42,6 +42,47 @@ export type ResultRecord = {
   acceptanceDecision: 'accepted' | 'rejected' | null;
   acceptanceNote: string | null;
   acceptanceReceiptSha256: string | null;
+  evidenceGithubStatus: string | null;
+  evidenceCiStatus: string | null;
+  evidenceIdentityBinding: string | null;
+  evidenceDetail: string | null;
+  evidenceCheckedAt: string | null;
+  finalReceiptId: string | null;
+  finalReceiptJson: string | null;
+  finalReceiptSha256: string | null;
+  finalCreatedAt: string | null;
+};
+
+export type EvidenceCheckRecord = {
+  resultId: string;
+  githubStatus: 'verified' | 'unverified' | 'error';
+  ciStatus: 'verified' | 'unverified' | 'not_checked' | 'error';
+  identityBinding: 'not_established';
+  detail: string;
+  snapshotJson: string;
+  checkedAt: string;
+};
+
+export type FinalizationRecord = {
+  resultId: string;
+  receiptId: string;
+  receiptJson: string;
+  receiptSha256: string;
+  createdAt: string;
+};
+
+export type ReceiptMetadata = {
+  id: string;
+  schema: string;
+  actorDid: string;
+  missionId: string | null;
+  objectKey: string;
+  sha256: string;
+  bytes: number;
+  createdAt: string;
+  missionTitle: string | null;
+  missionLane: string | null;
+  resultId: string | null;
 };
 
 const issuerDid = 'did:key:z6MkjtkShmr1CG8rHHPBUDqCUbtwfQ6E9u4g2NdHXjCsg471';
@@ -153,6 +194,23 @@ export async function ensureDatabase() {
     )`),
     db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_acceptances_result ON acceptances(result_id)'),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_acceptances_mission_created ON acceptances(mission_id, created_at)'),
+    db.prepare(`CREATE TABLE IF NOT EXISTS evidence_checks (
+      result_id TEXT PRIMARY KEY,
+      github_status TEXT NOT NULL,
+      ci_status TEXT NOT NULL,
+      identity_binding TEXT NOT NULL,
+      detail TEXT NOT NULL,
+      snapshot_json TEXT NOT NULL,
+      checked_at TEXT NOT NULL
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS result_finalizations (
+      result_id TEXT PRIMARY KEY,
+      receipt_id TEXT NOT NULL,
+      receipt_json TEXT NOT NULL,
+      receipt_sha256 TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )`),
+    db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_result_finalizations_receipt ON result_finalizations(receipt_id)'),
   ]);
 
   await db.batch(
@@ -319,9 +377,20 @@ const resultSelect = `SELECT
   a.id AS acceptanceId,
   a.decision AS acceptanceDecision,
   a.note AS acceptanceNote,
-  a.receipt_sha256 AS acceptanceReceiptSha256
+  a.receipt_sha256 AS acceptanceReceiptSha256,
+  e.github_status AS evidenceGithubStatus,
+  e.ci_status AS evidenceCiStatus,
+  e.identity_binding AS evidenceIdentityBinding,
+  e.detail AS evidenceDetail,
+  e.checked_at AS evidenceCheckedAt,
+  f.receipt_id AS finalReceiptId,
+  f.receipt_json AS finalReceiptJson,
+  f.receipt_sha256 AS finalReceiptSha256,
+  f.created_at AS finalCreatedAt
 FROM results r
-LEFT JOIN acceptances a ON a.result_id = r.id`;
+LEFT JOIN acceptances a ON a.result_id = r.id
+LEFT JOIN evidence_checks e ON e.result_id = r.id
+LEFT JOIN result_finalizations f ON f.result_id = r.id`;
 
 function normalizeResult(result: ResultRecord | null) {
   return result ? { ...result, artifactBytes: Number(result.artifactBytes) } : null;
@@ -383,4 +452,142 @@ export async function createReceipt(input: {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
     .bind(input.id, input.schema, input.actorDid, input.missionId, input.objectKey, input.sha256, input.bytes, input.createdAt)
     .run();
+}
+
+export async function upsertEvidenceCheck(input: EvidenceCheckRecord) {
+  await database().prepare(`INSERT OR REPLACE INTO evidence_checks
+    (result_id, github_status, ci_status, identity_binding, detail, snapshot_json, checked_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)`).bind(
+      input.resultId,
+      input.githubStatus,
+      input.ciStatus,
+      input.identityBinding,
+      input.detail,
+      input.snapshotJson,
+      input.checkedAt,
+    ).run();
+}
+
+export async function findEvidenceCheck(resultId: string) {
+  await ensureDatabase();
+  return database().prepare(`SELECT
+    result_id AS resultId,
+    github_status AS githubStatus,
+    ci_status AS ciStatus,
+    identity_binding AS identityBinding,
+    detail,
+    snapshot_json AS snapshotJson,
+    checked_at AS checkedAt
+  FROM evidence_checks WHERE result_id = ?`).bind(resultId).first<EvidenceCheckRecord>();
+}
+
+export async function createFinalization(input: FinalizationRecord) {
+  await database().prepare(`INSERT INTO result_finalizations
+    (result_id, receipt_id, receipt_json, receipt_sha256, created_at)
+    VALUES (?, ?, ?, ?, ?)`).bind(
+      input.resultId,
+      input.receiptId,
+      input.receiptJson,
+      input.receiptSha256,
+      input.createdAt,
+    ).run();
+}
+
+export async function findFinalization(resultId: string) {
+  await ensureDatabase();
+  return database().prepare(`SELECT
+    result_id AS resultId,
+    receipt_id AS receiptId,
+    receipt_json AS receiptJson,
+    receipt_sha256 AS receiptSha256,
+    created_at AS createdAt
+  FROM result_finalizations WHERE result_id = ?`).bind(resultId).first<FinalizationRecord>();
+}
+
+export async function findReceiptMetadata(id: string) {
+  await ensureDatabase();
+  const receipt = await database().prepare(`SELECT
+    rec.id,
+    rec.schema,
+    rec.actor_did AS actorDid,
+    rec.mission_id AS missionId,
+    rec.object_key AS objectKey,
+    rec.sha256,
+    rec.bytes,
+    rec.created_at AS createdAt,
+    m.title AS missionTitle,
+    m.lane AS missionLane,
+    COALESCE(
+      (SELECT r.id FROM results r WHERE r.id = rec.id),
+      (SELECT a.result_id FROM acceptances a WHERE a.id = rec.id),
+      (SELECT f.result_id FROM result_finalizations f WHERE f.receipt_id = rec.id)
+    ) AS resultId
+  FROM receipts rec
+  LEFT JOIN missions m ON m.id = rec.mission_id
+  WHERE rec.id = ?`).bind(id).first<ReceiptMetadata>();
+  return receipt ? { ...receipt, bytes: Number(receipt.bytes) } : null;
+}
+
+export type AtlasContribution = {
+  resultId: string;
+  missionId: string;
+  missionTitle: string;
+  lane: string;
+  actorDid: string;
+  artifactName: string;
+  artifactBytes: number;
+  artifactSha256: string;
+  acceptedAt: string;
+  evidenceGithub: string | null;
+  evidenceCi: string | null;
+  finalizedReceiptId: string | null;
+};
+
+export async function getAtlas() {
+  await ensureDatabase();
+  const [missionStats, participantStats, contributionStats, contributions] = await Promise.all([
+    database().prepare(`SELECT
+      COUNT(*) AS missions,
+      SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END) AS openMissions
+    FROM missions`).first<{ missions: number; openMissions: number }>(),
+    database().prepare('SELECT COUNT(DISTINCT actor_did) AS participants FROM claims')
+      .first<{ participants: number }>(),
+    database().prepare(`SELECT
+      COUNT(*) AS accepted,
+      COALESCE(SUM(r.artifact_bytes), 0) AS artifactBytes
+    FROM acceptances a
+    JOIN results r ON r.id = a.result_id
+    WHERE a.decision = 'accepted'`).first<{ accepted: number; artifactBytes: number }>(),
+    database().prepare(`SELECT
+      r.id AS resultId,
+      r.mission_id AS missionId,
+      m.title AS missionTitle,
+      m.lane,
+      r.actor_did AS actorDid,
+      r.artifact_name AS artifactName,
+      r.artifact_bytes AS artifactBytes,
+      r.artifact_sha256 AS artifactSha256,
+      a.created_at AS acceptedAt,
+      e.github_status AS evidenceGithub,
+      e.ci_status AS evidenceCi,
+      f.receipt_id AS finalizedReceiptId
+    FROM acceptances a
+    JOIN results r ON r.id = a.result_id
+    JOIN missions m ON m.id = r.mission_id
+    LEFT JOIN evidence_checks e ON e.result_id = r.id
+    LEFT JOIN result_finalizations f ON f.result_id = r.id
+    WHERE a.decision = 'accepted'
+    ORDER BY a.created_at DESC
+    LIMIT 50`).all<AtlasContribution>(),
+  ]);
+  return {
+    metrics: {
+      missions: Number(missionStats?.missions ?? 0),
+      openMissions: Number(missionStats?.openMissions ?? 0),
+      participants: Number(participantStats?.participants ?? 0),
+      accepted: Number(contributionStats?.accepted ?? 0),
+      artifactBytes: Number(contributionStats?.artifactBytes ?? 0),
+    },
+    contributions: contributions.results.map((item) => ({ ...item, artifactBytes: Number(item.artifactBytes) })),
+  };
 }

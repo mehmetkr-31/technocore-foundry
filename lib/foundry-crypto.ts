@@ -79,6 +79,10 @@ export type Tcr1Receipt = {
   evidence?: {
     repository?: string;
     commit?: string;
+    pull_request?: string;
+    ci_url?: string;
+    ci_status?: 'success' | 'failure' | 'pending' | 'cancelled';
+    acceptance_sha256?: string;
   };
   signature: {
     algorithm: 'Ed25519';
@@ -384,7 +388,8 @@ export async function verifySignedEvent(receipt: SignedFoundryEvent) {
 }
 
 function tcr1Unsigned(receipt: Tcr1Receipt) {
-  const { signature: _signature, ...unsigned } = receipt;
+  const unsigned = { ...receipt };
+  Reflect.deleteProperty(unsigned, 'signature');
   return unsigned;
 }
 
@@ -437,9 +442,13 @@ export async function verifyTcr1Receipt(receipt: Tcr1Receipt) {
     (artifact.size === undefined || (Number.isSafeInteger(artifact.size) && artifact.size >= 0)),
   )) return false;
   if (receipt.evidence && (
-    !hasOnlyKeys(receipt.evidence as unknown as Record<string, unknown>, ['repository', 'commit']) ||
+    !hasOnlyKeys(receipt.evidence as unknown as Record<string, unknown>, ['repository', 'commit', 'pull_request', 'ci_url', 'ci_status', 'acceptance_sha256']) ||
     (receipt.evidence.repository !== undefined && typeof receipt.evidence.repository !== 'string') ||
-    (receipt.evidence.commit !== undefined && typeof receipt.evidence.commit !== 'string')
+    (receipt.evidence.commit !== undefined && !/^[a-f0-9]{40}$/.test(receipt.evidence.commit)) ||
+    (receipt.evidence.pull_request !== undefined && typeof receipt.evidence.pull_request !== 'string') ||
+    (receipt.evidence.ci_url !== undefined && typeof receipt.evidence.ci_url !== 'string') ||
+    (receipt.evidence.ci_status !== undefined && !['success', 'failure', 'pending', 'cancelled'].includes(receipt.evidence.ci_status)) ||
+    (receipt.evidence.acceptance_sha256 !== undefined && !/^[a-f0-9]{64}$/.test(receipt.evidence.acceptance_sha256))
   )) return false;
   const claimantPublicKey = publicKeyFromDid(receipt.claimant);
   if (didFromPublicKey(claimantPublicKey) !== receipt.claimant || publicKeyFromDid(receipt.task.issuer).length !== 32) return false;
