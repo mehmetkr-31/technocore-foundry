@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 type PageProps = { params: Promise<{ id: string }> };
 
 async function loadReceipt(id: string) {
-  if (!/^(frc|fms|res|fac|fcr|frv|tcf)_[a-f0-9]{24}$/.test(id)) return null;
+  if (!/^(frc|fms|res|fac|fcr|frv|fat|tcf)_[a-f0-9]{24}$/.test(id)) return null;
   const metadata = await findReceiptMetadata(id);
   if (!metadata || !env.FILES) return null;
   const object = await env.FILES.get(metadata.objectKey);
@@ -72,6 +72,7 @@ export default async function ReceiptPage({ params }: PageProps) {
         <article><span>04 / CI STATUS</span><strong className={evidence?.ci === 'verified' ? 'good' : 'muted'}>{evidence?.ci?.replace('_', ' ').toUpperCase() ?? 'NOT CHECKED'}</strong><p>{evidence?.checkedAt ? `Snapshot ${evidence.checkedAt}` : 'CI remains separate from GitHub object existence.'}</p></article>
         <article><span>05 / ISSUER DECISION</span><strong className={result?.acceptanceDecision === 'accepted' ? 'good' : result?.acceptanceDecision === 'rejected' ? 'bad' : result?.changeRequestId ? 'bad' : 'muted'}>{result?.acceptanceDecision?.toUpperCase() ?? (result?.changeRequestId ? 'CHANGES REQUESTED' : 'NOT PRESENT')}</strong><p>{result?.acceptanceNote || result?.changeRequestNote || 'Issuer review is a separate signed Foundry event.'}</p></article>
         <article><span>06 / FINAL TCR-1</span><strong className={result?.finalReceiptId ? 'good' : 'muted'}>{result?.finalReceiptId ? 'ACCEPTANCE BOUND' : 'NOT FINALIZED'}</strong><p>{result?.finalReceiptId ? shortHash(result.finalReceiptSha256) : 'The claimant has not signed a TCR-1 containing the issuer acceptance hash.'}</p></article>
+        <article><span>07 / PEER EVIDENCE</span><strong className={result?.attestationCount ? 'good' : 'muted'}>{result?.attestationCount ? `${result.attestationCount} ATTESTATION${result.attestationCount === 1 ? '' : 'S'}` : 'NOT PRESENT'}</strong><p>Independent peer statements bind this exact accepted result. They are evidence types, never a reputation or eligibility score.</p></article>
       </section>
 
       <section className="receipt-record">

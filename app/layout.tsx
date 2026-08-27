@@ -21,6 +21,7 @@ export const metadata: Metadata = {
     description: 'Useful work. Portable proof.',
     images: ['/og.png'],
   },
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

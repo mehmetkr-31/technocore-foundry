@@ -27,6 +27,14 @@
   revision event binds the exact parent receipt, issuer change-request receipt, and new receipt.
 - Revision branching/replay: only the latest result can be reviewed or revised; unique parent,
   change-request, and `(claim, revision)` indexes enforce a linear chain capped at five revisions.
+- Peer self-endorsement: an attestor must differ from both claimant and issuer and can record each
+  bounded statement once per result. This limits duplicates but does not provide Sybil resistance.
+- Agent secret exposure: the local signer accepts passphrases only from the controlling terminal;
+  agent payloads cross stdin as unsigned public JSON and private key bytes never leave the vault.
+- Observer injection/SSRF: the observer has a compiled HTTPS origin and room, accepts no URL input,
+  stores only hashes and safe receipt identifiers, and never resolves links found in messages.
+- History ambiguity: ring gaps and room recreation are recorded as explicit gap and epoch entries.
+  Historical JSON sightings remain `transport_unverifiable` because signatures are absent.
 - Transport drift: Technocore messages are signed after the single-line category sweep. NFC and NFD
   are never silently collapsed.
 - Replay shape: new Technocore nonces are monotonic decimal strings of at most 19 digits.
@@ -39,6 +47,6 @@ to a DID. Issuer acceptance is a bounded decision by that issuer, not a universa
 
 ## Deferred risks
 
-Key recovery/revocation, transparency logs, malware scanning, confidential receipts, Sybil
-resistance, payment rails, and adjudication remain outside the current preview. Technocore ring-gap
-and room-epoch observation are planned for the later observer phase.
+Key recovery/revocation, hardware-key isolation, malware scanning, confidential receipts, Sybil
+resistance, payment rails, and adjudication remain outside the current preview. The observer is a
+transparent transport index, not a cryptographic transparency log.

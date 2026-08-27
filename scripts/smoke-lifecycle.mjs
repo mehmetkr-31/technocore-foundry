@@ -78,10 +78,14 @@ didPayload.set([0xed, 0x01]);
 didPayload.set(publicKey, 2);
 const did = `did:key:z${base58(didPayload)}`;
 
-async function signFoundry(event) {
+async function signFoundryWith(signerKeyPair, event) {
   const input = joinBytes(new TextEncoder().encode('foundry-event-v1\0'), new TextEncoder().encode(JSON.stringify(canonical(event))));
-  const signature = await crypto.subtle.sign('Ed25519', keyPair.privateKey, input);
+  const signature = await crypto.subtle.sign('Ed25519', signerKeyPair.privateKey, input);
   return { event, signature: Buffer.from(signature).toString('base64url') };
+}
+
+async function signFoundry(event) {
+  return signFoundryWith(keyPair, event);
 }
 
 const nonce = () => `${Date.now()}${crypto.getRandomValues(new Uint32Array(1))[0]}`;
@@ -196,6 +200,18 @@ const acceptance = await jsonRequest('/api/acceptances', await signFoundry({
   resultSha256: revision.sha256, decision: 'accepted', note: 'Phase 5 smoke test verified the exact revised bytes and both hash-chain bindings.',
   actor: did, nonce: nonce(), createdAt: new Date().toISOString(),
 }));
+const peerKeyPair = await crypto.subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
+const peerPublicKey = new Uint8Array(await crypto.subtle.exportKey('raw', peerKeyPair.publicKey));
+const peerDidPayload = new Uint8Array(34);
+peerDidPayload.set([0xed, 0x01]);
+peerDidPayload.set(peerPublicKey, 2);
+const peerDid = `did:key:z${base58(peerDidPayload)}`;
+const attestation = await jsonRequest('/api/attestations', await signFoundryWith(peerKeyPair, {
+  schema: 'foundry-event-v1', type: 'attestation', missionId, resultId: revisedResultId,
+  resultSha256: revision.sha256, statement: 'reproduced',
+  note: 'Independent peer reproduced the accepted artifact hash and inspected the portable receipt chain.',
+  actor: peerDid, nonce: nonce(), createdAt: new Date().toISOString(),
+}));
 const finalReceipt = await signTcr(keyPair, {
   type: 'technocore-task-receipt', version: 1, task, claimant: { did },
   artifacts: revisedArtifacts, created_at: new Date().toISOString(),
@@ -211,26 +227,28 @@ if (
   detail.actorResult?.revisionReceipt?.id !== revision.revisionReceipt.id ||
   detail.actorResult?.acceptance?.decision !== 'accepted' ||
   detail.actorResult?.evidenceCheck?.github !== 'verified' ||
-  detail.actorResult?.finalization?.id !== finalization.id
+  detail.actorResult?.finalization?.id !== finalization.id ||
+  !detail.actorResult?.attestations?.some((item) => item.id === attestation.id && item.statement === 'reproduced')
 ) throw new Error(`Lifecycle detail mismatch: ${JSON.stringify(detail)}`);
 
-const [rootProofPage, changeRequestProofPage, revisionProofPage, chainProofPage, finalProofPage, artifact, atlas] = await Promise.all([
+const [rootProofPage, changeRequestProofPage, revisionProofPage, chainProofPage, attestationProofPage, finalProofPage, artifact, atlas] = await Promise.all([
   fetch(`${ORIGIN}/receipt/${resultId}`),
   fetch(`${ORIGIN}${changeRequest.portableUrl}`),
   fetch(`${ORIGIN}${revision.portableUrl}`),
   fetch(`${ORIGIN}${revision.revisionReceipt.portableUrl}`),
+  fetch(`${ORIGIN}${attestation.portableUrl}`),
   fetch(`${ORIGIN}${finalization.portableUrl}`),
   fetch(`${ORIGIN}${revision.artifactUrl}`),
   jsonRequest('/api/atlas'),
 ]);
 if (
   !rootProofPage.ok || !changeRequestProofPage.ok || !revisionProofPage.ok ||
-  !chainProofPage.ok || !finalProofPage.ok || !artifact.ok ||
+  !chainProofPage.ok || !attestationProofPage.ok || !finalProofPage.ok || !artifact.ok ||
   await artifact.text() !== new TextDecoder().decode(revisedArtifactBytes)
 ) {
   throw new Error('Revision proof chain or artifact bytes did not round-trip.');
 }
-if (!atlas.contributions.some((item) => item.resultId === revisedResultId && item.finalizedReceiptId === finalization.id)) {
+if (!atlas.contributions.some((item) => item.resultId === revisedResultId && item.finalizedReceiptId === finalization.id && item.attestationCount >= 1)) {
   throw new Error('Finalized accepted contribution did not appear in Atlas.');
 }
 
@@ -243,8 +261,9 @@ console.log(JSON.stringify({
   revisionReceipt: revision.revisionReceipt.id,
   github: evidenceCheck.github,
   acceptance: acceptance.id,
+  attestation: attestation.id,
   finalization: finalization.id,
-  proofPages: [rootProofPage.status, changeRequestProofPage.status, revisionProofPage.status, chainProofPage.status, finalProofPage.status],
+  proofPages: [rootProofPage.status, changeRequestProofPage.status, revisionProofPage.status, chainProofPage.status, attestationProofPage.status, finalProofPage.status],
   artifact: artifact.status,
   atlas: 'present',
 }));

@@ -21,11 +21,12 @@ function bytes(value: number) {
 
 export default async function AtlasPage() {
   const atlas = await getAtlas();
-  const maxMetric = Math.max(atlas.metrics.missions, atlas.metrics.participants, atlas.metrics.accepted, 1);
+  const maxMetric = Math.max(atlas.metrics.missions, atlas.metrics.participants, atlas.metrics.accepted, atlas.metrics.attestations, 1);
   const bars = [
     ['SIGNED MISSIONS', atlas.metrics.missions],
     ['CLAIMANT DIDS', atlas.metrics.participants],
     ['ISSUER ACCEPTED', atlas.metrics.accepted],
+    ['PEER ATTESTATIONS', atlas.metrics.attestations],
   ] as const;
 
   return (
@@ -50,12 +51,12 @@ export default async function AtlasPage() {
           return <article className="atlas-node" key={item.resultId}>
             <span className="atlas-index">{String(index + 1).padStart(2, '0')}</span>
             <div><p>{item.lane} · {item.missionId}</p><h3>{item.missionTitle}</h3><span>{item.artifactName} · {bytes(item.artifactBytes)} · {compactDid(item.actorDid)}</span></div>
-            <div className="atlas-proof"><span>ISSUER <b>ACCEPTED</b></span><span>GITHUB <b className={item.evidenceGithub === 'verified' ? '' : 'muted'}>{item.evidenceGithub?.toUpperCase() ?? 'NOT CHECKED'}</b></span><span>CI <b className={item.evidenceCi === 'verified' ? '' : 'muted'}>{item.evidenceCi?.replace('_', ' ').toUpperCase() ?? 'NOT CHECKED'}</b></span><span>FINAL TCR <b className={item.finalizedReceiptId ? '' : 'muted'}>{item.finalizedReceiptId ? 'BOUND' : 'PENDING'}</b></span></div>
+            <div className="atlas-proof"><span>ISSUER <b>ACCEPTED</b></span><span>GITHUB <b className={item.evidenceGithub === 'verified' ? '' : 'muted'}>{item.evidenceGithub?.toUpperCase() ?? 'NOT CHECKED'}</b></span><span>CI <b className={item.evidenceCi === 'verified' ? '' : 'muted'}>{item.evidenceCi?.replace('_', ' ').toUpperCase() ?? 'NOT CHECKED'}</b></span><span>PEERS <b className={item.attestationCount ? '' : 'muted'}>{item.attestationCount} EVIDENCE EDGE{item.attestationCount === 1 ? '' : 'S'}</b></span><span>FINAL TCR <b className={item.finalizedReceiptId ? '' : 'muted'}>{item.finalizedReceiptId ? 'BOUND' : 'PENDING'}</b></span></div>
             <Link className="atlas-link" href={`/receipt/${receiptId}`} aria-label={`Open receipt for ${item.missionTitle}`}>↗</Link>
           </article>;
         })}</div> : <div className="atlas-empty"><span>○</span><h3>The accepted map is still empty.</h3><p>Issue a mission, submit an artifact, and let the issuer sign a decision. The first accepted contribution will light up here.</p><Link className="button button-primary" href="/#missions">Browse missions →</Link></div>}
       </section>
-      <footer><div className="brand footer-brand"><span className="brand-mark">TF</span><span>CONTRIBUTION ATLAS</span></div><p>Separate proof layers. No eligibility claims.</p><span>LIVE / D1 + R2</span></footer>
+      <footer><div className="brand footer-brand"><span className="brand-mark">TF</span><span>CONTRIBUTION ATLAS</span></div><p>Separate proof layers. Peer edges are evidence types, never scores.</p><span>LIVE / D1 + R2</span></footer>
     </main>
   );
 }

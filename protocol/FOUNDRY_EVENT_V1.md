@@ -14,7 +14,7 @@ Ed25519 `did:key`; its public key verifies the signature without a resolver.
 ## Common fields
 
 - `schema`: exactly `foundry-event-v1`
-- `type`: `mission`, `claim`, `acceptance`, `change_request`, or `revision`
+- `type`: `mission`, `claim`, `acceptance`, `change_request`, `revision`, or `attestation`
 - `actor`: canonical Ed25519 `did:key`
 - `nonce`: decimal string; new writers emit 19 digits or fewer
 - `createdAt`: UTC RFC 3339 timestamp ending in `Z`
@@ -47,6 +47,12 @@ revision.
 
 The server accepts only a linear append to the latest revision. Each parent result and change
 request can be consumed once. Revision 1 is the claimant-signed TCR-1 root and has no parent.
+
+`attestation` binds one independent peer statement—`reviewed`, `reproduced`, `used`, or
+`collaborated`—to the exact digest of an issuer-accepted result. The application rejects the
+claimant and issuer as independent peers and accepts at most one statement of each type from a
+peer for a result. Attestations are evidence edges, never reputation, reward, identity, truth, or
+eligibility scores.
 
 Every event type rejects additional properties in the verifier.
 

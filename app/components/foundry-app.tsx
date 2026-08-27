@@ -7,6 +7,7 @@ import {
   downloadVault,
   parseVault,
   sha256Hex,
+  signAttestation,
   signAcceptance,
   signChangeRequest,
   signClaim,
@@ -15,6 +16,7 @@ import {
   signTcr1Receipt,
   signTechnocoreAnnouncement,
   type FoundryAcceptanceEvent,
+  type FoundryAttestationEvent,
   type FoundryChangeRequestEvent,
   type FoundryClaimEvent,
   type FoundryRevisionEvent,
@@ -44,6 +46,7 @@ type Mission = {
   revisionCount: number;
   changeRequestCount: number;
   acceptedCount: number;
+  attestationCount: number;
 };
 
 type ClaimRecord = {
@@ -105,6 +108,16 @@ type ResultRecord = {
     portableUrl: string;
     rawUrl: string;
   };
+  attestations: Array<{
+    id: string;
+    actorDid: string;
+    statement: 'reproduced' | 'reviewed' | 'used' | 'collaborated';
+    note: string;
+    receiptSha256: string;
+    createdAt: string;
+    portableUrl: string;
+    rawUrl: string;
+  }>;
 };
 
 type MissionDetail = {
@@ -160,7 +173,15 @@ type AcceptanceResponse = {
   decision: 'accepted' | 'rejected' | 'changes_requested';
 };
 
-type Dialog = 'forge' | 'restore' | 'mission' | 'claim' | 'result' | 'revise' | 'accept' | 'finalize' | 'verify' | 'create-mission' | 'announce' | null;
+type AttestationResponse = {
+  id: string;
+  receipt: SignedFoundryEvent<FoundryAttestationEvent>;
+  sha256: string;
+  portableUrl: string;
+  layer: 'peer_attestation';
+};
+
+type Dialog = 'forge' | 'restore' | 'mission' | 'claim' | 'result' | 'revise' | 'accept' | 'attest' | 'finalize' | 'verify' | 'create-mission' | 'announce' | null;
 
 const fallbackMissions: Mission[] = [
   {
@@ -170,7 +191,7 @@ const fallbackMissions: Mission[] = [
     summary: 'Turn the room, signing, and normalization rules into a testable Turkish field guide.',
     requirementsHash: 'sha256:4fb4a80831905db903078457af5b9b1fd88e837068eb7876a11f78d84e4ad8e7',
     issuerDid: 'did:key:z6MkjtkShmr1CG8rHHPBUDqCUbtwfQ6E9u4g2NdHXjCsg471',
-    status: 'open', createdAt: '2026-08-26T08:42:00.000Z', claimCount: 0, resultCount: 0, revisionCount: 0, changeRequestCount: 0, acceptedCount: 0,
+    status: 'open', createdAt: '2026-08-26T08:42:00.000Z', claimCount: 0, resultCount: 0, revisionCount: 0, changeRequestCount: 0, acceptedCount: 0, attestationCount: 0,
   },
   {
     id: 'M-039',
@@ -179,7 +200,7 @@ const fallbackMissions: Mission[] = [
     summary: 'Publish reproducible vectors for composed, decomposed, bidirectional, and confusable text.',
     requirementsHash: 'sha256:5a2b2ca70c692eff940584238b2e9315628141347e202966e9dc00a39da1cc87',
     issuerDid: 'did:key:z6MkjtkShmr1CG8rHHPBUDqCUbtwfQ6E9u4g2NdHXjCsg471',
-    status: 'open', createdAt: '2026-08-26T07:39:00.000Z', claimCount: 0, resultCount: 0, revisionCount: 0, changeRequestCount: 0, acceptedCount: 0,
+    status: 'open', createdAt: '2026-08-26T07:39:00.000Z', claimCount: 0, resultCount: 0, revisionCount: 0, changeRequestCount: 0, acceptedCount: 0, attestationCount: 0,
   },
   {
     id: 'M-031',
@@ -188,7 +209,7 @@ const fallbackMissions: Mission[] = [
     summary: 'Mirror signed events without weakening provenance or trusting remote content as instructions.',
     requirementsHash: 'sha256:b9be6f782e6e42aec0c8d23bdf384928d7d818cebbf47e4f3b43d95f8206bf99',
     issuerDid: 'did:key:z6MkjtkShmr1CG8rHHPBUDqCUbtwfQ6E9u4g2NdHXjCsg471',
-    status: 'open', createdAt: '2026-08-26T06:31:00.000Z', claimCount: 0, resultCount: 0, revisionCount: 0, changeRequestCount: 0, acceptedCount: 0,
+    status: 'open', createdAt: '2026-08-26T06:31:00.000Z', claimCount: 0, resultCount: 0, revisionCount: 0, changeRequestCount: 0, acceptedCount: 0, attestationCount: 0,
   },
 ];
 
@@ -244,6 +265,7 @@ export default function FoundryApp() {
   const [resultResponse, setResultResponse] = useState<ResultResponse>();
   const [revisionResponse, setRevisionResponse] = useState<RevisionResponse>();
   const [acceptanceResponse, setAcceptanceResponse] = useState<AcceptanceResponse>();
+  const [attestationResponse, setAttestationResponse] = useState<AttestationResponse>();
   const [finalizationResponse, setFinalizationResponse] = useState<FinalizationResponse>();
   const [vaultFile, setVaultFile] = useState('');
   const [verifyInput, setVerifyInput] = useState('');
@@ -303,6 +325,7 @@ export default function FoundryApp() {
     setResultResponse(undefined);
     setRevisionResponse(undefined);
     setAcceptanceResponse(undefined);
+    setAttestationResponse(undefined);
     setFinalizationResponse(undefined);
     if (!vault) {
       openDialog('forge');
@@ -565,6 +588,40 @@ export default function FoundryApp() {
     openDialog('finalize');
   }
 
+  function openAttestation(result: ResultRecord) {
+    setSelectedResult(result);
+    setAttestationResponse(undefined);
+    openDialog('attest');
+  }
+
+  async function attestResult(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!vault || !selectedMission || !selectedResult || selectedResult.acceptance?.decision !== 'accepted') return;
+    setBusy(true);
+    setError('');
+    const form = new FormData(event.currentTarget);
+    try {
+      const signed = await signAttestation(vault, String(form.get('passphrase') ?? ''), {
+        missionId: selectedMission.id,
+        resultId: selectedResult.id,
+        resultSha256: selectedResult.receiptSha256,
+        statement: String(form.get('statement')) as FoundryAttestationEvent['statement'],
+        note: String(form.get('note') ?? '').trim(),
+      });
+      const response = await responseJson<AttestationResponse>(await fetch('/api/attestations', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(signed),
+      }));
+      setAttestationResponse(response);
+      const refreshed = await loadDetail(selectedMission);
+      setSelectedResult(refreshed.results.find((result) => result.id === selectedResult.id));
+      await refreshMissions();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Peer attestation could not be recorded.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function finalizeResult(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!vault || !selectedMission || !selectedResult?.acceptance || selectedResult.acceptance.decision !== 'accepted') return;
@@ -686,7 +743,8 @@ export default function FoundryApp() {
             : dialog === 'result' ? 'Deliver a TCR-1 result.'
               : dialog === 'revise' ? 'Chain an immutable revision.'
                 : dialog === 'accept' ? 'Sign an issuer decision.'
-                : dialog === 'finalize' ? 'Bind acceptance into TCR-1.'
+                : dialog === 'attest' ? 'Add independent peer evidence.'
+                  : dialog === 'finalize' ? 'Bind acceptance into TCR-1.'
                   : dialog === 'announce' ? 'Announce portable proof.'
                     : 'Verify a receipt locally.';
 
@@ -694,7 +752,7 @@ export default function FoundryApp() {
     <main>
       <nav className="nav-shell" aria-label="Primary navigation">
         <a className="brand" href="#top" aria-label="Technocore Foundry home"><span className="brand-mark" aria-hidden="true">TF</span><span>TECHNOCORE / FOUNDRY</span></a>
-        <div className="nav-links"><a href="#missions">Missions</a><a href="/atlas">Atlas</a><a href="/protocol">Protocol Lab</a><button type="button" onClick={() => openDialog('verify')}>Verify</button></div>
+        <div className="nav-links"><a href="#missions">Missions</a><a href="/atlas">Atlas</a><a href="/observer">Observer</a><a href="/security">Security</a><a href="/protocol">Protocol Lab</a><button type="button" onClick={() => openDialog('verify')}>Verify</button></div>
         <button className="nav-cta" type="button" onClick={() => openDialog(vault ? 'restore' : 'forge')}>{vault ? `DID ${compactDid(vault.did)}` : 'Enter Foundry'} <span aria-hidden="true">↗</span></button>
       </nav>
 
@@ -761,8 +819,9 @@ export default function FoundryApp() {
               <div className={`decision-chip ${reviewState}`}>{reviewState.replace('_', ' ').toUpperCase()}</div>
               <div className="chain-proof"><span>PARENT</span><code>{result.parent?.receiptSha256 ?? 'GENESIS / NO PARENT'}</code><span>REVISION EVENT</span><code>{result.revisionReceipt?.id ?? 'ROOT TCR-1 SIGNATURE'}</code></div>
               {result.changeRequest && <div className="change-request-note"><span>ISSUER CHANGE REQUEST · {result.changeRequest.id}</span><p>{result.changeRequest.note}</p><code>{result.changeRequest.receiptSha256}</code></div>}
-              <div className="evidence-mini"><span>GITHUB {result.evidenceCheck?.github.toUpperCase() ?? 'NOT CHECKED'}</span><span>CI {result.evidenceCheck?.ci.replace('_', ' ').toUpperCase() ?? 'NOT CHECKED'}</span><span>FINAL {result.finalization ? 'BOUND' : 'PENDING'}</span></div>
-              <div className="result-actions"><a href={result.artifact.url}>Artifact</a><a href={result.portableUrl} target="_blank" rel="noreferrer">Proof page</a>{result.revisionReceipt && <a href={result.revisionReceipt.portableUrl} target="_blank" rel="noreferrer">Chain receipt</a>}{result.changeRequest && <a href={result.changeRequest.portableUrl} target="_blank" rel="noreferrer">Change request</a>}{result.repositoryUrl && <button type="button" disabled={busy} onClick={() => checkEvidence(result)}>{result.evidenceCheck ? 'Refresh GitHub' : 'Check GitHub'}</button>}{vault?.did === detail.mission.issuerDid && !result.acceptance && !result.changeRequest && !hasChild && <button type="button" onClick={() => openAcceptance(result)}>Review</button>}{vault?.did === result.actorDid && result.changeRequest && !hasChild && result.revision < MAX_RESULT_REVISIONS && <button type="button" onClick={() => openRevision(result)}>Submit revision</button>}{vault?.did === result.actorDid && result.acceptance?.decision === 'accepted' && !result.finalization && <button type="button" onClick={() => openFinalization(result)}>Finalize TCR-1</button>}{(vault?.did === result.actorDid || vault?.did === detail.mission.issuerDid) && <button type="button" onClick={() => openAnnouncement(result)}>Announce</button>}</div>
+              {result.attestations.length > 0 && <div className="attestation-list"><span>INDEPENDENT PEER EVIDENCE · {result.attestations.length}</span>{result.attestations.map((attestation) => <p key={attestation.id}><a href={attestation.portableUrl} target="_blank" rel="noreferrer">{attestation.statement.toUpperCase()}</a> · {compactDid(attestation.actorDid)} — {attestation.note}</p>)}</div>}
+              <div className="evidence-mini"><span>GITHUB {result.evidenceCheck?.github.toUpperCase() ?? 'NOT CHECKED'}</span><span>CI {result.evidenceCheck?.ci.replace('_', ' ').toUpperCase() ?? 'NOT CHECKED'}</span><span>PEERS {result.attestations.length}</span><span>FINAL {result.finalization ? 'BOUND' : 'PENDING'}</span></div>
+              <div className="result-actions"><a href={result.artifact.url}>Artifact</a><a href={result.portableUrl} target="_blank" rel="noreferrer">Proof page</a>{result.revisionReceipt && <a href={result.revisionReceipt.portableUrl} target="_blank" rel="noreferrer">Chain receipt</a>}{result.changeRequest && <a href={result.changeRequest.portableUrl} target="_blank" rel="noreferrer">Change request</a>}{result.repositoryUrl && <button type="button" disabled={busy} onClick={() => checkEvidence(result)}>{result.evidenceCheck ? 'Refresh GitHub' : 'Check GitHub'}</button>}{vault?.did === detail.mission.issuerDid && !result.acceptance && !result.changeRequest && !hasChild && <button type="button" onClick={() => openAcceptance(result)}>Review</button>}{vault?.did === result.actorDid && result.changeRequest && !hasChild && result.revision < MAX_RESULT_REVISIONS && <button type="button" onClick={() => openRevision(result)}>Submit revision</button>}{vault?.did === result.actorDid && result.acceptance?.decision === 'accepted' && !result.finalization && <button type="button" onClick={() => openFinalization(result)}>Finalize TCR-1</button>}{vault && result.acceptance?.decision === 'accepted' && vault.did !== result.actorDid && vault.did !== detail.mission.issuerDid && <button type="button" onClick={() => openAttestation(result)}>Peer attest</button>}{(vault?.did === result.actorDid || vault?.did === detail.mission.issuerDid) && <button type="button" onClick={() => openAnnouncement(result)}>Announce</button>}</div>
             </article>;
           })}</div>}
         </> : <p className="form-error">{error || 'Mission activity could not be loaded.'}</p>}</div>}
@@ -774,6 +833,8 @@ export default function FoundryApp() {
         {dialog === 'revise' && selectedMission && selectedResult?.changeRequest && vault && (revisionResponse ? <div className="claim-success"><span className="success-mark">✓</span><p className="eyebrow">IMMUTABLE REVISION CHAINED</p><h3>REVISION {revisionResponse.revision} · {revisionResponse.id}</h3><div className="verification-grid"><span>Parent TCR-1 hash</span><strong>BOUND</strong><span>Change-request hash</span><strong>BOUND</strong><span>Revision signature</span><strong>VALID</strong><span>Original revision</span><em>UNCHANGED</em></div><div className="dialog-actions"><button className="button button-primary" type="button" onClick={() => downloadJson(`${revisionResponse.id}.tcr1.json`, revisionResponse.receipt)}>Download TCR-1</button><button className="button button-secondary" type="button" onClick={() => downloadJson(`${revisionResponse.revisionReceipt.id}.json`, revisionResponse.revisionReceipt.receipt)}>Download chain receipt</button><a className="button button-secondary" href={revisionResponse.portableUrl} target="_blank" rel="noreferrer">Open proof page</a><button className="text-button" type="button" onClick={() => setDialog('mission')}>Back to lifecycle</button></div></div> : <form onSubmit={submitRevision}><div className="mission-detail"><span>REVISION {selectedResult.revision + 1} / {MAX_RESULT_REVISIONS} · PARENT {selectedResult.id}</span><h3>{selectedResult.artifact.name}</h3><p>{selectedResult.changeRequest.note}</p><code>{selectedResult.changeRequest.receiptSha256}</code></div><p className="dialog-copy">This creates a new TCR-1 and a separate signed revision event binding the exact parent receipt and issuer change-request hashes. No earlier byte or decision is overwritten.</p><label>Revised artifact · max 5 MB <input type="file" required onChange={(event) => setArtifactFile(event.target.files?.[0])} /></label>{artifactFile && <div className="file-proof"><span>{artifactFile.name}</span><strong>{(artifactFile.size / 1024).toFixed(1)} KB</strong></div>}<label>GitHub repository · optional <input name="repository" type="url" defaultValue={selectedResult.repositoryUrl ?? ''} placeholder="https://github.com/owner/repository" /></label><label>New immutable commit SHA · optional <input name="commit" pattern="[a-fA-F0-9]{40}" placeholder="40 hexadecimal characters" /></label><label>Pull request URL · optional <input name="pullRequest" type="url" placeholder="https://github.com/owner/repository/pull/149" /></label><label>GitHub Actions run · optional <input name="ciUrl" type="url" placeholder="https://github.com/owner/repository/actions/runs/123" /></label><label>Claimed CI status · required with run URL <select name="ciStatus" defaultValue=""><option value="">No CI evidence</option><option value="success">Success</option><option value="failure">Failure</option><option value="pending">Pending</option><option value="cancelled">Cancelled</option></select></label><label>Unlock claimant vault <input name="passphrase" type="password" autoComplete="current-password" required /></label>{error && <p className="form-error" role="alert">{error}</p>}<div className="dialog-actions"><button className="button button-primary" type="submit" disabled={busy}>{busy ? 'Hashing + chaining…' : `Sign + submit revision ${selectedResult.revision + 1}`}</button></div></form>)}
 
         {dialog === 'accept' && selectedMission && selectedResult && vault && (acceptanceResponse ? <div className="claim-success"><span className="success-mark">✓</span><p className="eyebrow">ISSUER REVIEW STORED</p><h3>{acceptanceResponse.decision.replace('_', ' ').toUpperCase()}</h3><div className="verification-grid"><span>Issuer key</span><strong>VALID</strong><span>Revision binding</span><strong>MATCH</strong><span>Decision</span><strong>{acceptanceResponse.decision.replace('_', ' ').toUpperCase()}</strong><span>Prior bytes</span><em>UNCHANGED</em></div><div className="dialog-actions"><button className="button button-primary" type="button" onClick={() => downloadJson(`${acceptanceResponse.id}.json`, acceptanceResponse.receipt)}>Download signed review</button><a className="button button-secondary" href={acceptanceResponse.portableUrl} target="_blank" rel="noreferrer">Open review proof</a><button className="text-button" type="button" onClick={() => setDialog('mission')}>Back to lifecycle</button></div></div> : <form onSubmit={decideResult}><div className="mission-detail"><span>REVISION {selectedResult.revision} · {selectedResult.id} · {compactDid(selectedResult.actorDid)}</span><h3>{selectedResult.artifact.name}</h3><p>{selectedResult.artifact.sha256}</p><code>{selectedResult.receiptSha256}</code></div><p className="dialog-copy">The issuer review signs this exact immutable revision hash. A change request must be answered by a new claimant-signed revision; it never unlocks or edits this record.</p><label>Decision <select name="decision" defaultValue="accepted"><option value="accepted">Accept revision</option>{selectedResult.revision < MAX_RESULT_REVISIONS && <option value="changes_requested">Request changes</option>}<option value="rejected">Reject revision</option></select></label><label>Bounded review note <textarea name="note" rows={5} minLength={12} maxLength={500} required placeholder="What was checked, and what must change?" /></label><label>Unlock issuer vault <input name="passphrase" type="password" autoComplete="current-password" required /></label>{error && <p className="form-error" role="alert">{error}</p>}<div className="dialog-actions"><button className="button button-primary" type="submit" disabled={busy}>{busy ? 'Signing review…' : 'Sign issuer review'}</button></div></form>)}
+
+        {dialog === 'attest' && selectedMission && selectedResult && vault && (attestationResponse ? <div className="claim-success"><span className="success-mark">✓</span><p className="eyebrow">PEER ATTESTATION STORED</p><h3>{attestationResponse.id}</h3><div className="verification-grid"><span>Peer key</span><strong>VALID</strong><span>Accepted result</span><strong>BOUND</strong><span>Reputation score</span><em>NOT CREATED</em><span>Eligibility</span><em>NOT ASSERTED</em></div><div className="dialog-actions"><button className="button button-primary" type="button" onClick={() => downloadJson(`${attestationResponse.id}.json`, attestationResponse.receipt)}>Download attestation</button><a className="button button-secondary" href={attestationResponse.portableUrl} target="_blank" rel="noreferrer">Open peer proof</a><button className="text-button" type="button" onClick={() => setDialog('mission')}>Back to lifecycle</button></div></div> : <form onSubmit={attestResult}><div className="mission-detail"><span>PEER EVIDENCE · {selectedResult.id}</span><h3>{selectedResult.artifact.name}</h3><p>Attest only to something you independently observed. The statement binds this exact accepted result hash.</p><code>{selectedResult.receiptSha256}</code></div><label>Observed statement <select name="statement" defaultValue="reviewed"><option value="reviewed">Reviewed the artifact</option><option value="reproduced">Reproduced the result</option><option value="used">Used the artifact</option><option value="collaborated">Collaborated on delivery</option></select></label><label>Bounded evidence note <textarea name="note" rows={5} minLength={12} maxLength={500} required placeholder="What did you independently observe?" /></label><label>Unlock peer vault <input name="passphrase" type="password" autoComplete="current-password" required /></label><p className="dialog-copy">This creates a signed evidence edge, never a reputation, reward, identity, or eligibility score.</p>{error && <p className="form-error" role="alert">{error}</p>}<div className="dialog-actions"><button className="button button-primary" type="submit" disabled={busy}>{busy ? 'Signing peer evidence…' : 'Sign peer attestation'}</button></div></form>)}
 
         {dialog === 'finalize' && selectedResult && vault && selectedResult.acceptance?.decision === 'accepted' && (finalizationResponse ? <div className="claim-success"><span className="success-mark">✓</span><p className="eyebrow">FINAL TCR-1 STORED</p><h3>{finalizationResponse.id}</h3><div className="verification-grid"><span>Claimant key</span><strong>VALID</strong><span>Artifact binding</span><strong>MATCH</strong><span>Issuer acceptance hash</span><strong>BOUND</strong><span>Identity / eligibility</span><em>NOT ASSERTED</em></div><div className="dialog-actions"><button className="button button-primary" type="button" onClick={() => downloadJson(`${finalizationResponse.id}.tcr1.json`, finalizationResponse.receipt)}>Download final TCR-1</button><a className="button button-secondary" href={finalizationResponse.portableUrl} target="_blank" rel="noreferrer">Open proof page</a><button className="text-button" type="button" onClick={() => setDialog('mission')}>Back to lifecycle</button></div></div> : <form onSubmit={finalizeResult}><div className="mission-detail"><span>FINAL TCR-1 · {selectedResult.id}</span><h3>{selectedResult.artifact.name}</h3><p>The new claimant signature preserves the original task, artifact, and Git evidence.</p><code>{selectedResult.acceptance.receiptSha256}</code></div><p className="dialog-copy">This creates a new TCR-1 whose evidence includes the exact issuer acceptance receipt hash. The original result remains immutable.</p><label>Unlock claimant vault <input name="passphrase" type="password" autoComplete="current-password" required /></label>{error && <p className="form-error" role="alert">{error}</p>}<div className="dialog-actions"><button className="button button-primary" type="submit" disabled={busy}>{busy ? 'Binding + signing…' : 'Sign final TCR-1'}</button></div></form>)}
 

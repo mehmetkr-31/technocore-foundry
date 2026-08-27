@@ -1,4 +1,4 @@
-import { findActorResult, findClaim, findMission, listMissionResults } from '@/db/queries';
+import { findActorResult, findClaim, findMission, listMissionAttestations, listMissionResults } from '@/db/queries';
 import { parseStrictJson } from '@/lib/strict-json';
 
 export const dynamic = 'force-dynamic';
@@ -16,23 +16,27 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   try {
     const mission = await findMission(id);
     if (!mission) return Response.json({ error: 'Mission not found.' }, { status: 404 });
-    const [results, actorClaim, actorResult] = await Promise.all([
+    const [results, attestations, actorClaim, actorResult] = await Promise.all([
       listMissionResults(id),
+      listMissionAttestations(id),
       actorDid ? findClaim(id, actorDid) : Promise.resolve(null),
       actorDid ? findActorResult(id, actorDid) : Promise.resolve(null),
     ]);
     return Response.json({
       mission,
       actorClaim,
-      actorResult: actorResult ? presentResult(actorResult) : null,
-      results: results.map(presentResult),
+      actorResult: actorResult ? presentResult(actorResult, attestations.filter((item) => item.resultId === actorResult.id)) : null,
+      results: results.map((result) => presentResult(result, attestations.filter((item) => item.resultId === result.id))),
     }, { headers: { 'Cache-Control': 'no-store' } });
   } catch {
     return Response.json({ error: 'Mission activity is temporarily unavailable.' }, { status: 503 });
   }
 }
 
-function presentResult(result: Awaited<ReturnType<typeof findActorResult>> & {}) {
+function presentResult(
+  result: Awaited<ReturnType<typeof findActorResult>> & {},
+  attestations: Awaited<ReturnType<typeof listMissionAttestations>>,
+) {
   return {
     id: result.id,
     missionId: result.missionId,
@@ -94,5 +98,15 @@ function presentResult(result: Awaited<ReturnType<typeof findActorResult>> & {})
       portableUrl: `/receipt/${result.finalReceiptId}`,
       rawUrl: `/api/receipts/${result.finalReceiptId}`,
     } : null,
+    attestations: attestations.map((attestation) => ({
+      id: attestation.id,
+      actorDid: attestation.actorDid,
+      statement: attestation.statement,
+      note: attestation.note,
+      receiptSha256: `sha256:${attestation.receiptSha256}`,
+      createdAt: attestation.createdAt,
+      portableUrl: `/receipt/${attestation.id}`,
+      rawUrl: `/api/receipts/${attestation.id}`,
+    })),
   };
 }

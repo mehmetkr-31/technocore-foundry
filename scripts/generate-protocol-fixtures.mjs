@@ -144,6 +144,19 @@ const revisionEvent = {
   createdAt: '2026-08-27T00:00:03.000Z',
 };
 const revisionVector = foundryVector(privateKey, revisionEvent);
+const attestationEvent = {
+  schema: 'foundry-event-v1',
+  type: 'attestation',
+  missionId: foundryEvent.missionId,
+  resultId: revisionEvent.resultId,
+  resultSha256: revisionEvent.resultSha256,
+  statement: 'reproduced',
+  note: 'Fixture peer independently reproduced the immutable artifact digest.',
+  actor: did,
+  nonce: '1787760000000000005',
+  createdAt: '2026-08-27T00:00:04.000Z',
+};
+const attestationVector = foundryVector(privateKey, attestationEvent);
 
 const rawMessage = 'Cafe\u0301\nNFC stays distinct from Café\u200d.';
 const sweptMessage = sweepTechnocore(rawMessage);
@@ -189,6 +202,7 @@ const fixture = {
     },
     change_request_event: changeRequestVector,
     revision_event: revisionVector,
+    attestation_event: attestationVector,
     tcr1_receipt: {
       domain: 'technocore-task-receipt:v1',
       canonical_unsigned: tcrCanonical,
@@ -228,4 +242,4 @@ const projectRoot = fileURLToPath(new URL('..', import.meta.url));
 const fixtureDirectory = `${projectRoot}/protocol/fixtures`;
 await mkdir(fixtureDirectory, { recursive: true });
 await writeFile(`${fixtureDirectory}/v1.json`, `${JSON.stringify(fixture, null, 2)}\n`, 'utf8');
-console.log(JSON.stringify({ fixture: 'protocol/fixtures/v1.json', did, vectors: 5, invalid: fixture.invalid_json.length + fixture.invalid_utf8.length }));
+console.log(JSON.stringify({ fixture: 'protocol/fixtures/v1.json', did, vectors: 6, invalid: fixture.invalid_json.length + fixture.invalid_utf8.length }));

@@ -72,6 +72,26 @@
         "signature": "JqNq6cVDv8d7loy6Rp4soEtmydj7rZGGnMwHxZ4c_4Cldn2B3xDUhky-QI8Xfsjt3eZLkFDUtu7nMlqANNoyCQ"
       }
     },
+    "attestation_event": {
+      "domain": "foundry-event-v1",
+      "canonical_unsigned": "{\"actor\":\"did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw\",\"createdAt\":\"2026-08-27T00:00:04.000Z\",\"missionId\":\"F-F17E2026\",\"nonce\":\"1787760000000000005\",\"note\":\"Fixture peer independently reproduced the immutable artifact digest.\",\"resultId\":\"res_333333333333333333333333\",\"resultSha256\":\"sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"schema\":\"foundry-event-v1\",\"statement\":\"reproduced\",\"type\":\"attestation\"}",
+      "signing_payload_hex": "666f756e6472792d6576656e742d7631007b226163746f72223a226469643a6b65793a7a364d6b74777570646d4c58565671547a43773469343672347547796f734758526e5233586a4e345a71376f4d4d7377222c22637265617465644174223a22323032362d30382d32375430303a30303a30342e3030305a222c226d697373696f6e4964223a22462d4631374532303236222c226e6f6e6365223a2231373837373630303030303030303030303035222c226e6f7465223a2246697874757265207065657220696e646570656e64656e746c7920726570726f64756365642074686520696d6d757461626c65206172746966616374206469676573742e222c22726573756c744964223a227265735f333333333333333333333333333333333333333333333333222c22726573756c74536861323536223a227368613235363a63636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363222c22736368656d61223a22666f756e6472792d6576656e742d7631222c2273746174656d656e74223a22726570726f6475636564222c2274797065223a226174746573746174696f6e227d",
+      "envelope": {
+        "event": {
+          "schema": "foundry-event-v1",
+          "type": "attestation",
+          "missionId": "F-F17E2026",
+          "resultId": "res_333333333333333333333333",
+          "resultSha256": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "statement": "reproduced",
+          "note": "Fixture peer independently reproduced the immutable artifact digest.",
+          "actor": "did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw",
+          "nonce": "1787760000000000005",
+          "createdAt": "2026-08-27T00:00:04.000Z"
+        },
+        "signature": "ku7Uc_VeGt5fvPOtGV3lIgfVjDIn2gWt2FtOl7Wku43cwHk22YDlprgnUzpxO95GxrYIHGqEPPlANvNUCnTJBw"
+      }
+    },
     "tcr1_receipt": {
       "domain": "technocore-task-receipt:v1",
       "canonical_unsigned": "{\"artifacts\":[{\"sha256\":\"19175a71357385d33c21dea3c867a6d44f3b7eea5b0e9c3a6298fe05b471e636\",\"size\":42,\"type\":\"text/plain\",\"uri\":\"https://example.org/artifacts/foundry-fixture.txt\"}],\"claimant\":{\"did\":\"did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw\"},\"created_at\":\"2026-08-27T00:00:01.000Z\",\"evidence\":{\"acceptance_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"commit\":\"9c7df0e3616cf28d17e7c8ebeb0c05de6adf117c\",\"repository\":\"https://github.com/flop-labs/technocore-chat\"},\"task\":{\"id\":\"F-F17E2026\",\"issuer\":\"did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw\",\"requirements_sha256\":\"4fdd2ea489d48bb0012c4a7a2b43f3090a548bfd6a8a53f7e51ed97c9866c8aa\"},\"type\":\"technocore-task-receipt\",\"version\":1}",

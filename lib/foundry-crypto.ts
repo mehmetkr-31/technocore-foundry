@@ -75,12 +75,25 @@ export type FoundryRevisionEvent = EventBase & {
   revision: number;
 };
 
+export const ATTESTATION_STATEMENTS = ['reproduced', 'reviewed', 'used', 'collaborated'] as const;
+export type AttestationStatement = typeof ATTESTATION_STATEMENTS[number];
+
+export type FoundryAttestationEvent = EventBase & {
+  type: 'attestation';
+  missionId: string;
+  resultId: string;
+  resultSha256: string;
+  statement: AttestationStatement;
+  note: string;
+};
+
 export type FoundryEvent =
   | FoundryMissionEvent
   | FoundryClaimEvent
   | FoundryAcceptanceEvent
   | FoundryChangeRequestEvent
-  | FoundryRevisionEvent;
+  | FoundryRevisionEvent
+  | FoundryAttestationEvent;
 
 export type SignedFoundryEvent<T extends FoundryEvent = FoundryEvent> = {
   event: T;
@@ -421,6 +434,21 @@ export async function signRevision(
   });
 }
 
+export async function signAttestation(
+  vault: FoundryVault,
+  passphrase: string,
+  input: Omit<FoundryAttestationEvent, keyof EventBase | 'type' | 'schema'>,
+) {
+  return signFoundryEvent(vault, passphrase, {
+    schema: EVENT_SCHEMA,
+    type: 'attestation',
+    ...input,
+    actor: vault.did,
+    nonce: nonce(),
+    createdAt: new Date().toISOString(),
+  });
+}
+
 export async function verifySignedEvent(receipt: SignedFoundryEvent) {
   try {
     if (!isFoundryEvent(receipt?.event) || !/^[A-Za-z0-9_-]{86}$/.test(receipt.signature)) return false;
@@ -447,7 +475,7 @@ function isFoundryEvent(value: unknown): value is FoundryEvent {
   const event = value as Record<string, unknown>;
   if (
     event.schema !== EVENT_SCHEMA ||
-    !['mission', 'claim', 'acceptance', 'change_request', 'revision'].includes(typeof event.type === 'string' ? event.type : '') ||
+    !['mission', 'claim', 'acceptance', 'change_request', 'revision', 'attestation'].includes(typeof event.type === 'string' ? event.type : '') ||
     typeof event.actor !== 'string' ||
     typeof event.nonce !== 'string' || !/^\d{1,80}$/.test(event.nonce) ||
     typeof event.createdAt !== 'string' ||
@@ -482,6 +510,14 @@ function isFoundryEvent(value: unknown): value is FoundryEvent {
       typeof event.resultId === 'string' && /^res_[a-f0-9]{24}$/.test(event.resultId) &&
       typeof event.resultSha256 === 'string' && /^sha256:[a-f0-9]{64}$/.test(event.resultSha256) &&
       typeof event.note === 'string' && event.note.length >= 12 && event.note.length <= 1000;
+  }
+  if (event.type === 'attestation') {
+    return hasOnlyKeys(event, ['schema', 'type', 'missionId', 'resultId', 'resultSha256', 'statement', 'note', 'actor', 'nonce', 'createdAt']) &&
+      typeof event.missionId === 'string' && /^(M-[0-9]{3}|F-[A-F0-9]{8})$/.test(event.missionId) &&
+      typeof event.resultId === 'string' && /^res_[a-f0-9]{24}$/.test(event.resultId) &&
+      typeof event.resultSha256 === 'string' && /^sha256:[a-f0-9]{64}$/.test(event.resultSha256) &&
+      typeof event.statement === 'string' && ATTESTATION_STATEMENTS.includes(event.statement as AttestationStatement) &&
+      typeof event.note === 'string' && event.note.length >= 12 && event.note.length <= 500;
   }
   return hasOnlyKeys(event, [
     'schema', 'type', 'missionId', 'claimId', 'resultId', 'resultSha256', 'parentResultId',

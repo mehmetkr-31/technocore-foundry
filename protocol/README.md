@@ -24,7 +24,7 @@ Python. The Python verifier uses `cryptography==49.0.0` from `requirements-dev.t
 The fixture covers:
 
 - canonical Ed25519 `did:key` decoding;
-- `foundry-event-v1` claim, issuer change-request, and claimant revision-chain signatures;
+- `foundry-event-v1` claim, issuer change-request, claimant revision-chain, and peer-attestation signatures;
 - current TCR-1 claimant object, canonical bytes, and signature;
 - Technocore's `<room>|<nonce>|<text>` transport signature;
 - Unicode code-point key ordering, including integer-like and astral keys;

@@ -107,7 +107,7 @@ public_key = public_key_from_did(fixture["key"]["did"])
 if public_key.hex() != fixture["key"]["public_key_hex"]:
     raise SystemExit("DID/public-key vector mismatch")
 
-for vector_name in ("foundry_event", "change_request_event", "revision_event"):
+for vector_name in ("foundry_event", "change_request_event", "revision_event", "attestation_event"):
     foundry = fixture["vectors"][vector_name]
     foundry_canonical = canonical_json(foundry["envelope"]["event"])
     if foundry_canonical != foundry["canonical_unsigned"]:

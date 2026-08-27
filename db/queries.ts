@@ -14,6 +14,7 @@ export type MissionRecord = {
   revisionCount: number;
   changeRequestCount: number;
   acceptedCount: number;
+  attestationCount: number;
 };
 
 export type ClaimRecord = {
@@ -62,6 +63,20 @@ export type ResultRecord = {
   finalReceiptJson: string | null;
   finalReceiptSha256: string | null;
   finalCreatedAt: string | null;
+  attestationCount: number;
+};
+
+export type AttestationRecord = {
+  id: string;
+  resultId: string;
+  missionId: string;
+  actorDid: string;
+  statement: 'reproduced' | 'reviewed' | 'used' | 'collaborated';
+  note: string;
+  eventJson: string;
+  signature: string;
+  receiptSha256: string;
+  createdAt: string;
 };
 
 export type ChangeRequestRecord = {
@@ -107,6 +122,42 @@ export type ReceiptMetadata = {
   missionTitle: string | null;
   missionLane: string | null;
   resultId: string | null;
+};
+
+export type ObserverEpochRecord = {
+  id: string;
+  room: string;
+  epoch: number;
+  startSeq: number;
+  endSeq: number;
+  gapCount: number;
+  sourceCommit: string;
+  startedAt: string;
+  endedAt: string | null;
+  lastSyncAt: string;
+};
+
+export type TransportObservationRecord = {
+  id: string;
+  room: string;
+  epoch: number;
+  sequence: number;
+  serverTimestamp: string;
+  actorHint: string;
+  textSha256: string;
+  receiptId: string | null;
+  verificationState: 'transport_unverifiable';
+  observedAt: string;
+};
+
+export type ObserverGapRecord = {
+  id: string;
+  room: string;
+  epoch: number;
+  kind: 'retention_gap' | 'epoch_rewind';
+  expectedSeq: number;
+  firstSeq: number;
+  detectedAt: string;
 };
 
 const issuerDid = 'did:key:z6MkjtkShmr1CG8rHHPBUDqCUbtwfQ6E9u4g2NdHXjCsg471';
@@ -288,6 +339,60 @@ export async function ensureDatabase() {
       created_at TEXT NOT NULL
     )`),
     db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_result_finalizations_receipt ON result_finalizations(receipt_id)'),
+    db.prepare(`CREATE TABLE IF NOT EXISTS attestations (
+      id TEXT PRIMARY KEY,
+      result_id TEXT NOT NULL,
+      mission_id TEXT NOT NULL,
+      actor_did TEXT NOT NULL,
+      statement TEXT NOT NULL,
+      note TEXT NOT NULL,
+      event_json TEXT NOT NULL,
+      signature TEXT NOT NULL,
+      receipt_sha256 TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )`),
+    db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_attestations_result_actor_statement ON attestations(result_id, actor_did, statement)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_attestations_mission_created ON attestations(mission_id, created_at)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_attestations_actor_created ON attestations(actor_did, created_at)'),
+    db.prepare(`CREATE TABLE IF NOT EXISTS room_epochs (
+      id TEXT PRIMARY KEY,
+      room TEXT NOT NULL,
+      epoch INTEGER NOT NULL,
+      start_seq INTEGER NOT NULL,
+      end_seq INTEGER NOT NULL,
+      gap_count INTEGER NOT NULL DEFAULT 0,
+      source_commit TEXT NOT NULL,
+      started_at TEXT NOT NULL,
+      ended_at TEXT,
+      last_sync_at TEXT NOT NULL
+    )`),
+    db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_room_epochs_room_epoch ON room_epochs(room, epoch)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_room_epochs_room_started ON room_epochs(room, started_at)'),
+    db.prepare(`CREATE TABLE IF NOT EXISTS transport_observations (
+      id TEXT PRIMARY KEY,
+      room TEXT NOT NULL,
+      epoch INTEGER NOT NULL,
+      sequence INTEGER NOT NULL,
+      server_timestamp TEXT NOT NULL,
+      actor_hint TEXT NOT NULL,
+      text_sha256 TEXT NOT NULL,
+      receipt_id TEXT,
+      verification_state TEXT NOT NULL,
+      observed_at TEXT NOT NULL
+    )`),
+    db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_transport_observations_room_epoch_sequence ON transport_observations(room, epoch, sequence)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_transport_observations_receipt ON transport_observations(receipt_id)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_transport_observations_observed ON transport_observations(observed_at)'),
+    db.prepare(`CREATE TABLE IF NOT EXISTS observer_gaps (
+      id TEXT PRIMARY KEY,
+      room TEXT NOT NULL,
+      epoch INTEGER NOT NULL,
+      kind TEXT NOT NULL,
+      expected_seq INTEGER NOT NULL,
+      first_seq INTEGER NOT NULL,
+      detected_at TEXT NOT NULL
+    )`),
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_observer_gaps_room_detected ON observer_gaps(room, detected_at)'),
   ]);
 
   await db.batch(
@@ -316,7 +421,8 @@ export async function listMissions(): Promise<MissionRecord[]> {
     (SELECT COUNT(*) FROM result_revisions r WHERE r.mission_id = m.id AND r.revision = 1) AS resultCount,
     (SELECT COUNT(*) FROM result_revisions r WHERE r.mission_id = m.id) AS revisionCount,
     (SELECT COUNT(*) FROM change_requests cr WHERE cr.mission_id = m.id) AS changeRequestCount,
-    (SELECT COUNT(*) FROM acceptances a WHERE a.mission_id = m.id AND a.decision = 'accepted') AS acceptedCount
+    (SELECT COUNT(*) FROM acceptances a WHERE a.mission_id = m.id AND a.decision = 'accepted') AS acceptedCount,
+    (SELECT COUNT(*) FROM attestations at WHERE at.mission_id = m.id) AS attestationCount
   FROM missions m
   ORDER BY m.created_at DESC`).all<MissionRecord>();
   return result.results.map((mission) => ({
@@ -326,6 +432,7 @@ export async function listMissions(): Promise<MissionRecord[]> {
     revisionCount: Number(mission.revisionCount),
     changeRequestCount: Number(mission.changeRequestCount),
     acceptedCount: Number(mission.acceptedCount),
+    attestationCount: Number(mission.attestationCount),
   }));
 }
 
@@ -344,7 +451,8 @@ export async function findMission(id: string) {
     (SELECT COUNT(*) FROM result_revisions r WHERE r.mission_id = missions.id AND r.revision = 1) AS resultCount,
     (SELECT COUNT(*) FROM result_revisions r WHERE r.mission_id = missions.id) AS revisionCount,
     (SELECT COUNT(*) FROM change_requests cr WHERE cr.mission_id = missions.id) AS changeRequestCount,
-    (SELECT COUNT(*) FROM acceptances a WHERE a.mission_id = missions.id AND a.decision = 'accepted') AS acceptedCount
+    (SELECT COUNT(*) FROM acceptances a WHERE a.mission_id = missions.id AND a.decision = 'accepted') AS acceptedCount,
+    (SELECT COUNT(*) FROM attestations at WHERE at.mission_id = missions.id) AS attestationCount
   FROM missions WHERE id = ?`).bind(id).first<MissionRecord>();
   return mission ? {
     ...mission,
@@ -353,6 +461,7 @@ export async function findMission(id: string) {
     revisionCount: Number(mission.revisionCount),
     changeRequestCount: Number(mission.changeRequestCount),
     acceptedCount: Number(mission.acceptedCount),
+    attestationCount: Number(mission.attestationCount),
   } : null;
 }
 
@@ -543,7 +652,8 @@ const resultSelect = `SELECT
   f.receipt_id AS finalReceiptId,
   f.receipt_json AS finalReceiptJson,
   f.receipt_sha256 AS finalReceiptSha256,
-  f.created_at AS finalCreatedAt
+  f.created_at AS finalCreatedAt,
+  (SELECT COUNT(*) FROM attestations at WHERE at.result_id = r.id) AS attestationCount
 FROM result_revisions r
 LEFT JOIN acceptances a ON a.result_id = r.id
 LEFT JOIN change_requests cr ON cr.result_id = r.id
@@ -555,6 +665,7 @@ function normalizeResult(result: ResultRecord | null) {
     ...result,
     revision: Number(result.revision),
     artifactBytes: Number(result.artifactBytes),
+    attestationCount: Number(result.attestationCount),
   } : null;
 }
 
@@ -701,6 +812,62 @@ export async function findFinalization(resultId: string) {
   FROM result_finalizations WHERE result_id = ?`).bind(resultId).first<FinalizationRecord>();
 }
 
+export async function createAttestation(input: AttestationRecord) {
+  await database().prepare(`INSERT INTO attestations
+    (id, result_id, mission_id, actor_did, statement, note, event_json,
+     signature, receipt_sha256, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(
+      input.id,
+      input.resultId,
+      input.missionId,
+      input.actorDid,
+      input.statement,
+      input.note,
+      input.eventJson,
+      input.signature,
+      input.receiptSha256,
+      input.createdAt,
+    ).run();
+}
+
+export async function listResultAttestations(resultId: string) {
+  await ensureDatabase();
+  const result = await database().prepare(`SELECT
+    id,
+    result_id AS resultId,
+    mission_id AS missionId,
+    actor_did AS actorDid,
+    statement,
+    note,
+    event_json AS eventJson,
+    signature,
+    receipt_sha256 AS receiptSha256,
+    created_at AS createdAt
+  FROM attestations
+  WHERE result_id = ?
+  ORDER BY created_at ASC`).bind(resultId).all<AttestationRecord>();
+  return result.results;
+}
+
+export async function listMissionAttestations(missionId: string) {
+  await ensureDatabase();
+  const result = await database().prepare(`SELECT
+    id,
+    result_id AS resultId,
+    mission_id AS missionId,
+    actor_did AS actorDid,
+    statement,
+    note,
+    event_json AS eventJson,
+    signature,
+    receipt_sha256 AS receiptSha256,
+    created_at AS createdAt
+  FROM attestations
+  WHERE mission_id = ?
+  ORDER BY created_at ASC`).bind(missionId).all<AttestationRecord>();
+  return result.results;
+}
+
 export async function findReceiptMetadata(id: string) {
   await ensureDatabase();
   const receipt = await database().prepare(`SELECT
@@ -719,12 +886,168 @@ export async function findReceiptMetadata(id: string) {
       (SELECT a.result_id FROM acceptances a WHERE a.id = rec.id),
       (SELECT cr.result_id FROM change_requests cr WHERE cr.id = rec.id),
       (SELECT rr.id FROM result_revisions rr WHERE rr.revision_receipt_id = rec.id),
-      (SELECT f.result_id FROM result_finalizations f WHERE f.receipt_id = rec.id)
+      (SELECT f.result_id FROM result_finalizations f WHERE f.receipt_id = rec.id),
+      (SELECT at.result_id FROM attestations at WHERE at.id = rec.id)
     ) AS resultId
   FROM receipts rec
   LEFT JOIN missions m ON m.id = rec.mission_id
   WHERE rec.id = ?`).bind(id).first<ReceiptMetadata>();
   return receipt ? { ...receipt, bytes: Number(receipt.bytes) } : null;
+}
+
+export async function getCurrentObserverEpoch(room: string) {
+  await ensureDatabase();
+  const row = await database().prepare(`SELECT
+    id,
+    room,
+    epoch,
+    start_seq AS startSeq,
+    end_seq AS endSeq,
+    gap_count AS gapCount,
+    source_commit AS sourceCommit,
+    started_at AS startedAt,
+    ended_at AS endedAt,
+    last_sync_at AS lastSyncAt
+  FROM room_epochs
+  WHERE room = ?
+  ORDER BY epoch DESC
+  LIMIT 1`).bind(room).first<ObserverEpochRecord>();
+  return row ? {
+    ...row,
+    epoch: Number(row.epoch),
+    startSeq: Number(row.startSeq),
+    endSeq: Number(row.endSeq),
+    gapCount: Number(row.gapCount),
+  } : null;
+}
+
+export async function recordObserverSync(input: {
+  room: string;
+  epoch: number;
+  priorEpoch: number | null;
+  startSeq: number;
+  endSeq: number;
+  sourceCommit: string;
+  syncedAt: string;
+  epochRewind: ObserverGapRecord | null;
+  gap: ObserverGapRecord | null;
+  observations: TransportObservationRecord[];
+}) {
+  await ensureDatabase();
+  const db = database();
+  const epochId = `${input.room}:${input.epoch}`;
+  const statements = [
+    ...(input.priorEpoch !== null && input.priorEpoch !== input.epoch
+      ? [db.prepare('UPDATE room_epochs SET ended_at = ? WHERE room = ? AND epoch = ? AND ended_at IS NULL').bind(input.syncedAt, input.room, input.priorEpoch)]
+      : []),
+    db.prepare(`INSERT OR IGNORE INTO room_epochs
+      (id, room, epoch, start_seq, end_seq, gap_count, source_commit, started_at, last_sync_at)
+      VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)`).bind(
+        epochId,
+        input.room,
+        input.epoch,
+        input.startSeq,
+        input.endSeq,
+        input.sourceCommit,
+        input.syncedAt,
+        input.syncedAt,
+      ),
+    ...(input.epochRewind ? [db.prepare(`INSERT OR IGNORE INTO observer_gaps
+      (id, room, epoch, kind, expected_seq, first_seq, detected_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`).bind(
+        input.epochRewind.id,
+        input.epochRewind.room,
+        input.epochRewind.epoch,
+        input.epochRewind.kind,
+        input.epochRewind.expectedSeq,
+        input.epochRewind.firstSeq,
+        input.epochRewind.detectedAt,
+      )] : []),
+    ...(input.gap ? [db.prepare(`INSERT OR IGNORE INTO observer_gaps
+      (id, room, epoch, kind, expected_seq, first_seq, detected_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`).bind(
+        input.gap.id,
+        input.gap.room,
+        input.gap.epoch,
+        input.gap.kind,
+        input.gap.expectedSeq,
+        input.gap.firstSeq,
+        input.gap.detectedAt,
+      )] : []),
+    ...input.observations.map((observation) => db.prepare(`INSERT OR IGNORE INTO transport_observations
+      (id, room, epoch, sequence, server_timestamp, actor_hint, text_sha256,
+       receipt_id, verification_state, observed_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(
+        observation.id,
+        observation.room,
+        observation.epoch,
+        observation.sequence,
+        observation.serverTimestamp,
+        observation.actorHint,
+        observation.textSha256,
+        observation.receiptId,
+        observation.verificationState,
+        observation.observedAt,
+      )),
+    db.prepare(`UPDATE room_epochs
+      SET end_seq = CASE WHEN end_seq < ? THEN ? ELSE end_seq END,
+          last_sync_at = ?,
+          gap_count = (SELECT COUNT(*) FROM observer_gaps g WHERE g.room = ? AND g.epoch = ?)
+      WHERE room = ? AND epoch = ?`).bind(
+        input.endSeq,
+        input.endSeq,
+        input.syncedAt,
+        input.room,
+        input.epoch,
+        input.room,
+        input.epoch,
+      ),
+  ];
+  for (let index = 0; index < statements.length; index += 50) {
+    await db.batch(statements.slice(index, index + 50));
+  }
+  await db.prepare('PRAGMA optimize').run();
+}
+
+export async function getObserverIndex(room: string) {
+  await ensureDatabase();
+  const db = database();
+  const [epochs, gaps, observations, stats] = await Promise.all([
+    db.prepare(`SELECT
+      id, room, epoch, start_seq AS startSeq, end_seq AS endSeq,
+      gap_count AS gapCount, source_commit AS sourceCommit,
+      started_at AS startedAt, ended_at AS endedAt, last_sync_at AS lastSyncAt
+    FROM room_epochs WHERE room = ? ORDER BY epoch DESC LIMIT 20`).bind(room).all<ObserverEpochRecord>(),
+    db.prepare(`SELECT
+      id, room, epoch, kind, expected_seq AS expectedSeq,
+      first_seq AS firstSeq, detected_at AS detectedAt
+    FROM observer_gaps WHERE room = ? ORDER BY detected_at DESC LIMIT 50`).bind(room).all<ObserverGapRecord>(),
+    db.prepare(`SELECT
+      id, room, epoch, sequence, server_timestamp AS serverTimestamp,
+      actor_hint AS actorHint, text_sha256 AS textSha256, receipt_id AS receiptId,
+      verification_state AS verificationState, observed_at AS observedAt
+    FROM transport_observations WHERE room = ? ORDER BY epoch DESC, sequence DESC LIMIT 100`).bind(room).all<TransportObservationRecord>(),
+    db.prepare(`SELECT
+      COUNT(*) AS observations,
+      COUNT(DISTINCT receipt_id) AS receiptLinks,
+      COUNT(DISTINCT CASE WHEN actor_hint LIKE 'did:key:%' THEN actor_hint END) AS didWriters
+    FROM transport_observations WHERE room = ?`).bind(room).first<{ observations: number; receiptLinks: number; didWriters: number }>(),
+  ]);
+  return {
+    room,
+    source: 'https://technocore.chat',
+    trust: 'transport_unverifiable' as const,
+    metrics: {
+      observations: Number(stats?.observations ?? 0),
+      receiptLinks: Number(stats?.receiptLinks ?? 0),
+      didWriters: Number(stats?.didWriters ?? 0),
+      epochs: epochs.results.length,
+      gaps: gaps.results.length,
+    },
+    epochs: epochs.results.map((row) => ({ ...row, epoch: Number(row.epoch), startSeq: Number(row.startSeq), endSeq: Number(row.endSeq), gapCount: Number(row.gapCount) })),
+    gaps: gaps.results.map((row) => ({ ...row, epoch: Number(row.epoch), expectedSeq: Number(row.expectedSeq), firstSeq: Number(row.firstSeq) })),
+    observations: observations.results.map((row) => ({ ...row, epoch: Number(row.epoch), sequence: Number(row.sequence) })),
+  };
 }
 
 export type AtlasContribution = {
@@ -740,11 +1063,12 @@ export type AtlasContribution = {
   evidenceGithub: string | null;
   evidenceCi: string | null;
   finalizedReceiptId: string | null;
+  attestationCount: number;
 };
 
 export async function getAtlas() {
   await ensureDatabase();
-  const [missionStats, participantStats, contributionStats, contributions] = await Promise.all([
+  const [missionStats, participantStats, contributionStats, attestationStats, contributions] = await Promise.all([
     database().prepare(`SELECT
       COUNT(*) AS missions,
       SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END) AS openMissions
@@ -758,6 +1082,10 @@ export async function getAtlas() {
     JOIN result_revisions r ON r.id = a.result_id
     WHERE a.decision = 'accepted'`).first<{ accepted: number; artifactBytes: number }>(),
     database().prepare(`SELECT
+      COUNT(*) AS attestations,
+      COUNT(DISTINCT actor_did) AS attestors
+    FROM attestations`).first<{ attestations: number; attestors: number }>(),
+    database().prepare(`SELECT
       r.id AS resultId,
       r.mission_id AS missionId,
       m.title AS missionTitle,
@@ -769,7 +1097,8 @@ export async function getAtlas() {
       a.created_at AS acceptedAt,
       e.github_status AS evidenceGithub,
       e.ci_status AS evidenceCi,
-      f.receipt_id AS finalizedReceiptId
+      f.receipt_id AS finalizedReceiptId,
+      (SELECT COUNT(*) FROM attestations at WHERE at.result_id = r.id) AS attestationCount
     FROM acceptances a
     JOIN result_revisions r ON r.id = a.result_id
     JOIN missions m ON m.id = r.mission_id
@@ -786,7 +1115,13 @@ export async function getAtlas() {
       participants: Number(participantStats?.participants ?? 0),
       accepted: Number(contributionStats?.accepted ?? 0),
       artifactBytes: Number(contributionStats?.artifactBytes ?? 0),
+      attestations: Number(attestationStats?.attestations ?? 0),
+      attestors: Number(attestationStats?.attestors ?? 0),
     },
-    contributions: contributions.results.map((item) => ({ ...item, artifactBytes: Number(item.artifactBytes) })),
+    contributions: contributions.results.map((item) => ({
+      ...item,
+      artifactBytes: Number(item.artifactBytes),
+      attestationCount: Number(item.attestationCount),
+    })),
   };
 }

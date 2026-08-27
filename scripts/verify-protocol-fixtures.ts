@@ -20,6 +20,7 @@ type Fixture = {
     foundry_event: { canonical_unsigned: string; signing_payload_hex: string; envelope: SignedFoundryEvent };
     change_request_event: { canonical_unsigned: string; signing_payload_hex: string; envelope: SignedFoundryEvent };
     revision_event: { canonical_unsigned: string; signing_payload_hex: string; envelope: SignedFoundryEvent };
+    attestation_event: { canonical_unsigned: string; signing_payload_hex: string; envelope: SignedFoundryEvent };
     tcr1_receipt: { canonical_unsigned: string; signing_payload_hex: string; receipt: Tcr1Receipt };
     technocore_message: { signing_payload_hex: string; message: TechnocoreSignedMessage };
   };
@@ -42,6 +43,7 @@ for (const [name, event] of [
   ['claim', fixture.vectors.foundry_event],
   ['change-request', fixture.vectors.change_request_event],
   ['revision', fixture.vectors.revision_event],
+  ['attestation', fixture.vectors.attestation_event],
 ] as const) {
   if (canonicalJson(event.envelope.event) !== event.canonical_unsigned) throw new Error(`${name} canonical JSON mismatch.`);
   if (hex(eventSigningBytes(event.envelope.event)) !== event.signing_payload_hex) throw new Error(`${name} signing bytes mismatch.`);
@@ -90,6 +92,7 @@ console.log(JSON.stringify({
   foundryEvent: 'valid',
   changeRequest: 'valid',
   revisionChain: 'valid',
+  peerAttestation: 'valid',
   tcr1: 'valid',
   technocore: 'valid',
   canonical: 'match',

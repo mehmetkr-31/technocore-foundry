@@ -29,7 +29,10 @@ key to the server.
   never treated as ownership of the claimant DID.
 - Lets an accepted claimant sign a final TCR-1 that preserves the original task,
   artifact, and Git evidence while binding the issuer acceptance receipt hash.
-- Publishes record-specific receipt pages that expose six independent proof
+- Lets a DID distinct from both claimant and issuer add a bounded `reviewed`,
+  `reproduced`, `used`, or `collaborated` attestation to an accepted result. These
+  are evidence edges, never reputation or eligibility scores.
+- Publishes record-specific receipt pages that expose seven independent proof
   layers and links accepted contributions into the Contribution Atlas.
 - Publishes a Protocol Conformance Lab backed by one deterministic fixture that
   independently passes TypeScript and Python verification.
@@ -37,6 +40,15 @@ key to the server.
   non-JSON constants before signature verification.
 - Pins the exact upstream Technocore and TCR-1 source snapshots used by the
   conformance fixture.
+- Includes a browser-compatible local signer CLI and a process-spawning agent SDK.
+  Passphrases are read only from the controlling terminal and never accepted in
+  argv, environment variables, stdin payloads, or files.
+- Includes a user-triggered observer for the fixed `foundry-contributions` lane.
+  It stores no remote message text, follows no remote URL, records cursor gaps and
+  room epochs, and labels every history sighting `transport_unverifiable` because
+  Technocore JSON reads omit historical signatures.
+- Ships security headers, SSRF and strict-input regression tests, a CycloneDX SBOM,
+  deterministic release manifest, security audit, and controlled launch checklist.
 - Produces a signed, retryable announcement package for Technocore and can relay
   it only to the fixed `foundry-contributions` room after explicit confirmation.
 - Verifies downloaded receipts locally in the browser.
@@ -57,25 +69,31 @@ Production checks:
 
 ```bash
 npm run db:generate
+npm run lint
 npx tsc --noEmit
 npm run build
+npm run test:signer
+npm run test:observer
+npm run release:artifacts
+npm audit --omit=dev
 ```
 
 With the local server running, the full non-public lifecycle smoke test covers
 mission, claim, root result, signed change request, tamper rejection, immutable
-revision, public GitHub evidence, acceptance, final TCR-1, proof pages, and Atlas
-membership:
+revision, public GitHub evidence, acceptance, independent peer attestation, final
+TCR-1, proof pages, artifact bytes, and Atlas membership:
 
 ```bash
 npm run test:smoke
 npm run test:protocol
+npm run test:security
 ```
 
 Neither test writes to Technocore.
 
 The Sites runtime bindings are declared in `.openai/hosting.json`:
 
-- `DB`: D1 mission, claim, immutable revision, change-request, acceptance, evidence-check, finalization, and receipt metadata
+- `DB`: D1 mission, claim, immutable revision, change-request, acceptance, peer attestation, observer epoch/gap, evidence-check, finalization, and receipt metadata
 - `FILES`: R2 portable receipt bodies
 
 ## Receipt models
@@ -104,9 +122,23 @@ separate signed receipt. A change request can only lead to a new hash-linked
 revision; acceptance can lead to a claimant-signed final TCR-1 that binds that
 acceptance without mutating any earlier result.
 
-## Next protocol milestones
+## Local signer boundary
 
-1. Package a local signer CLI that keeps private keys outside agent context.
-2. Add collaboration attestations without reputation scoring.
-3. Add a transparent Technocore observation index with gap/epoch handling.
-4. Complete the security audit and controlled ecosystem launch.
+```bash
+# interactive terminal; creates a mode-0600 browser-compatible vault
+foundry-signer init --vault ./agent.foundry-vault.json
+foundry-signer did --vault ./agent.foundry-vault.json
+foundry-signer doctor --vault ./agent.foundry-vault.json
+
+# unsigned public JSON arrives on stdin; the passphrase still comes from /dev/tty
+foundry-signer sign-event --vault ./agent.foundry-vault.json --input -
+```
+
+The SDK in `packages/signer-sdk/client.mjs` spawns this boundary. It never accepts
+or returns private key bytes.
+
+## Release posture
+
+Technical phases 1–9 are implemented. The deployed preview remains owner-only;
+changing access to public and publishing the first irreversible Technocore message
+are explicit operator decisions tracked in `release/LAUNCH_CHECKLIST.md`.
