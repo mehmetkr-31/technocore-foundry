@@ -3,13 +3,17 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { findReceiptMetadata, findResult } from '@/db/queries';
+import { DossierExportButton } from '@/app/components/dossier-export-button';
 import {
   EVENT_SCHEMA,
+  REVIEW_RECEIPT_SCHEMA,
   type SignedFoundryEvent,
+  type SignedReviewReceipt,
   type SignedVerificationReceipt,
   type Tcr1Receipt,
   VERIFICATION_RECEIPT_SCHEMA,
   verifySignedEvent,
+  verifyReviewReceipt,
   verifyTcr1Receipt,
   verifyVerificationReceipt,
 } from '@/lib/foundry-crypto';
@@ -20,12 +24,12 @@ export const dynamic = 'force-dynamic';
 type PageProps = { params: Promise<{ id: string }> };
 
 async function loadReceipt(id: string) {
-  if (!/^(frc|fms|res|fac|fcr|frv|fat|tcf|fev)_[a-f0-9]{24}$/.test(id)) return null;
+  if (!/^(frc|fms|res|fac|fcr|frv|fat|tcf|fev|frw)_[a-f0-9]{24}$/.test(id)) return null;
   const metadata = await findReceiptMetadata(id);
   if (!metadata || !env.FILES) return null;
   const object = await env.FILES.get(metadata.objectKey);
   if (!object) return null;
-  const payload = parseStrictJson(await object.text()) as Tcr1Receipt | SignedFoundryEvent | SignedVerificationReceipt;
+  const payload = parseStrictJson(await object.text()) as Tcr1Receipt | SignedFoundryEvent | SignedVerificationReceipt | SignedReviewReceipt;
   const result = metadata.resultId ? await findResult(metadata.resultId) : null;
   return { metadata, payload, result };
 }
@@ -55,14 +59,18 @@ export default async function ReceiptPage({ params }: PageProps) {
   const { metadata, payload, result } = record;
   const isTcr1 = 'type' in payload && payload.type === 'technocore-task-receipt';
   const isVerification = 'receipt' in payload && payload.receipt?.schema === VERIFICATION_RECEIPT_SCHEMA;
+  const isReview = 'receipt' in payload && payload.receipt?.schema === REVIEW_RECEIPT_SCHEMA;
   const cryptoValid = isTcr1
     ? await verifyTcr1Receipt(payload as Tcr1Receipt)
     : isVerification
       ? await verifyVerificationReceipt(payload as SignedVerificationReceipt)
-      : await verifySignedEvent(payload as SignedFoundryEvent);
+      : isReview
+        ? await verifyReviewReceipt(payload as SignedReviewReceipt)
+        : await verifySignedEvent(payload as SignedFoundryEvent);
   const tcr = isTcr1 ? payload as Tcr1Receipt : null;
   const verification = isVerification ? payload as SignedVerificationReceipt : null;
-  const eventSchema = !isTcr1 && !isVerification && 'event' in payload ? payload.event.schema : EVENT_SCHEMA;
+  const review = isReview ? payload as SignedReviewReceipt : null;
+  const eventSchema = !isTcr1 && !isVerification && !isReview && 'event' in payload ? payload.event.schema : EVENT_SCHEMA;
   const evidence = result?.evidenceCheckedAt ? {
     github: result.evidenceGithubStatus,
     ci: result.evidenceCiStatus,
@@ -75,7 +83,7 @@ export default async function ReceiptPage({ params }: PageProps) {
       <nav className="artifact-nav"><Link className="brand" href="/"><span className="brand-mark">TF</span><span>TECHNOCORE / FOUNDRY</span></Link><div><Link href="/atlas">Contribution Atlas</Link><Link href="/">Enter Foundry →</Link></div></nav>
       <header className="receipt-hero">
         <div><p className="eyebrow"><span className="pulse-dot" />PORTABLE PROOF / {metadata.schema.toUpperCase()}</p><span className="receipt-page-id">{id}</span><h1>{metadata.missionTitle ?? 'Signed contribution receipt'}</h1><p>{metadata.missionLane ?? 'FOUNDRY EVENT'} · observed {new Date(metadata.createdAt).toISOString()}</p></div>
-        <div className="receipt-seal"><span>{cryptoValid ? '●' : '○'}</span><strong>{cryptoValid ? 'SIGNATURE VALID' : 'SIGNATURE INVALID'}</strong><small>{isTcr1 ? 'TCR-1 / Ed25519' : isVerification ? 'EXECUTION EVIDENCE / Ed25519' : `${eventSchema} / Ed25519`}</small></div>
+        <div className="receipt-seal"><span>{cryptoValid ? '●' : '○'}</span><strong>{cryptoValid ? 'SIGNATURE VALID' : 'SIGNATURE INVALID'}</strong><small>{isTcr1 ? 'TCR-1 / Ed25519' : isVerification ? 'EXECUTION EVIDENCE / Ed25519' : isReview ? 'STRUCTURED REVIEW / Ed25519' : `${eventSchema} / Ed25519`}</small></div>
       </header>
 
       <section className="receipt-proof-grid">
@@ -87,11 +95,12 @@ export default async function ReceiptPage({ params }: PageProps) {
         <article><span>06 / FINAL TCR-1</span><strong className={result?.finalReceiptId ? 'good' : 'muted'}>{result?.finalReceiptId ? 'ACCEPTANCE BOUND' : 'NOT FINALIZED'}</strong><p>{result?.finalReceiptId ? shortHash(result.finalReceiptSha256) : 'The claimant has not signed a TCR-1 containing the issuer acceptance hash.'}</p></article>
         <article><span>07 / PEER EVIDENCE</span><strong className={result?.attestationCount ? 'good' : 'muted'}>{result?.attestationCount ? `${result.attestationCount} ATTESTATION${result.attestationCount === 1 ? '' : 'S'}` : 'NOT PRESENT'}</strong><p>Independent peer statements bind this exact accepted result. They are evidence types, never a reputation or eligibility score.</p></article>
         <article><span>08 / EXECUTION PROVENANCE</span><strong className={result?.verificationReceiptCount ? 'good' : 'muted'}>{result?.verificationReceiptCount ? `${result.verificationReceiptCount} RECEIPT${result.verificationReceiptCount === 1 ? '' : 'S'}` : 'NOT PRESENT'}</strong><p>{verification ? `${verification.receipt.checks.length} local check digest${verification.receipt.checks.length === 1 ? '' : 's'} bound to ${shortHash(verification.receipt.candidateCommit)}.` : result?.verificationReceiptId ? `Latest receipt ${result.verificationReceiptId} by ${shortHash(result.verificationActorDid)}.` : 'Local verifier receipts record command metadata and output hashes without storing transcripts.'}</p></article>
+        <article><span>09 / STRUCTURED REVIEW</span><strong className={result?.reviewReceiptCount ? 'good' : 'muted'}>{review ? review.receipt.reviewDecision.replace('_', ' ').toUpperCase() : result?.reviewReceiptCount ? `${result.reviewReceiptCount} REVIEW${result.reviewReceiptCount === 1 ? '' : 'S'}` : 'NOT PRESENT'}</strong><p>{review ? `${review.receipt.criteria.length} criteria and ${review.receipt.findings.length} findings by ${shortHash(review.receipt.reviewerDid)}.` : result?.reviewReceiptId ? `Latest review ${result.reviewReceiptId} by ${shortHash(result.reviewActorDid)}.` : 'Independent criteria-based review can inform judgment but never constitutes issuer acceptance.'}</p></article>
       </section>
 
       <section className="receipt-record">
-        <div className="record-heading"><div><p className="eyebrow">CANONICAL RECORD / UTF-8 JSON</p><h2>Inspect the exact object.</h2></div><div><a className="button button-primary" href={`/api/receipts/${id}`} download>Download raw JSON</a>{result && <a className="button button-secondary" href={`/api/artifacts/${result.id}`}>Download artifact</a>}</div></div>
-        <dl><div><dt>ACTOR DID</dt><dd>{metadata.actorDid}</dd></div><div><dt>RECEIPT SHA-256</dt><dd>{metadata.sha256}</dd></div>{result && <div><dt>IMMUTABLE REVISION</dt><dd>{result.revision} / {result.parentResultId ? `PARENT ${result.parentResultId}` : 'ROOT'}</dd></div>}{result?.parentReceiptSha256 && <div><dt>PARENT RECEIPT SHA-256</dt><dd>{result.parentReceiptSha256}</dd></div>}{result?.changeRequestReceiptSha256 && <div><dt>CHANGE REQUEST SHA-256</dt><dd>{result.changeRequestReceiptSha256}</dd></div>}{tcr?.evidence?.acceptance_sha256 && <div><dt>ACCEPTANCE SHA-256</dt><dd>{tcr.evidence.acceptance_sha256}</dd></div>}{verification && <div><dt>VERIFICATION TARGET</dt><dd>{verification.receipt.resultReceiptSha256}</dd></div>}</dl>
+        <div className="record-heading"><div><p className="eyebrow">CANONICAL RECORD / UTF-8 JSON</p><h2>Inspect the exact object.</h2></div><div><a className="button button-primary" href={`/api/receipts/${id}`} download>Download raw JSON</a>{result && <a className="button button-secondary" href={`/api/artifacts/${result.id}`}>Download artifact</a>}{result && <DossierExportButton resultId={result.id} compact />}</div></div>
+        <dl><div><dt>ACTOR DID</dt><dd>{metadata.actorDid}</dd></div><div><dt>STORED OBJECT SHA-256</dt><dd>{metadata.sha256}</dd></div>{result && <div><dt>IMMUTABLE REVISION</dt><dd>{result.revision} / {result.parentResultId ? `PARENT ${result.parentResultId}` : 'ROOT'}</dd></div>}{result?.parentReceiptSha256 && <div><dt>PARENT RECEIPT SHA-256</dt><dd>{result.parentReceiptSha256}</dd></div>}{result?.changeRequestReceiptSha256 && <div><dt>CHANGE REQUEST SHA-256</dt><dd>{result.changeRequestReceiptSha256}</dd></div>}{tcr?.evidence?.acceptance_sha256 && <div><dt>ACCEPTANCE SHA-256</dt><dd>{tcr.evidence.acceptance_sha256}</dd></div>}{verification && <div><dt>VERIFICATION TARGET</dt><dd>{verification.receipt.resultReceiptSha256}</dd></div>}{review && <><div><dt>REVIEW TARGET</dt><dd>{review.receipt.resultReceiptSha256}</dd></div><div><dt>REVIEW DECISION</dt><dd>{review.receipt.reviewDecision} / NOT ISSUER ACCEPTANCE</dd></div></>}</dl>
         <pre>{JSON.stringify(payload, null, 2)}</pre>
       </section>
       <aside className="receipt-caveat"><strong>WHAT THIS DOES NOT PROVE</strong><p>It does not establish real-world identity, sole authorship, contribution truth, payment, reward entitlement, or airdrop eligibility. Each proof layer above is deliberately independent.</p></aside>

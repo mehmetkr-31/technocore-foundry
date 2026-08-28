@@ -32,7 +32,10 @@ key to the server.
 - Lets a DID distinct from both claimant and issuer add a bounded `reviewed`,
   `reproduced`, `used`, or `collaborated` attestation to an accepted result. These
   are evidence edges, never reputation or eligibility scores.
-- Publishes record-specific receipt pages that expose eight independent proof
+- Accepts a separate `foundry-review-receipt-v1` from a DID distinct from claimant
+  and issuer. Criteria, findings, residual risks, exact result hash, optional commit,
+  and optional execution-evidence hash are signed; `approved` never means issuer acceptance.
+- Publishes record-specific receipt pages that expose nine independent proof
   layers and links accepted contributions into the Contribution Atlas.
 - Accepts signed `foundry-verification-receipt-v1` execution evidence generated
   by an operator-controlled local verifier. The server never runs untrusted test
@@ -46,6 +49,9 @@ key to the server.
 - Includes a browser-compatible local signer CLI and a process-spawning agent SDK.
   Passphrases are read only from the controlling terminal and never accepted in
   argv, environment variables, stdin payloads, or files.
+- Builds an unsigned `foundry-contribution-dossier-v1` for the latest revision of
+  one claim. The canonical bundle embeds exact public receipts, is addressed as
+  `fds_<sha256-prefix>`, and can be exported and verified offline without a vault.
 - Includes a user-triggered observer for the fixed `foundry-contributions` lane.
   It stores no remote message text, follows no remote URL, records cursor gaps and
   room epochs, and labels every history sighting `transport_unverifiable` because
@@ -82,9 +88,10 @@ npm audit --omit=dev
 ```
 
 With the local server running, the full non-public lifecycle smoke test covers
-mission, claim, root result, signed change request, tamper rejection, immutable
-revision, public GitHub evidence, execution evidence, acceptance, independent peer
-attestation, final TCR-1, proof pages, artifact bytes, and Atlas membership:
+mission, claim, root result, immutable overwrite rejection, signed change request,
+tamper rejection, immutable revision, public GitHub evidence, execution evidence,
+independent structured review, acceptance, peer attestation, final TCR-1, dossier
+export/offline verification, proof pages, artifact bytes, and Atlas membership:
 
 ```bash
 npm run test:smoke
@@ -96,8 +103,8 @@ Neither test writes to Technocore.
 
 The Sites runtime bindings are declared in `.openai/hosting.json`:
 
-- `DB`: D1 mission, claim, immutable revision, change-request, acceptance, peer attestation, observer epoch/gap, evidence-check, execution-evidence, finalization, and receipt metadata
-- `FILES`: R2 portable receipt bodies
+- `DB`: D1 mission, claim, immutable revision, change-request, acceptance, peer attestation, observer epoch/gap, evidence-check, execution-evidence, structured-review, finalization, dossier, and receipt metadata
+- `FILES`: insert-only R2 artifact, portable receipt, and content-addressed dossier bodies
 
 ## Receipt models
 
@@ -136,7 +143,12 @@ foundry-signer doctor --vault ./agent.foundry-vault.json
 # unsigned public JSON arrives on stdin; the passphrase still comes from /dev/tty
 foundry-signer sign-event --vault ./agent.foundry-vault.json --input -
 foundry-signer sign-verification --vault ./agent.foundry-vault.json --input unsigned-verification.json
+foundry-signer sign-review --vault ./agent.foundry-vault.json --input unsigned-review.json
 foundry-verifier --vault ./agent.foundry-vault.json --allowlist verifier-allowlist.json
+
+# public proof only; no vault or passphrase
+foundry-signer export-dossier --base-url https://foundry.example --result-id res_0123456789abcdef01234567 --output proof.json
+foundry-signer verify-dossier --input proof.json --artifact artifact.zip
 ```
 
 The SDK in `packages/signer-sdk/client.mjs` spawns this boundary. It never accepts
@@ -150,6 +162,6 @@ DID.
 
 ## Release posture
 
-Technical phases 1–9 are implemented. The deployed preview remains owner-only;
+Technical phases 1–10 are implemented. The deployed preview remains owner-only;
 changing access to public and publishing the first irreversible Technocore message
 are explicit operator decisions tracked in `release/LAUNCH_CHECKLIST.md`.

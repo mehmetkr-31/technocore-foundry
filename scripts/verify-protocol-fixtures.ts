@@ -3,13 +3,17 @@ import {
   canonicalJson,
   eventSigningBytes,
   publicKeyFromDid,
+  reviewReceiptSigningBytes,
+  sha256Hex,
   sweepTechnocoreText,
   type SignedFoundryEvent,
+  type SignedReviewReceipt,
   type SignedVerificationReceipt,
   type Tcr1Receipt,
   type TechnocoreSignedMessage,
   verificationReceiptSigningBytes,
   verifySignedEvent,
+  verifyReviewReceipt,
   verifyTcr1Receipt,
   verifyTechnocoreMessage,
   verifyVerificationReceipt,
@@ -26,6 +30,7 @@ type Fixture = {
     attestation_event: { canonical_unsigned: string; signing_payload_hex: string; envelope: SignedFoundryEvent };
     tcr1_receipt: { canonical_unsigned: string; signing_payload_hex: string; receipt: Tcr1Receipt };
     verification_receipt: { canonical_unsigned: string; signing_payload_hex: string; envelope: SignedVerificationReceipt };
+    review_receipt: { canonical_unsigned: string; signing_payload_hex: string; envelope: SignedReviewReceipt };
     technocore_message: { signing_payload_hex: string; message: TechnocoreSignedMessage };
   };
   canonical_json: { input: unknown; output: string };
@@ -67,6 +72,19 @@ if (canonicalJson(verification.envelope.receipt) !== verification.canonical_unsi
 if (hex(verificationReceiptSigningBytes(verification.envelope.receipt)) !== verification.signing_payload_hex) throw new Error('Verification receipt signing bytes mismatch.');
 if (!(await verifyVerificationReceipt(verification.envelope))) throw new Error('Verification receipt signature is invalid.');
 
+const review = fixture.vectors.review_receipt;
+if (canonicalJson(review.envelope.receipt) !== review.canonical_unsigned) throw new Error('Review receipt canonical JSON mismatch.');
+if (hex(reviewReceiptSigningBytes(review.envelope.receipt)) !== review.signing_payload_hex) throw new Error('Review receipt signing bytes mismatch.');
+if (!(await verifyReviewReceipt(review.envelope))) throw new Error('Review receipt signature is invalid.');
+if (review.envelope.receipt.resultId !== verification.envelope.receipt.resultId ||
+  review.envelope.receipt.resultReceiptSha256 !== verification.envelope.receipt.resultReceiptSha256 ||
+  review.envelope.receipt.candidateCommit !== verification.envelope.receipt.candidateCommit) {
+  throw new Error('Review receipt does not share the verification target.');
+}
+if (review.envelope.receipt.verificationReceiptSha256 !== `sha256:${await sha256Hex(canonicalJson(verification.envelope))}`) {
+  throw new Error('Review receipt does not bind the canonical signed verification envelope.');
+}
+
 const technocore = fixture.vectors.technocore_message;
 const messageBytes = new TextEncoder().encode(`${technocore.message.room}|${technocore.message.nonce}|${technocore.message.text}`);
 if (hex(messageBytes) !== technocore.signing_payload_hex) throw new Error('Technocore signing bytes mismatch.');
@@ -104,6 +122,7 @@ console.log(JSON.stringify({
   peerAttestation: 'valid',
   tcr1: 'valid',
   verificationReceipt: 'valid',
+  structuredReview: 'valid',
   technocore: 'valid',
   canonical: 'match',
   invalidRejected: fixture.invalid_json.length + fixture.invalid_utf8.length,

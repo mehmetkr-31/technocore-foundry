@@ -508,7 +508,7 @@ footer > span { justify-self: end; }
 .receipt-proof-grid { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--line); }
 .receipt-proof-grid article { min-height: 230px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 32px; }
 .receipt-proof-grid article:nth-child(3n) { border-right: 0; }
-.receipt-proof-grid article:nth-child(n+4) { border-bottom: 0; }
+.receipt-proof-grid article:nth-child(n+7) { border-bottom: 0; }
 .receipt-proof-grid span { color: #778189; font-family: var(--font-geist-mono), monospace; font-size: 9px; letter-spacing: .08em; }
 .receipt-proof-grid strong { display: block; margin: 34px 0 20px; font-family: var(--font-geist-mono), monospace; font-size: 18px; font-weight: 500; }
 .receipt-proof-grid p { margin: 0; color: #858f96; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
@@ -521,6 +521,21 @@ footer > span { justify-self: end; }
 .receipt-record dt { color: #747f87; }
 .receipt-record dd { color: var(--cyan); }
 .receipt-record pre { max-height: 620px; overflow: auto; margin: 0; border: 1px solid rgba(86,217,232,.28); background: #05080b; padding: 28px; color: #b9c3c9; font-family: var(--font-geist-mono), monospace; font-size: 10px; line-height: 1.7; }
+.dossier-action { display: inline-flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.dossier-action.compact { display: inline-flex; }
+.dossier-action .form-error { flex-basis: 100%; margin: 0; }
+.dossier-revisions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line); }
+.dossier-revisions article { min-width: 0; background: var(--ink-soft); padding: 28px; }
+.dossier-revisions article > span, .dossier-receipt-list span { color: #778189; font-family: var(--font-geist-mono), monospace; font-size: 9px; letter-spacing: .08em; }
+.dossier-revisions h3 { overflow-wrap: anywhere; margin: 12px 0; font-size: 18px; }
+.dossier-revisions p, .dossier-revisions div { color: #8c969d; font-size: 11px; line-height: 1.6; }
+.dossier-revisions code { display: block; overflow-wrap: anywhere; margin-bottom: 18px; color: var(--cyan); font-size: 9px; }
+.dossier-revisions a { display: inline-block; margin-top: 16px; color: var(--acid); font-size: 11px; }
+.dossier-receipt-list { display: grid; gap: 1px; background: var(--line); }
+.dossier-receipt-list article { display: grid; grid-template-columns: 150px minmax(0, 1fr) minmax(220px, .8fr); gap: 24px; align-items: center; background: var(--ink-soft); padding: 16px 18px; }
+.dossier-receipt-list a, .dossier-receipt-list code { overflow-wrap: anywhere; font-family: var(--font-geist-mono), monospace; font-size: 10px; }
+.dossier-receipt-list a { color: var(--acid); }
+.dossier-receipt-list code { color: var(--cyan); }
 .receipt-caveat { display: grid; grid-template-columns: 250px minmax(0,680px); gap: 50px; padding: 36px 7vw; border-top: 1px solid rgba(255,104,77,.32); border-bottom: 1px solid rgba(255,104,77,.32); background: rgba(255,104,77,.045); }
 .receipt-caveat strong { color: var(--coral); font-family: var(--font-geist-mono), monospace; font-size: 10px; }
 .receipt-caveat p { margin: 0; color: #a5a09f; font-size: 13px; line-height: 1.65; }
@@ -636,7 +651,10 @@ footer > span { justify-self: end; }
   .receipt-proof-grid { grid-template-columns: repeat(2, 1fr); }
   .receipt-proof-grid article:nth-child(3n) { border-right: 1px solid var(--line); }
   .receipt-proof-grid article:nth-child(2n) { border-right: 0; }
-  .receipt-proof-grid article:nth-child(4) { border-bottom: 1px solid var(--line); }
+  .receipt-proof-grid article:nth-child(n+7) { border-bottom: 1px solid var(--line); }
+  .receipt-proof-grid article:last-child { grid-column: 1 / -1; border-right: 0; border-bottom: 0; }
+  .dossier-receipt-list article { grid-template-columns: 120px minmax(0, 1fr); }
+  .dossier-receipt-list code { grid-column: 2; }
   .protocol-hero { grid-template-columns: 1fr; }
   .protocol-score { width: 300px; }
   .matrix-head, .protocol-matrix article { grid-template-columns: 1fr 110px 110px; }
@@ -700,7 +718,11 @@ footer > span { justify-self: end; }
   .receipt-hero { min-height: auto; }
   .receipt-seal { width: 100%; min-height: 180px; }
   .receipt-proof-grid { grid-template-columns: 1fr; }
-  .receipt-proof-grid article, .receipt-proof-grid article:nth-child(3n), .receipt-proof-grid article:nth-child(2n), .receipt-proof-grid article:nth-child(n+4) { min-height: 190px; border-right: 0; border-bottom: 1px solid var(--line); padding: 25px 22px; }
+  .receipt-proof-grid article, .receipt-proof-grid article:nth-child(3n), .receipt-proof-grid article:nth-child(2n), .receipt-proof-grid article:nth-child(n+4) { grid-column: auto; min-height: 190px; border-right: 0; border-bottom: 1px solid var(--line); padding: 25px 22px; }
+  .receipt-proof-grid article:last-child { border-bottom: 0; }
+  .dossier-revisions { grid-template-columns: 1fr; }
+  .dossier-receipt-list article { grid-template-columns: 1fr; gap: 8px; }
+  .dossier-receipt-list code { grid-column: auto; }
   .record-heading > div:last-child { justify-content: flex-start; }
   .receipt-record dl > div { grid-template-columns: 1fr; gap: 7px; }
   .receipt-record pre { padding: 18px; font-size: 8px; }

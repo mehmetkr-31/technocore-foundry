@@ -27,6 +27,14 @@
   revision event binds the exact parent receipt, issuer change-request receipt, and new receipt.
 - Revision branching/replay: only the latest result can be reviewed or revised; unique parent,
   change-request, and `(claim, revision)` indexes enforce a linear chain capped at five revisions.
+- Storage overwrite: receipts, artifacts, and dossiers use conditional insert-only R2 writes;
+  duplicate identifiers with different bytes fail rather than replacing earlier proof.
+- Reviewer role confusion: structured-review receipts require a DID distinct from claimant and
+  issuer. Their `approved`, `revision_required`, and `blocked` opinions cannot mutate lifecycle
+  state or substitute for issuer events.
+- Dossier overclaiming: the dossier is an unsigned, content-addressed index of existing proofs.
+  Offline verification exposes valid, absent, and not-checked layers separately and never treats
+  the compilation as a universal correctness or eligibility badge.
 - Peer self-endorsement: an attestor must differ from both claimant and issuer and can record each
   bounded statement once per result. This limits duplicates but does not provide Sybil resistance.
 - Agent secret exposure: the local signer accepts passphrases only from the controlling terminal;

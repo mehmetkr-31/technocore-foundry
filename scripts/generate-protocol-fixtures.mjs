@@ -136,6 +136,44 @@ const verificationEnvelope = {
   receipt: verificationReceipt,
   signature: { algorithm: 'Ed25519', domain: 'foundry-verification-receipt-v1', value: signature(privateKey, verificationPayload) },
 };
+const verificationEnvelopeHash = await sha256(canonicalJson(verificationEnvelope));
+
+const reviewReceipt = {
+  schema: 'foundry-review-receipt-v1',
+  missionId: foundryEvent.missionId,
+  resultId: verificationReceipt.resultId,
+  resultReceiptSha256: verificationReceipt.resultReceiptSha256,
+  candidateCommit: TECHNOCORE_SOURCE_COMMIT,
+  reviewerDid: did,
+  criteria: [
+    {
+      id: 'exact-result-binding',
+      status: 'met',
+      evidence: 'The review binds the exact deterministic TCR-1 result receipt digest.',
+    },
+    {
+      id: 'local-check-provenance',
+      status: 'met',
+      evidence: 'The referenced verification receipt binds successful local check digests.',
+    },
+  ],
+  findings: [{
+    id: 'protocol-boundary',
+    severity: 'info',
+    path: 'protocol/fixtures/v1.json',
+    summary: 'Fixture conformance verifies portable bytes without asserting issuer acceptance.',
+  }],
+  reviewDecision: 'approved',
+  verificationReceiptSha256: `sha256:${verificationEnvelopeHash}`,
+  residualRisks: ['Fixture signatures establish interoperability, not contribution truth.'],
+  createdAt: '2026-08-27T00:00:06.000Z',
+};
+const reviewCanonical = canonicalJson(reviewReceipt);
+const reviewPayload = Buffer.concat([Buffer.from('foundry-review-receipt-v1\0'), Buffer.from(reviewCanonical)]);
+const reviewEnvelope = {
+  receipt: reviewReceipt,
+  signature: { algorithm: 'Ed25519', domain: 'foundry-review-receipt-v1', value: signature(privateKey, reviewPayload) },
+};
 
 const parentResultId = `res_${'1'.repeat(24)}`;
 const parentReceiptHash = tcrReceiptHash;
@@ -240,6 +278,12 @@ const fixture = {
       signing_payload_hex: verificationPayload.toString('hex'),
       envelope: verificationEnvelope,
     },
+    review_receipt: {
+      domain: 'foundry-review-receipt-v1',
+      canonical_unsigned: reviewCanonical,
+      signing_payload_hex: reviewPayload.toString('hex'),
+      envelope: reviewEnvelope,
+    },
     technocore_message: {
       domain: '<room>|<nonce>|<text>',
       raw_text_before_sweep: rawMessage,
@@ -273,4 +317,4 @@ const projectRoot = fileURLToPath(new URL('..', import.meta.url));
 const fixtureDirectory = `${projectRoot}/protocol/fixtures`;
 await mkdir(fixtureDirectory, { recursive: true });
 await writeFile(`${fixtureDirectory}/v1.json`, `${JSON.stringify(fixture, null, 2)}\n`, 'utf8');
-console.log(JSON.stringify({ fixture: 'protocol/fixtures/v1.json', did, vectors: 7, invalid: fixture.invalid_json.length + fixture.invalid_utf8.length }));
+console.log(JSON.stringify({ fixture: 'protocol/fixtures/v1.json', did, vectors: 8, invalid: fixture.invalid_json.length + fixture.invalid_utf8.length }));

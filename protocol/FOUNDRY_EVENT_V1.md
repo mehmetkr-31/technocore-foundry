@@ -75,6 +75,40 @@ candidate commit, and one to twenty local checks. Each check stores an id, execu
 hash, exit code, stdout hash, stderr hash, and duration. It must not include prompts, model
 transcripts, chain-of-thought, secrets, private keys, tokens, reward claims, or eligibility claims.
 
+## Structured review receipts
+
+`foundry-review-receipt-v1` is a separate evidence domain for a reviewer's bounded assessment of
+one exact immutable result. Its Ed25519 signing input is:
+
+```text
+UTF8("foundry-review-receipt-v1") || 0x00 || canonical_json(receipt)
+```
+
+The signed envelope is `{"receipt": <receipt>, "signature": {"algorithm":"Ed25519",
+"domain":"foundry-review-receipt-v1","value": <unpadded-base64url>}}`. Both the envelope and
+signature object reject additional properties.
+
+The receipt binds the reviewer DID, mission and result identifiers, exact result-receipt digest,
+optional exact candidate commit, one to twenty acceptance-criterion assessments, zero to fifty
+findings, a review decision, optional verification-receipt digest, bounded residual risks, and a
+UTC timestamp. Criterion statuses are `met`, `partially_met`, `not_met`, `not_reviewed`, or
+`not_applicable`. Finding severities are `info`, `low`, `medium`, `high`, or `critical`; a finding
+may include one repository-relative path.
+
+Review decisions are `approved`, `revision_required`, or `blocked`. An approved review cannot
+contain a partially met, unmet, or unreviewed criterion, nor a high or critical finding. A
+revision-required review identifies a finding or a partially met/unmet criterion. A blocked review
+identifies at least one unreviewed criterion.
+
+These decisions are reviewer opinions only. `approved` is not issuer acceptance,
+`revision_required` is not an issuer-signed change request and does not authorize a revision, and
+`blocked` is not issuer rejection. Only the separate issuer-signed `foundry-event-v1` lifecycle
+events change acceptance or revision state.
+
+When `verificationReceiptSha256` is present, it is the SHA-256 digest of the canonical signed
+verification envelope, without a trailing line feed. It does not refer to an implementation's
+stored-object byte hash.
+
 ## Restricted JSON profile
 
 - values are null, booleans, safe integers, strings, arrays, and plain objects;

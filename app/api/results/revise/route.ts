@@ -1,4 +1,3 @@
-import { env } from 'cloudflare:workers';
 import {
   createRevision,
   findChangeRequest,
@@ -20,7 +19,7 @@ import {
   verifyTcr1Receipt,
 } from '@/lib/foundry-crypto';
 import { validateGitHubEvidence } from '@/lib/github-evidence';
-import { persistReceipt } from '@/lib/server-receipts';
+import { persistReceipt, putImmutableObject } from '@/lib/server-receipts';
 import { parseStrictJson } from '@/lib/strict-json';
 
 export const dynamic = 'force-dynamic';
@@ -64,6 +63,9 @@ export async function POST(request: Request) {
   }
 
   try {
+    if (await findResult(resultId)) {
+      return Response.json({ error: 'Result identifier is already immutable.' }, { status: 409 });
+    }
     if (!(await verifyTcr1Receipt(receipt))) {
       return Response.json({ error: 'Revision TCR-1 schema or claimant signature is invalid.' }, { status: 400 });
     }
@@ -144,10 +146,11 @@ export async function POST(request: Request) {
 
     const safeName = artifactFile.name.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 120) || 'artifact.bin';
     const artifactObjectKey = `artifacts/${resultId}/${safeName}`;
-    if (!env.FILES) throw new Error('R2 binding unavailable');
-    await env.FILES.put(artifactObjectKey, artifactBytes, {
-      httpMetadata: { contentType: mediaType },
-      customMetadata: { resultId, actorDid: claimantDid, sha256: artifactSha256, revision: String(chain.revision) },
+    await putImmutableObject({
+      objectKey: artifactObjectKey,
+      bytes: artifactBytes,
+      contentType: mediaType,
+      customMetadata: { resultId, actorDid: claimantDid, revision: String(chain.revision) },
     });
     await persistReceipt({
       id: resultId,

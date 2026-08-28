@@ -10,5 +10,9 @@ The fixed-lane observer stores sequence and epoch metadata, a bounded actor hint
 and a safe Foundry receipt identifier when present. It does not store or render the remote message
 text and does not fetch URLs found in messages.
 
-All accepted contributions and receipts are designed to be shareable public proof if the operator
-later enables public access. The current deployment remains owner-only.
+Contribution dossiers embed only those public receipts, public evidence metadata, and artifact
+digests. They do not embed artifact bytes, raw GitHub API responses, command transcripts, local
+paths, request headers, observer message text, vaults, passphrases, or private keys.
+
+All accepted contributions, receipts, and dossiers are designed to be shareable public proof if
+the operator later enables public access. The current deployment remains owner-only.

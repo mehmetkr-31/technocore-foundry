@@ -5,6 +5,7 @@ export const EVENT_SCHEMA = 'foundry-event-v1' as const;
 export const TCR1_TYPE = 'technocore-task-receipt' as const;
 export const TCR1_DOMAIN = 'technocore-task-receipt:v1' as const;
 export const VERIFICATION_RECEIPT_SCHEMA = 'foundry-verification-receipt-v1' as const;
+export const REVIEW_RECEIPT_SCHEMA = 'foundry-review-receipt-v1' as const;
 export const MAX_RESULT_REVISIONS = 5 as const;
 
 const BASE58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
@@ -160,6 +161,51 @@ export type SignedVerificationReceipt = {
   signature: {
     algorithm: 'Ed25519';
     domain: typeof VERIFICATION_RECEIPT_SCHEMA;
+    value: string;
+  };
+};
+
+export const REVIEW_CRITERION_STATUSES = ['met', 'partially_met', 'not_met', 'not_reviewed', 'not_applicable'] as const;
+export const REVIEW_FINDING_SEVERITIES = ['info', 'low', 'medium', 'high', 'critical'] as const;
+export const REVIEW_DECISIONS = ['approved', 'revision_required', 'blocked'] as const;
+
+export type ReviewCriterionStatus = typeof REVIEW_CRITERION_STATUSES[number];
+export type ReviewFindingSeverity = typeof REVIEW_FINDING_SEVERITIES[number];
+export type ReviewDecision = typeof REVIEW_DECISIONS[number];
+
+export type ReviewCriterion = {
+  id: string;
+  status: ReviewCriterionStatus;
+  evidence: string;
+};
+
+export type ReviewFinding = {
+  id: string;
+  severity: ReviewFindingSeverity;
+  path?: string;
+  summary: string;
+};
+
+export type FoundryReviewReceipt = {
+  schema: typeof REVIEW_RECEIPT_SCHEMA;
+  missionId: string;
+  resultId: string;
+  resultReceiptSha256: string;
+  candidateCommit?: string;
+  reviewerDid: string;
+  criteria: ReviewCriterion[];
+  findings: ReviewFinding[];
+  reviewDecision: ReviewDecision;
+  verificationReceiptSha256?: string;
+  residualRisks: string[];
+  createdAt: string;
+};
+
+export type SignedReviewReceipt = {
+  receipt: FoundryReviewReceipt;
+  signature: {
+    algorithm: 'Ed25519';
+    domain: typeof REVIEW_RECEIPT_SCHEMA;
     value: string;
   };
 };
@@ -371,6 +417,10 @@ export function eventSigningBytes(event: FoundryEvent) {
 
 export function verificationReceiptSigningBytes(receipt: FoundryVerificationReceipt) {
   return domainBytes(VERIFICATION_RECEIPT_SCHEMA, receipt);
+}
+
+export function reviewReceiptSigningBytes(receipt: FoundryReviewReceipt) {
+  return domainBytes(REVIEW_RECEIPT_SCHEMA, receipt);
 }
 
 async function signFoundryEvent<T extends FoundryEvent>(vault: FoundryVault, passphrase: string, event: T) {
@@ -687,6 +737,133 @@ export async function verifyVerificationReceipt(envelope: SignedVerificationRece
       publicKey,
       base64UrlToBytes(envelope.signature.value),
       verificationReceiptSigningBytes(envelope.receipt),
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isBoundedReviewText(value: unknown, minimum: number, maximum: number) {
+  return typeof value === 'string' &&
+    value.length >= minimum &&
+    value.length <= maximum &&
+    !/[\u0000-\u001f\u007f]/u.test(value);
+}
+
+function isReviewPath(value: unknown) {
+  if (typeof value !== 'string' || value.length < 1 || value.length > 240 || value.startsWith('/') || value.includes('\\')) return false;
+  if (/^[A-Za-z]:\//.test(value) || /^[A-Za-z][A-Za-z0-9+.-]*:/.test(value) || /^~(?:\/|$)/.test(value)) return false;
+  if (value.split('/').some((segment) => segment === '..')) return false;
+  return /^[A-Za-z0-9_.@/+:-]+$/.test(value);
+}
+
+function isReviewReceipt(receipt: unknown): receipt is FoundryReviewReceipt {
+  if (!receipt || typeof receipt !== 'object' || Array.isArray(receipt) || hasForbiddenReceiptKey(receipt)) return false;
+  const value = receipt as Record<string, unknown>;
+  if (
+    !hasOnlyKeys(value, [
+      'schema', 'missionId', 'resultId', 'resultReceiptSha256', 'candidateCommit',
+      'reviewerDid', 'criteria', 'findings', 'reviewDecision', 'verificationReceiptSha256',
+      'residualRisks', 'createdAt',
+    ]) ||
+    value.schema !== REVIEW_RECEIPT_SCHEMA ||
+    typeof value.missionId !== 'string' || !/^(M-[0-9]{3}|F-[A-F0-9]{8})$/.test(value.missionId) ||
+    typeof value.resultId !== 'string' || !/^res_[a-f0-9]{24}$/.test(value.resultId) ||
+    typeof value.resultReceiptSha256 !== 'string' || !/^sha256:[a-f0-9]{64}$/.test(value.resultReceiptSha256) ||
+    (value.candidateCommit !== undefined && (typeof value.candidateCommit !== 'string' || !/^[a-f0-9]{40}$/.test(value.candidateCommit))) ||
+    typeof value.reviewerDid !== 'string' ||
+    !Array.isArray(value.criteria) || value.criteria.length < 1 || value.criteria.length > 20 ||
+    !Array.isArray(value.findings) || value.findings.length > 50 ||
+    typeof value.reviewDecision !== 'string' || !REVIEW_DECISIONS.includes(value.reviewDecision as ReviewDecision) ||
+    (value.verificationReceiptSha256 !== undefined && (typeof value.verificationReceiptSha256 !== 'string' || !/^sha256:[a-f0-9]{64}$/.test(value.verificationReceiptSha256))) ||
+    !Array.isArray(value.residualRisks) || value.residualRisks.length > 20 ||
+    !value.residualRisks.every((risk) => isBoundedReviewText(risk, 1, 300)) ||
+    typeof value.createdAt !== 'string' ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(value.createdAt) ||
+    !Number.isFinite(Date.parse(value.createdAt))
+  ) return false;
+
+  const criteria = value.criteria as unknown[];
+  if (!criteria.every((criterion) => {
+    if (!criterion || typeof criterion !== 'object' || Array.isArray(criterion)) return false;
+    const item = criterion as Record<string, unknown>;
+    return hasOnlyKeys(item, ['id', 'status', 'evidence']) &&
+      typeof item.id === 'string' && /^[a-z0-9][a-z0-9_.:-]{0,63}$/.test(item.id) &&
+      typeof item.status === 'string' && REVIEW_CRITERION_STATUSES.includes(item.status as ReviewCriterionStatus) &&
+      isBoundedReviewText(item.evidence, 1, 500);
+  })) return false;
+  if (new Set(criteria.map((criterion) => (criterion as ReviewCriterion).id)).size !== criteria.length) return false;
+
+  const findings = value.findings as unknown[];
+  if (!findings.every((finding) => {
+    if (!finding || typeof finding !== 'object' || Array.isArray(finding)) return false;
+    const item = finding as Record<string, unknown>;
+    return hasOnlyKeys(item, ['id', 'severity', 'path', 'summary']) &&
+      typeof item.id === 'string' && /^[a-z0-9][a-z0-9_.:-]{0,63}$/.test(item.id) &&
+      typeof item.severity === 'string' && REVIEW_FINDING_SEVERITIES.includes(item.severity as ReviewFindingSeverity) &&
+      (item.path === undefined || isReviewPath(item.path)) &&
+      isBoundedReviewText(item.summary, 8, 500);
+  })) return false;
+  if (new Set(findings.map((finding) => (finding as ReviewFinding).id)).size !== findings.length) return false;
+
+  const decision = value.reviewDecision as ReviewDecision;
+  const criterionStatuses = criteria.map((criterion) => (criterion as ReviewCriterion).status);
+  const findingSeverities = findings.map((finding) => (finding as ReviewFinding).severity);
+  if (decision === 'approved' && (
+    criterionStatuses.some((status) => status === 'partially_met' || status === 'not_met' || status === 'not_reviewed') ||
+    findingSeverities.some((severity) => severity === 'high' || severity === 'critical')
+  )) return false;
+  if (decision === 'revision_required' && (
+    findings.length === 0 && !criterionStatuses.some((status) => status === 'partially_met' || status === 'not_met')
+  )) return false;
+  if (decision === 'blocked' && !criterionStatuses.includes('not_reviewed')) return false;
+  return true;
+}
+
+export async function signReviewReceipt(
+  vault: FoundryVault,
+  passphrase: string,
+  receipt: Omit<FoundryReviewReceipt, 'schema' | 'reviewerDid' | 'createdAt'> & { createdAt?: string },
+) {
+  const fullReceipt = {
+    schema: REVIEW_RECEIPT_SCHEMA,
+    ...receipt,
+    reviewerDid: vault.did,
+    createdAt: receipt.createdAt ?? new Date().toISOString(),
+  } satisfies FoundryReviewReceipt;
+  if (!isReviewReceipt(fullReceipt)) throw new Error('Malformed structured review receipt.');
+  const privateKey = await unlockVault(vault, passphrase);
+  const signature = await crypto.subtle.sign('Ed25519', privateKey, reviewReceiptSigningBytes(fullReceipt));
+  return {
+    receipt: fullReceipt,
+    signature: { algorithm: 'Ed25519' as const, domain: REVIEW_RECEIPT_SCHEMA, value: bytesToBase64Url(new Uint8Array(signature)) },
+  } satisfies SignedReviewReceipt;
+}
+
+export async function verifyReviewReceipt(envelope: SignedReviewReceipt) {
+  try {
+    if (
+      !envelope || typeof envelope !== 'object' ||
+      !hasOnlyKeys(envelope as unknown as Record<string, unknown>, ['receipt', 'signature']) ||
+      !isReviewReceipt(envelope.receipt) ||
+      !envelope.signature ||
+      !hasOnlyKeys(envelope.signature as unknown as Record<string, unknown>, ['algorithm', 'domain', 'value']) ||
+      envelope.signature.algorithm !== 'Ed25519' ||
+      envelope.signature.domain !== REVIEW_RECEIPT_SCHEMA ||
+      !/^[A-Za-z0-9_-]{86}$/.test(envelope.signature.value)
+    ) return false;
+    const publicKey = await crypto.subtle.importKey(
+      'raw',
+      publicKeyFromDid(envelope.receipt.reviewerDid),
+      { name: 'Ed25519' },
+      false,
+      ['verify'],
+    );
+    return crypto.subtle.verify(
+      'Ed25519',
+      publicKey,
+      base64UrlToBytes(envelope.signature.value),
+      reviewReceiptSigningBytes(envelope.receipt),
     );
   } catch {
     return false;

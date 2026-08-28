@@ -1,6 +1,6 @@
 # Technocore Foundry security audit
 
-Audit target: `0.9.0-preview.6`  
+Audit target: `0.9.0-preview.7`
 Launch posture: owner-only preview; public Technocore writes require a separate human action.
 
 ## Enforced boundaries
@@ -19,14 +19,21 @@ Launch posture: owner-only preview; public Technocore writes require a separate 
 - Execution evidence receipts are produced by an operator-controlled local verifier. Foundry stores
   signed metadata and stdout/stderr hashes only; it does not run arbitrary project tests on the
   server.
+- Structured reviews require a DID distinct from claimant and issuer, bind the exact immutable
+  result and optional execution-evidence digest, and cannot create acceptance or a change request.
 - GitHub evidence accepts only plain `https://github.com/<owner>/<repo>` paths and same-repository
   commit, PR, and Actions-run identifiers. Credentials, ports, queries, fragments, alternate hosts,
   and redirect URLs are rejected before any fetch.
 - The observer has one compiled origin and room. It accepts no URL input, stores no remote message
   text, fetches no remote message link, records cursor gaps and room epochs, and labels all JSON
   history as `transport_unverifiable` because the read lane omits signatures.
-- R2 receipt objects are immutable-addressed by digest-derived IDs. Receipt schemas reject keys
+- R2 receipt, artifact, and dossier objects are created with an insert-only precondition; an
+  existing key is accepted only when its exact bytes and SHA-256 match. D1 receipt metadata uses
+  insert semantics rather than replacement. Receipt schemas reject keys
   containing secret, private, password, token, airdrop, or eligibility claims.
+- Contribution dossiers are unsigned, size-bounded, content-addressed compilations. Export includes
+  only one latest claim chain, embeds public receipts rather than secrets or raw artifacts, and the
+  offline verifier reports each proof layer independently.
 - Global responses set CSP, clickjacking, MIME-sniffing, referrer, permissions, opener, and resource
   isolation headers.
 
@@ -35,8 +42,9 @@ Launch posture: owner-only preview; public Technocore writes require a separate 
 `npm run test:security` checks security headers, duplicate JSON keys, invalid UTF-8, body limits,
 tampered signatures, fixed-origin observer behavior, receipt-ID boundaries, SSRF URL policy,
 cross-repository binding, and forbidden receipt fields. `npm run test:smoke` additionally checks
-stale acceptance, altered revision parent hashes, execution evidence binding, independent
-attestations, proof pages, Atlas, and artifact byte round-trips.
+stale acceptance, immutable identifier collisions, altered revision parent hashes, execution
+evidence binding, independent structured reviews and attestations, dossier export/offline
+verification, proof pages, Atlas, and artifact byte round-trips.
 
 ## Residual risks
 

@@ -4,10 +4,11 @@ import { createReadStream, createWriteStream, openSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
-import { createVault, parseStrictJson, parseVault, signEvent, signTcr1, signTechnocore, signVerification, unlockVault } from '../core.mjs';
+import { createVault, parseStrictJson, parseVault, signEvent, signReview, signTcr1, signTechnocore, signVerification, unlockVault } from '../core.mjs';
+import { MAX_DOSSIER_BYTES, verifyContributionDossierBytes } from '../dossier.mjs';
 
 function usage() {
-  return `foundry-signer <command> --vault <path> [--input <path|->]\n\nCommands:\n  init               create a browser-compatible encrypted vault\n  did                print the public DID without unlocking\n  doctor             unlock and perform a sign/verify recovery test\n  sign-event         sign an unsigned foundry-event-v1 object\n  sign-tcr1          sign an unsigned TCR-1 receipt\n  sign-verification  sign an unsigned foundry-verification-receipt-v1 object\n  sign-technocore    sign an exact room|nonce|text Technocore payload\n\nPassphrases are accepted only from the controlling terminal; never argv, env, stdin, or files.`;
+  return `foundry-signer <command> [options]\n\nVault commands:\n  init               create a browser-compatible encrypted vault\n  did                print the public DID without unlocking\n  doctor             unlock and perform a sign/verify recovery test\n  sign-event         sign an unsigned foundry-event-v1 object\n  sign-tcr1          sign an unsigned TCR-1 receipt\n  sign-verification  sign an unsigned foundry-verification-receipt-v1 object\n  sign-review        sign an unsigned foundry-review-receipt-v1 object\n  sign-technocore    sign an exact room|nonce|text Technocore payload\n\nPublic proof commands (no vault):\n  export-dossier     POST an exact resultId and save immutable canonical dossier bytes\n  verify-dossier     verify a saved dossier offline, optionally with artifact bytes\n\nVault commands use --vault <path> and signing commands use --input <path|->.\nExport uses --base-url <origin> --result-id <res_...> --output <path>.\nVerify uses --input <path|-> [--artifact <path>].\nPassphrases are accepted only from the controlling terminal; never argv, env, stdin, or files.`;
 }
 
 function option(name) {
@@ -56,13 +57,19 @@ async function terminalPassphrase(label, confirm = false) {
 }
 
 async function readInput(path) {
+  const bytes = await readRaw(path);
+  return parseStrictJson(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
+}
+
+async function readRaw(path, maximum = 256 * 1024) {
   const bytes = path === '-' ? await new Promise((resolve, reject) => {
     const chunks = [];
     stdin.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
     stdin.on('end', () => resolve(Buffer.concat(chunks)));
     stdin.on('error', reject);
   }) : await readFile(path);
-  return parseStrictJson(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
+  if (bytes.length > maximum) throw new Error(`Input exceeds the ${maximum}-byte limit.`);
+  return bytes;
 }
 
 async function loadVault(path) {
@@ -76,6 +83,53 @@ async function main() {
     return;
   }
   if (process.argv.some((value) => /pass(word|phrase)/i.test(value))) throw new Error('Passphrase arguments are forbidden.');
+
+  if (command === 'export-dossier') {
+    const baseUrl = option('--base-url');
+    const resultId = option('--result-id');
+    const outputPath = option('--output');
+    if (!baseUrl || !resultId || !outputPath) throw new Error('export-dossier requires --base-url, --result-id, and --output.');
+    if (!/^res_[a-f0-9]{24}$/.test(resultId)) throw new Error('Malformed result identifier.');
+    const origin = new URL(baseUrl);
+    const localHttp = origin.protocol === 'http:' && ['localhost', '127.0.0.1', '::1'].includes(origin.hostname);
+    if (origin.protocol !== 'https:' && !localHttp) throw new Error('Dossier export requires HTTPS, except for a local development origin.');
+    const createResponse = await fetch(new URL('/api/dossiers', origin), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ resultId }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    const createText = await createResponse.text();
+    const created = parseStrictJson(createText);
+    if (!createResponse.ok) throw new Error(`Dossier export failed with ${createResponse.status}: ${created.error ?? 'unknown response'}.`);
+    if (!/^fds_[a-f0-9]{24}$/.test(created.id)) throw new Error('Server returned a malformed dossier identifier.');
+    const rawResponse = await fetch(new URL(`/api/dossiers/${created.id}`, origin), {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!rawResponse.ok) throw new Error(`Dossier download failed with ${rawResponse.status}.`);
+    const bytes = Buffer.from(await rawResponse.arrayBuffer());
+    const verified = verifyContributionDossierBytes(bytes, { expectedId: created.id });
+    const handle = await open(outputPath, 'wx', 0o644);
+    try {
+      await handle.writeFile(bytes);
+    } finally {
+      await handle.close();
+    }
+    stdout.write(`${JSON.stringify({ ...verified, output: outputPath })}\n`);
+    return;
+  }
+
+  if (command === 'verify-dossier') {
+    const inputPath = option('--input') ?? '-';
+    const artifactPath = option('--artifact');
+    if (inputPath === '-' && artifactPath === '-') throw new Error('Dossier and artifact cannot both use stdin.');
+    const bytes = await readRaw(inputPath, MAX_DOSSIER_BYTES);
+    const artifactBytes = artifactPath ? await readRaw(artifactPath, 5 * 1024 * 1024) : undefined;
+    stdout.write(`${JSON.stringify(verifyContributionDossierBytes(bytes, { artifactBytes }))}\n`);
+    return;
+  }
+
   const vaultPath = option('--vault');
   if (!vaultPath) throw new Error('--vault is required.');
 
@@ -114,9 +168,11 @@ async function main() {
       ? signTcr1(vault, passphrase, input)
       : command === 'sign-verification'
         ? signVerification(vault, passphrase, input)
-        : command === 'sign-technocore'
-          ? signTechnocore(vault, passphrase, input)
-          : null;
+        : command === 'sign-review'
+          ? signReview(vault, passphrase, input)
+          : command === 'sign-technocore'
+            ? signTechnocore(vault, passphrase, input)
+            : null;
   if (!output) throw new Error(`Unknown command: ${command}`);
   stdout.write(`${JSON.stringify(output)}\n`);
 }

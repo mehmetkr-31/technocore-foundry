@@ -6,9 +6,9 @@
   "metadata": {
     "component": {
       "type": "application",
-      "bom-ref": "pkg:npm/technocore-foundry@0.9.0-preview.6",
+      "bom-ref": "pkg:npm/technocore-foundry@0.9.0-preview.7",
       "name": "technocore-foundry",
-      "version": "0.9.0-preview.6"
+      "version": "0.9.0-preview.7"
     }
   },
   "components": [

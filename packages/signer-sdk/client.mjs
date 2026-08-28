@@ -23,11 +23,37 @@ export function runSigner(command, { vault, payload, cli = DEFAULT_CLI } = {}) {
   });
 }
 
+export function runPublicProof(command, { args = [], cli = DEFAULT_CLI } = {}) {
+  if (!['export-dossier', 'verify-dossier'].includes(command)) throw new Error('Unsupported public-proof command.');
+  if (!Array.isArray(args) || args.some((value) => typeof value !== 'string')) throw new Error('Public-proof args must be exact strings.');
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [cli, command, ...args], { stdio: ['ignore', 'pipe', 'inherit'] });
+    let output = '';
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', (chunk) => { output += chunk; });
+    child.on('error', reject);
+    child.on('close', (code) => {
+      if (code !== 0) return reject(new Error(`foundry-signer exited with code ${code}.`));
+      try { resolve(JSON.parse(output.trim())); }
+      catch { reject(new Error('foundry-signer returned malformed public-proof output.')); }
+    });
+  });
+}
+
 export const signer = {
   did: (vault, options = {}) => runSigner('did', { vault, ...options }),
   doctor: (vault, options = {}) => runSigner('doctor', { vault, ...options }),
   signEvent: (vault, payload, options = {}) => runSigner('sign-event', { vault, payload, ...options }),
   signTcr1: (vault, payload, options = {}) => runSigner('sign-tcr1', { vault, payload, ...options }),
   signVerification: (vault, payload, options = {}) => runSigner('sign-verification', { vault, payload, ...options }),
+  signReview: (vault, payload, options = {}) => runSigner('sign-review', { vault, payload, ...options }),
   signTechnocore: (vault, payload, options = {}) => runSigner('sign-technocore', { vault, payload, ...options }),
+  exportDossier: ({ baseUrl, resultId, output, ...options }) => runPublicProof('export-dossier', {
+    ...options,
+    args: ['--base-url', baseUrl, '--result-id', resultId, '--output', output],
+  }),
+  verifyDossier: ({ input, artifact, ...options }) => runPublicProof('verify-dossier', {
+    ...options,
+    args: ['--input', input, ...(artifact ? ['--artifact', artifact] : [])],
+  }),
 };

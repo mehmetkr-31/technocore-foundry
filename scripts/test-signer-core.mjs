@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createVault, parseStrictJson, parseVault, signEvent, signTcr1, signTechnocore, signVerification, unlockVault } from '../packages/signer-cli/core.mjs';
+import { createVault, parseStrictJson, parseVault, signEvent, signReview, signTcr1, signTechnocore, signVerification, unlockVault } from '../packages/signer-cli/core.mjs';
 
 const passphrase = 'correct horse battery staple';
 const vault = createVault(passphrase, new Date('2026-08-27T00:00:00.000Z'));
@@ -45,6 +45,46 @@ const verificationReceipt = {
 assert.match(signVerification(vault, passphrase, verificationReceipt).signature.value, /^[A-Za-z0-9_-]{86}$/);
 assert.throws(() => signVerification(vault, passphrase, { ...verificationReceipt, verifierDid: 'did:key:z6Mkwrong' }), /verifier|Malformed|noncanonical/);
 assert.throws(() => signVerification(vault, passphrase, { ...verificationReceipt, secret_token: 'nope' }), /Malformed|noncanonical/);
+
+const reviewReceipt = {
+  schema: 'foundry-review-receipt-v1',
+  missionId: 'M-042',
+  resultId: verificationReceipt.resultId,
+  resultReceiptSha256: verificationReceipt.resultReceiptSha256,
+  candidateCommit: verificationReceipt.candidateCommit,
+  reviewerDid: vault.did,
+  criteria: [{ id: 'a', status: 'met', evidence: 'The exact immutable result receipt was reviewed.' }],
+  findings: [{ id: 'review-boundary', severity: 'info', summary: 'Reviewer approval remains separate from issuer acceptance.' }],
+  reviewDecision: 'approved',
+  verificationReceiptSha256: `sha256:${'9'.repeat(64)}`,
+  residualRisks: ['The review signature does not establish authorship or reward eligibility.'],
+  createdAt: '2026-08-27T00:00:00.000Z',
+};
+assert.match(signReview(vault, passphrase, reviewReceipt).signature.value, /^[A-Za-z0-9_-]{86}$/);
+assert.throws(() => signReview(vault, passphrase, { ...reviewReceipt, reviewerDid: 'did:key:z6Mkwrong' }), /review|Malformed|noncanonical/);
+assert.throws(() => signReview(vault, passphrase, { ...reviewReceipt, reviewDecision: 'accepted' }), /review|Malformed|noncanonical/);
+assert.throws(() => signReview(vault, passphrase, { ...reviewReceipt, secret_token: 'nope' }), /review|Malformed|noncanonical/);
+assert.throws(() => signReview(vault, passphrase, {
+  ...reviewReceipt,
+  criteria: [reviewReceipt.criteria[0], reviewReceipt.criteria[0]],
+}), /review|Malformed|noncanonical/);
+assert.throws(() => signReview(vault, passphrase, {
+  ...reviewReceipt,
+  findings: [{ id: 'absolute-path', severity: 'medium', path: '/tmp/review.ts', summary: 'Absolute paths are not portable review evidence.' }],
+}), /review|Malformed|noncanonical/);
+assert.throws(() => signReview(vault, passphrase, {
+  ...reviewReceipt,
+  criteria: [{ id: 'blocked-check', status: 'not_reviewed', evidence: 'Required evidence could not be inspected.' }],
+}), /Approved reviews|review|Malformed|noncanonical/);
+assert.throws(() => signReview(vault, passphrase, {
+  ...reviewReceipt,
+  reviewDecision: 'revision_required',
+  findings: [],
+}), /Revision-required|review|Malformed|noncanonical/);
+assert.throws(() => signReview(vault, passphrase, {
+  ...reviewReceipt,
+  reviewDecision: 'blocked',
+}), /Blocked reviews|review|Malformed|noncanonical/);
 assert.match(signTechnocore(vault, passphrase, { room: 'foundry-contributions', nonce: '2026082700000000001', text: 'proof res_123' }).sig, /^[A-Za-z0-9_-]{86}$/);
 
 console.log(JSON.stringify({ signerCore: 'ok', vaultSchema: vault.schema, did: vault.did }));

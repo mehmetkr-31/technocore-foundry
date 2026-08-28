@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const lock = JSON.parse(await readFile(`${root}/package-lock.json`, 'utf8'));
+const packageJson = JSON.parse(await readFile(`${root}/package.json`, 'utf8'));
+const releaseVersion = packageJson.version;
 const components = Object.entries(lock.packages ?? {})
   .filter(([path, entry]) => path.includes('node_modules/') && entry?.version)
   .map(([path, entry]) => {
@@ -22,7 +24,7 @@ const components = Object.entries(lock.packages ?? {})
 
 const sbom = {
   bomFormat: 'CycloneDX', specVersion: '1.5', serialNumber: 'urn:uuid:8df78e92-f843-5f51-91a0-77c0f0a0d006', version: 1,
-  metadata: { component: { type: 'application', 'bom-ref': 'pkg:npm/technocore-foundry@0.9.0-preview.6', name: 'technocore-foundry', version: '0.9.0-preview.6' } },
+  metadata: { component: { type: 'application', 'bom-ref': `pkg:npm/technocore-foundry@${releaseVersion}`, name: 'technocore-foundry', version: releaseVersion } },
   components,
 };
 
@@ -35,7 +37,7 @@ const migrations = (await readdir(`${root}/drizzle`)).filter((name) => /^\d{4}_.
 const migrationDigests = Object.fromEntries(await Promise.all(migrations.map(async (name) => [name, digest(await readFile(`${root}/drizzle/${name}`))])));
 const manifest = {
   schema: 'technocore-foundry-release-manifest-v1',
-  version: '0.9.0-preview.6',
+  version: releaseVersion,
   access: 'owner-only',
   publicWrite: 'disabled-until-explicit-operator-action',
   technocore: {
@@ -48,7 +50,7 @@ const manifest = {
     sbomSha256: digest(sbomBytes),
     migrationSha256: migrationDigests,
   },
-  gates: ['lint', 'typescript', 'build', 'protocol-ts', 'protocol-python', 'signer', 'observer', 'security', 'smoke', 'production-npm-audit'],
+  gates: ['lint', 'typescript', 'build', 'protocol-ts', 'protocol-python', 'signer', 'dossier-offline', 'observer', 'security', 'smoke', 'production-npm-audit'],
 };
 await writeFile(`${root}/release/manifest.json`, `${JSON.stringify(manifest, null, 2)}\n`);
 console.log(JSON.stringify({ releaseArtifacts: 'ok', components: components.length, migrations: migrations.length }));

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import re
 import unicodedata
@@ -142,6 +143,27 @@ if verification_payload.hex() != verification["signing_payload_hex"]:
     raise SystemExit("Verification receipt signing bytes mismatch")
 verify(public_key, verification["envelope"]["signature"]["value"], verification_payload)
 
+review = fixture["vectors"]["review_receipt"]
+review_receipt = review["envelope"]["receipt"]
+if review_receipt["reviewerDid"] != fixture["key"]["did"]:
+    raise SystemExit("Review receipt reviewer DID mismatch")
+review_canonical = canonical_json(review_receipt)
+if review_canonical != review["canonical_unsigned"]:
+    raise SystemExit("Review receipt canonical JSON mismatch")
+review_payload = b"foundry-review-receipt-v1\0" + review_canonical.encode()
+if review_payload.hex() != review["signing_payload_hex"]:
+    raise SystemExit("Review receipt signing bytes mismatch")
+verify(public_key, review["envelope"]["signature"]["value"], review_payload)
+if (
+    review_receipt["resultId"] != verification_receipt["resultId"]
+    or review_receipt["resultReceiptSha256"] != verification_receipt["resultReceiptSha256"]
+    or review_receipt["candidateCommit"] != verification_receipt["candidateCommit"]
+):
+    raise SystemExit("Review receipt does not share the verification target")
+verification_envelope_sha256 = hashlib.sha256(canonical_json(verification["envelope"]).encode()).hexdigest()
+if review_receipt["verificationReceiptSha256"] != f"sha256:{verification_envelope_sha256}":
+    raise SystemExit("Review receipt does not bind the canonical signed verification envelope")
+
 technocore = fixture["vectors"]["technocore_message"]
 message = technocore["message"]
 if not re.fullmatch(r"\d{1,19}", message["nonce"]):
@@ -177,6 +199,7 @@ print(json.dumps({
     "revisionChain": "valid",
     "tcr1": "valid",
     "verificationReceipt": "valid",
+    "structuredReview": "valid",
     "technocore": "valid",
     "canonical": "match",
     "invalidRejected": len(fixture["invalid_json"]) + len(fixture["invalid_utf8"]),

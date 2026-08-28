@@ -2,6 +2,31 @@ import { env } from 'cloudflare:workers';
 import { createReceipt } from '@/db/queries';
 import { canonicalJson, sha256Hex } from './foundry-crypto';
 
+export async function putImmutableObject(input: {
+  objectKey: string;
+  bytes: Uint8Array;
+  contentType: string;
+  customMetadata: Record<string, string>;
+}) {
+  if (!env.FILES) throw new Error('R2 binding unavailable');
+  const sha256 = await sha256Hex(input.bytes);
+  const created = await env.FILES.put(input.objectKey, input.bytes, {
+    onlyIf: { etagDoesNotMatch: '*' },
+    httpMetadata: { contentType: input.contentType },
+    customMetadata: { ...input.customMetadata, sha256 },
+  });
+  if (!created) {
+    const existing = await env.FILES.get(input.objectKey);
+    if (!existing) throw new Error('Immutable object creation raced; retry after inspecting storage state.');
+    const existingBytes = new Uint8Array(await existing.arrayBuffer());
+    const existingSha256 = await sha256Hex(existingBytes);
+    if (existingBytes.byteLength !== input.bytes.byteLength || existingSha256 !== sha256) {
+      throw new Error('Immutable object collision: refusing to overwrite stored bytes.');
+    }
+  }
+  return { sha256 };
+}
+
 export async function persistReceipt(input: {
   id: string;
   schema: string;
@@ -10,18 +35,16 @@ export async function persistReceipt(input: {
   createdAt: string;
   payload: unknown;
 }) {
-  if (!env.FILES) throw new Error('R2 binding unavailable');
   const receiptJson = `${canonicalJson(input.payload)}\n`;
   const receiptBytes = new TextEncoder().encode(receiptJson);
-  const sha256 = await sha256Hex(receiptBytes);
   const objectKey = `receipts/${input.id}.json`;
-
-  await env.FILES.put(objectKey, receiptBytes, {
-    httpMetadata: { contentType: 'application/json' },
+  const { sha256 } = await putImmutableObject({
+    objectKey,
+    bytes: receiptBytes,
+    contentType: 'application/json',
     customMetadata: {
       actorDid: input.actorDid,
       missionId: input.missionId,
-      sha256,
       schema: input.schema,
     },
   });

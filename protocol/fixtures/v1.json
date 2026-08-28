@@ -159,6 +159,52 @@
         }
       }
     },
+    "review_receipt": {
+      "domain": "foundry-review-receipt-v1",
+      "canonical_unsigned": "{\"candidateCommit\":\"9c7df0e3616cf28d17e7c8ebeb0c05de6adf117c\",\"createdAt\":\"2026-08-27T00:00:06.000Z\",\"criteria\":[{\"evidence\":\"The review binds the exact deterministic TCR-1 result receipt digest.\",\"id\":\"exact-result-binding\",\"status\":\"met\"},{\"evidence\":\"The referenced verification receipt binds successful local check digests.\",\"id\":\"local-check-provenance\",\"status\":\"met\"}],\"findings\":[{\"id\":\"protocol-boundary\",\"path\":\"protocol/fixtures/v1.json\",\"severity\":\"info\",\"summary\":\"Fixture conformance verifies portable bytes without asserting issuer acceptance.\"}],\"missionId\":\"F-F17E2026\",\"residualRisks\":[\"Fixture signatures establish interoperability, not contribution truth.\"],\"resultId\":\"res_444444444444444444444444\",\"resultReceiptSha256\":\"sha256:bd33cdf641fac5773b73847c3281460e57439374a0741db8b91e47c1afbc279a\",\"reviewDecision\":\"approved\",\"reviewerDid\":\"did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw\",\"schema\":\"foundry-review-receipt-v1\",\"verificationReceiptSha256\":\"sha256:748bfb57dda0cf55d90dc1279e32649b5bc73f81bbb516ee7ec68707a5efa656\"}",
+      "signing_payload_hex": "666f756e6472792d7265766965772d726563656970742d7631007b2263616e646964617465436f6d6d6974223a2239633764663065333631366366323864313765376338656265623063303564653661646631313763222c22637265617465644174223a22323032362d30382d32375430303a30303a30362e3030305a222c226372697465726961223a5b7b2265766964656e6365223a22546865207265766965772062696e6473207468652065786163742064657465726d696e6973746963205443522d3120726573756c742072656365697074206469676573742e222c226964223a2265786163742d726573756c742d62696e64696e67222c22737461747573223a226d6574227d2c7b2265766964656e6365223a22546865207265666572656e63656420766572696669636174696f6e20726563656970742062696e6473207375636365737366756c206c6f63616c20636865636b20646967657374732e222c226964223a226c6f63616c2d636865636b2d70726f76656e616e6365222c22737461747573223a226d6574227d5d2c2266696e64696e6773223a5b7b226964223a2270726f746f636f6c2d626f756e64617279222c2270617468223a2270726f746f636f6c2f66697874757265732f76312e6a736f6e222c227365766572697479223a22696e666f222c2273756d6d617279223a224669787475726520636f6e666f726d616e636520766572696669657320706f727461626c6520627974657320776974686f757420617373657274696e672069737375657220616363657074616e63652e227d5d2c226d697373696f6e4964223a22462d4631374532303236222c22726573696475616c5269736b73223a5b2246697874757265207369676e6174757265732065737461626c69736820696e7465726f7065726162696c6974792c206e6f7420636f6e747269627574696f6e2074727574682e225d2c22726573756c744964223a227265735f343434343434343434343434343434343434343434343434222c22726573756c7452656365697074536861323536223a227368613235363a62643333636466363431666163353737336237333834376333323831343630653537343339333734613037343164623862393165343763316166626332373961222c227265766965774465636973696f6e223a22617070726f766564222c227265766965776572446964223a226469643a6b65793a7a364d6b74777570646d4c58565671547a43773469343672347547796f734758526e5233586a4e345a71376f4d4d7377222c22736368656d61223a22666f756e6472792d7265766965772d726563656970742d7631222c22766572696669636174696f6e52656365697074536861323536223a227368613235363a37343862666235376464613063663535643930646331323739653332363439623562633733663831626262353136656537656336383730376135656661363536227d",
+      "envelope": {
+        "receipt": {
+          "schema": "foundry-review-receipt-v1",
+          "missionId": "F-F17E2026",
+          "resultId": "res_444444444444444444444444",
+          "resultReceiptSha256": "sha256:bd33cdf641fac5773b73847c3281460e57439374a0741db8b91e47c1afbc279a",
+          "candidateCommit": "9c7df0e3616cf28d17e7c8ebeb0c05de6adf117c",
+          "reviewerDid": "did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw",
+          "criteria": [
+            {
+              "id": "exact-result-binding",
+              "status": "met",
+              "evidence": "The review binds the exact deterministic TCR-1 result receipt digest."
+            },
+            {
+              "id": "local-check-provenance",
+              "status": "met",
+              "evidence": "The referenced verification receipt binds successful local check digests."
+            }
+          ],
+          "findings": [
+            {
+              "id": "protocol-boundary",
+              "severity": "info",
+              "path": "protocol/fixtures/v1.json",
+              "summary": "Fixture conformance verifies portable bytes without asserting issuer acceptance."
+            }
+          ],
+          "reviewDecision": "approved",
+          "verificationReceiptSha256": "sha256:748bfb57dda0cf55d90dc1279e32649b5bc73f81bbb516ee7ec68707a5efa656",
+          "residualRisks": [
+            "Fixture signatures establish interoperability, not contribution truth."
+          ],
+          "createdAt": "2026-08-27T00:00:06.000Z"
+        },
+        "signature": {
+          "algorithm": "Ed25519",
+          "domain": "foundry-review-receipt-v1",
+          "value": "AzL_5Ta1Fe1wqtS7pweLr4eglOh-Imx9LF83r_I3qGgZpHt9Zvqn1I1CtqCr787DgUYReKetMfwy3j2fsQEYBg"
+        }
+      }
+    },
     "technocore_message": {
       "domain": "<room>|<nonce>|<text>",
       "raw_text_before_sweep": "Café\nNFC stays distinct from Café‍.",

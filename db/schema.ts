@@ -183,6 +183,27 @@ export const evidenceReceipts = sqliteTable(
   ],
 );
 
+export const dossiers = sqliteTable(
+  'contribution_dossiers',
+  {
+    id: text('id').primaryKey(),
+    resultId: text('result_id').notNull(),
+    missionId: text('mission_id').notNull(),
+    claimId: text('claim_id').notNull(),
+    claimantDid: text('claimant_did').notNull(),
+    objectKey: text('object_key').notNull(),
+    sha256: text('sha256').notNull(),
+    bytes: integer('bytes').notNull(),
+    snapshotAt: text('snapshot_at').notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('idx_contribution_dossiers_result_sha256').on(table.resultId, table.sha256),
+    index('idx_contribution_dossiers_result_created').on(table.resultId, table.createdAt),
+    index('idx_contribution_dossiers_mission_created').on(table.missionId, table.createdAt),
+  ],
+);
+
 export const resultFinalizations = sqliteTable(
   'result_finalizations',
   {

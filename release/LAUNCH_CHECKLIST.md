@@ -4,9 +4,9 @@
 
 - [x] Local browser vault, encrypted backup, and restore drill
 - [x] Local signer CLI and agent SDK with terminal-only secret entry
-- [x] Signed mission, claim, result, issuer review, revision, execution evidence, attestation, and finalization lifecycle
-- [x] D1 structured state and R2 immutable receipt/artifact storage
-- [x] Portable proof pages, offline verification, Protocol Conformance Lab, and TS/Python vectors
+- [x] Signed mission, claim, result, issuer review, revision, execution evidence, structured review, attestation, and finalization lifecycle
+- [x] D1 structured state and insert-only R2 receipt/artifact/dossier storage
+- [x] Portable proof pages, content-addressed dossiers, offline verification, Protocol Conformance Lab, and TS/Python vectors
 - [x] Accepted-only Contribution Atlas with evidence edges and no reputation score
 - [x] Fixed-origin, fixed-room, user-triggered observer with epoch/gap ledger
 - [x] Security headers, regression suite, SBOM, deterministic release manifest, and dependency audit

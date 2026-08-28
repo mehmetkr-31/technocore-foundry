@@ -16,6 +16,7 @@ export const EVENT_SCHEMA = 'foundry-event-v1';
 export const TCR1_TYPE = 'technocore-task-receipt';
 export const TCR1_DOMAIN = 'technocore-task-receipt:v1';
 export const VERIFICATION_RECEIPT_SCHEMA = 'foundry-verification-receipt-v1';
+export const REVIEW_RECEIPT_SCHEMA = 'foundry-review-receipt-v1';
 const BASE58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 const ED25519_MULTICODEC = Buffer.from([0xed, 0x01]);
 const KDF_ITERATIONS = 310_000;
@@ -287,6 +288,72 @@ function assertVerificationReceipt(receipt, did) {
   if (!valid) throw new Error('Malformed or noncanonical verification receipt.');
 }
 
+function assertReviewReceipt(receipt, did) {
+  if (!receipt || typeof receipt !== 'object' || Array.isArray(receipt) || 'signature' in receipt) throw new Error('Input must be an unsigned structured review receipt.');
+  const digest = (value) => typeof value === 'string' && /^sha256:[a-f0-9]{64}$/.test(value);
+  const boundedText = (value, minimum, maximum) => typeof value === 'string' && value.length >= minimum && value.length <= maximum && !/[\u0000-\u001f\u007f]/u.test(value);
+  const safePath = (value) => typeof value === 'string' && value.length >= 1 && value.length <= 240 && !value.startsWith('/') && !value.includes('\\') && !/^[A-Za-z]:\//.test(value) && !/^[A-Za-z][A-Za-z0-9+.-]*:/.test(value) && !/^~(?:\/|$)/.test(value) && !value.split('/').includes('..') && /^[A-Za-z0-9_.@/+:-]+$/.test(value);
+  const forbidden = (value) => Array.isArray(value) ? value.some(forbidden) : value && typeof value === 'object' ? Object.entries(value).some(([key, item]) => /secret|private|password|token|airdrop|eligib/i.test(key) || forbidden(item)) : false;
+  const criterionValid = (criterion) => criterion && typeof criterion === 'object' && !Array.isArray(criterion) &&
+    hasOnlyKeys(criterion, ['id', 'status', 'evidence']) &&
+    typeof criterion.id === 'string' && /^[a-z0-9][a-z0-9_.:-]{0,63}$/.test(criterion.id) &&
+    ['met', 'partially_met', 'not_met', 'not_reviewed', 'not_applicable'].includes(criterion.status) &&
+    boundedText(criterion.evidence, 1, 500);
+  const findingValid = (finding) => finding && typeof finding === 'object' && !Array.isArray(finding) &&
+    hasOnlyKeys(finding, ['id', 'severity', 'path', 'summary']) &&
+    typeof finding.id === 'string' && /^[a-z0-9][a-z0-9_.:-]{0,63}$/.test(finding.id) &&
+    ['info', 'low', 'medium', 'high', 'critical'].includes(finding.severity) &&
+    (finding.path === undefined || safePath(finding.path)) &&
+    boundedText(finding.summary, 8, 500);
+  const valid = hasOnlyKeys(receipt, [
+    'schema', 'missionId', 'resultId', 'resultReceiptSha256', 'candidateCommit',
+    'reviewerDid', 'criteria', 'findings', 'reviewDecision', 'verificationReceiptSha256',
+    'residualRisks', 'createdAt',
+  ]) &&
+    !forbidden(receipt) &&
+    receipt.schema === REVIEW_RECEIPT_SCHEMA &&
+    /^(M-[0-9]{3}|F-[A-F0-9]{8})$/.test(receipt.missionId) &&
+    /^res_[a-f0-9]{24}$/.test(receipt.resultId) &&
+    digest(receipt.resultReceiptSha256) &&
+    (receipt.candidateCommit === undefined || /^[a-f0-9]{40}$/.test(receipt.candidateCommit)) &&
+    receipt.reviewerDid === did &&
+    Array.isArray(receipt.criteria) && receipt.criteria.length >= 1 && receipt.criteria.length <= 20 && receipt.criteria.every(criterionValid) &&
+    new Set(receipt.criteria.map((criterion) => criterion.id)).size === receipt.criteria.length &&
+    Array.isArray(receipt.findings) && receipt.findings.length <= 50 && receipt.findings.every(findingValid) &&
+    new Set(receipt.findings.map((finding) => finding.id)).size === receipt.findings.length &&
+    ['approved', 'revision_required', 'blocked'].includes(receipt.reviewDecision) &&
+    (receipt.verificationReceiptSha256 === undefined || digest(receipt.verificationReceiptSha256)) &&
+    Array.isArray(receipt.residualRisks) && receipt.residualRisks.length <= 20 && receipt.residualRisks.every((risk) => boundedText(risk, 1, 300)) &&
+    validTimestamp(receipt.createdAt);
+  if (!valid) throw new Error('Malformed or noncanonical structured review receipt.');
+  const criterionStatuses = receipt.criteria.map((criterion) => criterion.status);
+  const findingSeverities = receipt.findings.map((finding) => finding.severity);
+  if (receipt.reviewDecision === 'approved' && (criterionStatuses.some((status) => ['partially_met', 'not_met', 'not_reviewed'].includes(status)) || findingSeverities.some((severity) => ['high', 'critical'].includes(severity)))) {
+    throw new Error('Approved reviews cannot contain unmet criteria or high-severity findings.');
+  }
+  if (receipt.reviewDecision === 'revision_required' && receipt.findings.length === 0 && !criterionStatuses.some((status) => ['partially_met', 'not_met'].includes(status))) {
+    throw new Error('Revision-required reviews must identify a finding or unmet criterion.');
+  }
+  if (receipt.reviewDecision === 'blocked' && !criterionStatuses.includes('not_reviewed')) {
+    throw new Error('Blocked reviews require a not-reviewed criterion.');
+  }
+}
+
+export function validateFoundryEventDocument(event) {
+  assertFoundryEvent(event, event?.actor);
+  return true;
+}
+
+export function validateVerificationReceiptDocument(receipt) {
+  assertVerificationReceipt(receipt, receipt?.verifierDid);
+  return true;
+}
+
+export function validateReviewReceiptDocument(receipt) {
+  assertReviewReceipt(receipt, receipt?.reviewerDid);
+  return true;
+}
+
 export function signEvent(vault, passphrase, event) {
   assertFoundryEvent(event, vault.did);
   const privateKey = unlockVault(vault, passphrase);
@@ -316,6 +383,15 @@ export function signVerification(vault, passphrase, receipt) {
   return {
     receipt,
     signature: { algorithm: 'Ed25519', domain: VERIFICATION_RECEIPT_SCHEMA, value: base64url(sign(null, domainBytes(VERIFICATION_RECEIPT_SCHEMA, receipt), privateKey)) },
+  };
+}
+
+export function signReview(vault, passphrase, receipt) {
+  assertReviewReceipt(receipt, vault.did);
+  const privateKey = unlockVault(vault, passphrase);
+  return {
+    receipt,
+    signature: { algorithm: 'Ed25519', domain: REVIEW_RECEIPT_SCHEMA, value: base64url(sign(null, domainBytes(REVIEW_RECEIPT_SCHEMA, receipt), privateKey)) },
   };
 }
 

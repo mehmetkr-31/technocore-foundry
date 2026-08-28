@@ -99,7 +99,7 @@ async function presentResult(
       portableUrl: `/receipt/${result.finalReceiptId}`,
       rawUrl: `/api/receipts/${result.finalReceiptId}`,
     } : null,
-    executionEvidence: evidenceReceipts.map((receipt) => ({
+    executionEvidence: evidenceReceipts.filter((receipt) => receipt.kind === 'verification').map((receipt) => ({
       id: receipt.id,
       kind: receipt.kind,
       actorDid: receipt.actorDid,
@@ -107,6 +107,16 @@ async function presentResult(
       createdAt: receipt.createdAt,
       portableUrl: `/receipt/${receipt.id}`,
       rawUrl: `/api/receipts/${receipt.id}`,
+    })),
+    structuredReviews: evidenceReceipts.filter((receipt) => receipt.kind === 'review').map((receipt) => ({
+      id: receipt.id,
+      kind: receipt.kind,
+      actorDid: receipt.actorDid,
+      receiptSha256: `sha256:${receipt.receiptSha256}`,
+      createdAt: receipt.createdAt,
+      portableUrl: `/receipt/${receipt.id}`,
+      rawUrl: `/api/receipts/${receipt.id}`,
+      doesNotConstitute: 'issuer_acceptance',
     })),
     attestations: attestations.map((attestation) => ({
       id: attestation.id,
