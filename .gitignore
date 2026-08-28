@@ -29,12 +29,20 @@ yarn-error.log*
 
 # local environment
 .env*
+!.env.example
+.dev.vars*
 
 # local Foundry identity vaults
+*.vault.json
+*.vault.json.*
 *.foundry-vault.json
 *.foundry-vault.json.*
 technocore-foundry-*.vault.json
 technocore-foundry-*.vault.json.*
+*.key
+*.p12
+*.pfx
+credentials.json
 
 # deployment and generated files
 .vercel

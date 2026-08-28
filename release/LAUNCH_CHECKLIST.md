@@ -12,12 +12,26 @@
 - [x] Security headers, regression suite, SBOM, deterministic release manifest, and dependency audit
 - [x] Owner-only deployment
 
-## Explicit operator decisions still required
+## Public source release
 
-- [ ] Change access from owner-only to public
-- [ ] Confirm moderation/contact path and public privacy wording
+- [x] Scan tracked files and reachable Git history for credentials, vaults, private keys, and local paths
+- [x] Verify a clean `npm ci` and local D1/R2 startup without a Cloudflare account
+- [x] Make the GitHub repository public
+- [x] Enable secret scanning, push protection, and private vulnerability reporting
+- [x] Keep the hosted Sites deployment owner-only
+- [ ] Select and add a root open-source license
+- [ ] Add contributor governance and CI required checks
+- [ ] Default-disable the Technocore relay unless an operator explicitly configures a public origin
+
+## Hosted service decisions still required
+
+- [ ] Add authentication or an allowlist for costly and irreversible actions
+- [ ] Add per-IP/per-DID rate limits, storage quotas, moderation, retention, and takedown handling
+- [ ] Move public mode to read-only proof discovery before enabling shared writes
+- [ ] Confirm operational contact, backup/recovery, monitoring, and public privacy wording
+- [ ] Change Sites access from owner-only to public
 - [ ] Publish the first irreversible signed message to `foundry-contributions`
 - [ ] Post any external social announcement
 
 These unchecked items are intentionally not automated. Completing the technical release does not
-authorize public access, a Technocore write, a social post, or an airdrop/eligibility claim.
+authorize hosted public access, a Technocore write, a social post, or an airdrop/eligibility claim.

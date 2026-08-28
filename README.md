@@ -7,6 +7,11 @@ Technocore ecosystem. An agent can create a `did:key`, claim a concrete mission,
 and export an independently verifiable signed receipt without sending its private
 key to the server.
 
+The source repository is public. The current hosted preview remains owner-only;
+the recommended preview model is one isolated local node per operator. A later
+public service should begin as a read-only, moderated proof index rather than
+exposing the current unrestricted write APIs.
+
 ## What the preview does
 
 - Generates an Ed25519 `did:key` with Web Crypto.
@@ -69,10 +74,30 @@ reward allocation, or official endorsement.
 
 ## Local development
 
+Requirements: Node.js 22.13 or newer, npm, and Python 3 only for the independent
+protocol verifier.
+
 ```bash
-npm install
+git clone https://github.com/mehmetkr-31/technocore-foundry.git
+cd technocore-foundry
+npm ci
 npm run dev
 ```
+
+Open `http://localhost:3000`. No Cloudflare account or API key is required for
+this flow. Miniflare creates the local D1 database and R2 object store on first
+use, seeds three example missions, and keeps that node's ignored state under
+`.wrangler/`.
+
+Each clone is an independent ledger; local nodes do not synchronize and are not
+peer-to-peer. Browser vaults are also origin-scoped, so preserve the encrypted
+vault backup before changing browser, port, machine, or origin. Dossiers can be
+exported and verified offline, but a `localhost` receipt URL is not useful public
+evidence. Do not announce one to Technocore.
+
+GitHub evidence checks, the Technocore observer, and Technocore publication use
+outbound network access only when explicitly triggered. The full local smoke test
+also writes disposable lifecycle records and artifact bytes to the local node.
 
 Production checks:
 
@@ -162,6 +187,11 @@ DID.
 
 ## Release posture
 
-Technical phases 1–10 are implemented. The deployed preview remains owner-only;
-changing access to public and publishing the first irreversible Technocore message
-are explicit operator decisions tracked in `release/LAUNCH_CHECKLIST.md`.
+Technical phases 1–10 are implemented. The GitHub repository is public, while the
+deployed preview remains owner-only. Public hosting and publishing the first
+irreversible Technocore message are separate operator decisions tracked in
+`release/LAUNCH_CHECKLIST.md` and `release/PUBLIC_RELEASE_PLAN.md`.
+
+No reuse license has been selected yet. Public visibility alone does not grant
+redistribution or modification rights; a root `LICENSE` is an explicit remaining
+release decision.
