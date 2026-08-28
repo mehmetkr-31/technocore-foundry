@@ -22,7 +22,8 @@
     "release:artifacts": "node scripts/generate-release-artifacts.mjs"
   },
   "bin": {
-    "foundry-signer": "./packages/signer-cli/bin/foundry-signer.mjs"
+    "foundry-signer": "./packages/signer-cli/bin/foundry-signer.mjs",
+    "foundry-verifier": "./packages/signer-cli/bin/foundry-verifier.mjs"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",

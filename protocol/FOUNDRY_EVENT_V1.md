@@ -56,6 +56,25 @@ eligibility scores.
 
 Every event type rejects additional properties in the verifier.
 
+## Execution evidence receipts
+
+`foundry-verification-receipt-v1` is separate from `foundry-event-v1` and TCR-1. It answers
+how an artifact was locally verified without giving Foundry permission to execute untrusted code.
+
+The Ed25519 signing input is:
+
+```text
+UTF8("foundry-verification-receipt-v1") || 0x00 || canonical_json(receipt)
+```
+
+The signed envelope is `{"receipt": <receipt>, "signature": {"algorithm":"Ed25519",
+"domain":"foundry-verification-receipt-v1","value": <unpadded-base64url>}}`.
+
+The receipt binds a verifier DID to an exact result identifier, exact result receipt hash,
+candidate commit, and one to twenty local checks. Each check stores an id, executable hash, argv
+hash, exit code, stdout hash, stderr hash, and duration. It must not include prompts, model
+transcripts, chain-of-thought, secrets, private keys, tokens, reward claims, or eligibility claims.
+
 ## Restricted JSON profile
 
 - values are null, booleans, safe integers, strings, arrays, and plain objects;

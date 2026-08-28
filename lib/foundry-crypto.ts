@@ -4,6 +4,7 @@ export const VAULT_SCHEMA = 'foundry-vault-v1' as const;
 export const EVENT_SCHEMA = 'foundry-event-v1' as const;
 export const TCR1_TYPE = 'technocore-task-receipt' as const;
 export const TCR1_DOMAIN = 'technocore-task-receipt:v1' as const;
+export const VERIFICATION_RECEIPT_SCHEMA = 'foundry-verification-receipt-v1' as const;
 export const MAX_RESULT_REVISIONS = 5 as const;
 
 const BASE58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
@@ -130,6 +131,35 @@ export type Tcr1Receipt = {
   signature: {
     algorithm: 'Ed25519';
     domain: typeof TCR1_DOMAIN;
+    value: string;
+  };
+};
+
+export type VerificationCheck = {
+  id: string;
+  executableSha256: string;
+  argvSha256: string;
+  exitCode: number;
+  stdoutSha256: string;
+  stderrSha256: string;
+  durationMs: number;
+};
+
+export type FoundryVerificationReceipt = {
+  schema: typeof VERIFICATION_RECEIPT_SCHEMA;
+  resultId: string;
+  resultReceiptSha256: string;
+  candidateCommit: string;
+  verifierDid: string;
+  checks: VerificationCheck[];
+  createdAt: string;
+};
+
+export type SignedVerificationReceipt = {
+  receipt: FoundryVerificationReceipt;
+  signature: {
+    algorithm: 'Ed25519';
+    domain: typeof VERIFICATION_RECEIPT_SCHEMA;
     value: string;
   };
 };
@@ -337,6 +367,10 @@ function domainBytes(domain: string, value: unknown) {
 
 export function eventSigningBytes(event: FoundryEvent) {
   return domainBytes(EVENT_SCHEMA, event);
+}
+
+export function verificationReceiptSigningBytes(receipt: FoundryVerificationReceipt) {
+  return domainBytes(VERIFICATION_RECEIPT_SCHEMA, receipt);
 }
 
 async function signFoundryEvent<T extends FoundryEvent>(vault: FoundryVault, passphrase: string, event: T) {
@@ -578,6 +612,85 @@ function hasForbiddenReceiptKey(value: unknown): boolean {
     );
   }
   return false;
+}
+
+function isVerificationReceipt(receipt: unknown): receipt is FoundryVerificationReceipt {
+  if (!receipt || typeof receipt !== 'object' || Array.isArray(receipt)) return false;
+  if (hasForbiddenReceiptKey(receipt)) return false;
+  const value = receipt as Record<string, unknown>;
+  return hasOnlyKeys(value, ['schema', 'resultId', 'resultReceiptSha256', 'candidateCommit', 'verifierDid', 'checks', 'createdAt']) &&
+    value.schema === VERIFICATION_RECEIPT_SCHEMA &&
+    typeof value.resultId === 'string' && /^res_[a-f0-9]{24}$/.test(value.resultId) &&
+    typeof value.resultReceiptSha256 === 'string' && /^sha256:[a-f0-9]{64}$/.test(value.resultReceiptSha256) &&
+    typeof value.candidateCommit === 'string' && /^[a-f0-9]{40}$/.test(value.candidateCommit) &&
+    typeof value.verifierDid === 'string' &&
+    typeof value.createdAt === 'string' &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(value.createdAt) &&
+    Number.isFinite(Date.parse(value.createdAt)) &&
+    Array.isArray(value.checks) &&
+    value.checks.length >= 1 &&
+    value.checks.length <= 20 &&
+    value.checks.every((check) => {
+      if (!check || typeof check !== 'object' || Array.isArray(check)) return false;
+      const item = check as Record<string, unknown>;
+      return hasOnlyKeys(item, ['id', 'executableSha256', 'argvSha256', 'exitCode', 'stdoutSha256', 'stderrSha256', 'durationMs']) &&
+        typeof item.id === 'string' && /^[a-z0-9][a-z0-9_.:-]{1,63}$/.test(item.id) &&
+        typeof item.executableSha256 === 'string' && /^sha256:[a-f0-9]{64}$/.test(item.executableSha256) &&
+        typeof item.argvSha256 === 'string' && /^sha256:[a-f0-9]{64}$/.test(item.argvSha256) &&
+        typeof item.exitCode === 'number' && Number.isSafeInteger(item.exitCode) && item.exitCode >= 0 && item.exitCode <= 255 &&
+        typeof item.stdoutSha256 === 'string' && /^sha256:[a-f0-9]{64}$/.test(item.stdoutSha256) &&
+        typeof item.stderrSha256 === 'string' && /^sha256:[a-f0-9]{64}$/.test(item.stderrSha256) &&
+        typeof item.durationMs === 'number' && Number.isSafeInteger(item.durationMs) && item.durationMs >= 0 && item.durationMs <= 3_600_000;
+    });
+}
+
+export async function signVerificationReceipt(
+  vault: FoundryVault,
+  passphrase: string,
+  receipt: Omit<FoundryVerificationReceipt, 'schema' | 'verifierDid' | 'createdAt'> & { createdAt?: string },
+) {
+  const fullReceipt = {
+    schema: VERIFICATION_RECEIPT_SCHEMA,
+    ...receipt,
+    verifierDid: vault.did,
+    createdAt: receipt.createdAt ?? new Date().toISOString(),
+  } satisfies FoundryVerificationReceipt;
+  if (!isVerificationReceipt(fullReceipt)) throw new Error('Malformed verification receipt.');
+  const privateKey = await unlockVault(vault, passphrase);
+  const signature = await crypto.subtle.sign('Ed25519', privateKey, verificationReceiptSigningBytes(fullReceipt));
+  return {
+    receipt: fullReceipt,
+    signature: { algorithm: 'Ed25519' as const, domain: VERIFICATION_RECEIPT_SCHEMA, value: bytesToBase64Url(new Uint8Array(signature)) },
+  } satisfies SignedVerificationReceipt;
+}
+
+export async function verifyVerificationReceipt(envelope: SignedVerificationReceipt) {
+  try {
+    if (
+      !envelope || typeof envelope !== 'object' ||
+      !isVerificationReceipt(envelope.receipt) ||
+      !envelope.signature ||
+      !hasOnlyKeys(envelope.signature as unknown as Record<string, unknown>, ['algorithm', 'domain', 'value']) ||
+      envelope.signature.algorithm !== 'Ed25519' ||
+      envelope.signature.domain !== VERIFICATION_RECEIPT_SCHEMA ||
+      !/^[A-Za-z0-9_-]{86}$/.test(envelope.signature.value)
+    ) return false;
+    const publicKey = await crypto.subtle.importKey(
+      'raw',
+      publicKeyFromDid(envelope.receipt.verifierDid),
+      { name: 'Ed25519' },
+      false,
+      ['verify'],
+    );
+    return crypto.subtle.verify(
+      'Ed25519',
+      publicKey,
+      base64UrlToBytes(envelope.signature.value),
+      verificationReceiptSigningBytes(envelope.receipt),
+    );
+  } catch {
+    return false;
+  }
 }
 
 export async function verifyTcr1Receipt(receipt: Tcr1Receipt) {

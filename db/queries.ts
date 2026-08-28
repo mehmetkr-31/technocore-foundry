@@ -59,6 +59,11 @@ export type ResultRecord = {
   evidenceIdentityBinding: string | null;
   evidenceDetail: string | null;
   evidenceCheckedAt: string | null;
+  verificationReceiptId: string | null;
+  verificationReceiptSha256: string | null;
+  verificationActorDid: string | null;
+  verificationCreatedAt: string | null;
+  verificationReceiptCount: number;
   finalReceiptId: string | null;
   finalReceiptJson: string | null;
   finalReceiptSha256: string | null;
@@ -100,6 +105,16 @@ export type EvidenceCheckRecord = {
   detail: string;
   snapshotJson: string;
   checkedAt: string;
+};
+
+export type EvidenceReceiptRecord = {
+  id: string;
+  resultId: string;
+  missionId: string;
+  kind: 'verification';
+  actorDid: string;
+  receiptSha256: string;
+  createdAt: string;
 };
 
 export type FinalizationRecord = {
@@ -331,6 +346,18 @@ export async function ensureDatabase() {
       snapshot_json TEXT NOT NULL,
       checked_at TEXT NOT NULL
     )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS evidence_receipts (
+      id TEXT PRIMARY KEY,
+      result_id TEXT NOT NULL,
+      mission_id TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      actor_did TEXT NOT NULL,
+      receipt_sha256 TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )`),
+    db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_evidence_receipts_result_kind_actor ON evidence_receipts(result_id, kind, actor_did)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_evidence_receipts_result_created ON evidence_receipts(result_id, created_at)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_evidence_receipts_mission_created ON evidence_receipts(mission_id, created_at)'),
     db.prepare(`CREATE TABLE IF NOT EXISTS result_finalizations (
       result_id TEXT PRIMARY KEY,
       receipt_id TEXT NOT NULL,
@@ -649,15 +676,26 @@ const resultSelect = `SELECT
   e.identity_binding AS evidenceIdentityBinding,
   e.detail AS evidenceDetail,
   e.checked_at AS evidenceCheckedAt,
+  ver.id AS verificationReceiptId,
+  ver.receipt_sha256 AS verificationReceiptSha256,
+  ver.actor_did AS verificationActorDid,
+  ver.created_at AS verificationCreatedAt,
   f.receipt_id AS finalReceiptId,
   f.receipt_json AS finalReceiptJson,
   f.receipt_sha256 AS finalReceiptSha256,
   f.created_at AS finalCreatedAt,
+  (SELECT COUNT(*) FROM evidence_receipts er WHERE er.result_id = r.id AND er.kind = 'verification') AS verificationReceiptCount,
   (SELECT COUNT(*) FROM attestations at WHERE at.result_id = r.id) AS attestationCount
 FROM result_revisions r
 LEFT JOIN acceptances a ON a.result_id = r.id
 LEFT JOIN change_requests cr ON cr.result_id = r.id
 LEFT JOIN evidence_checks e ON e.result_id = r.id
+LEFT JOIN evidence_receipts ver ON ver.id = (
+  SELECT er.id FROM evidence_receipts er
+  WHERE er.result_id = r.id AND er.kind = 'verification'
+  ORDER BY er.created_at DESC
+  LIMIT 1
+)
 LEFT JOIN result_finalizations f ON f.result_id = r.id`;
 
 function normalizeResult(result: ResultRecord | null) {
@@ -666,6 +704,7 @@ function normalizeResult(result: ResultRecord | null) {
     revision: Number(result.revision),
     artifactBytes: Number(result.artifactBytes),
     attestationCount: Number(result.attestationCount),
+    verificationReceiptCount: Number(result.verificationReceiptCount),
   } : null;
 }
 
@@ -789,6 +828,36 @@ export async function findEvidenceCheck(resultId: string) {
   FROM evidence_checks WHERE result_id = ?`).bind(resultId).first<EvidenceCheckRecord>();
 }
 
+export async function createEvidenceReceipt(input: EvidenceReceiptRecord) {
+  await database().prepare(`INSERT INTO evidence_receipts
+    (id, result_id, mission_id, kind, actor_did, receipt_sha256, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)`).bind(
+      input.id,
+      input.resultId,
+      input.missionId,
+      input.kind,
+      input.actorDid,
+      input.receiptSha256,
+      input.createdAt,
+    ).run();
+}
+
+export async function listResultEvidenceReceipts(resultId: string) {
+  await ensureDatabase();
+  const result = await database().prepare(`SELECT
+    id,
+    result_id AS resultId,
+    mission_id AS missionId,
+    kind,
+    actor_did AS actorDid,
+    receipt_sha256 AS receiptSha256,
+    created_at AS createdAt
+  FROM evidence_receipts
+  WHERE result_id = ?
+  ORDER BY created_at ASC`).bind(resultId).all<EvidenceReceiptRecord>();
+  return result.results;
+}
+
 export async function createFinalization(input: FinalizationRecord) {
   await database().prepare(`INSERT INTO result_finalizations
     (result_id, receipt_id, receipt_json, receipt_sha256, created_at)
@@ -887,7 +956,8 @@ export async function findReceiptMetadata(id: string) {
       (SELECT cr.result_id FROM change_requests cr WHERE cr.id = rec.id),
       (SELECT rr.id FROM result_revisions rr WHERE rr.revision_receipt_id = rec.id),
       (SELECT f.result_id FROM result_finalizations f WHERE f.receipt_id = rec.id),
-      (SELECT at.result_id FROM attestations at WHERE at.id = rec.id)
+      (SELECT at.result_id FROM attestations at WHERE at.id = rec.id),
+      (SELECT er.result_id FROM evidence_receipts er WHERE er.id = rec.id)
     ) AS resultId
   FROM receipts rec
   LEFT JOIN missions m ON m.id = rec.mission_id
@@ -1064,6 +1134,7 @@ export type AtlasContribution = {
   evidenceCi: string | null;
   finalizedReceiptId: string | null;
   attestationCount: number;
+  verificationReceiptCount: number;
 };
 
 export async function getAtlas() {
@@ -1098,7 +1169,8 @@ export async function getAtlas() {
       e.github_status AS evidenceGithub,
       e.ci_status AS evidenceCi,
       f.receipt_id AS finalizedReceiptId,
-      (SELECT COUNT(*) FROM attestations at WHERE at.result_id = r.id) AS attestationCount
+      (SELECT COUNT(*) FROM attestations at WHERE at.result_id = r.id) AS attestationCount,
+      (SELECT COUNT(*) FROM evidence_receipts er WHERE er.result_id = r.id AND er.kind = 'verification') AS verificationReceiptCount
     FROM acceptances a
     JOIN result_revisions r ON r.id = a.result_id
     JOIN missions m ON m.id = r.mission_id
@@ -1122,6 +1194,7 @@ export async function getAtlas() {
       ...item,
       artifactBytes: Number(item.artifactBytes),
       attestationCount: Number(item.attestationCount),
+      verificationReceiptCount: Number(item.verificationReceiptCount),
     })),
   };
 }

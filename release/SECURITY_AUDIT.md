@@ -16,6 +16,9 @@ Launch posture: owner-only preview; public Technocore writes require a separate 
   exact change-request receipt. Stale decisions and altered parent hashes fail closed.
 - Peer attestations require a distinct DID from both issuer and claimant, bind an accepted result
   digest, and are displayed as evidence types—not reputation or eligibility scores.
+- Execution evidence receipts are produced by an operator-controlled local verifier. Foundry stores
+  signed metadata and stdout/stderr hashes only; it does not run arbitrary project tests on the
+  server.
 - GitHub evidence accepts only plain `https://github.com/<owner>/<repo>` paths and same-repository
   commit, PR, and Actions-run identifiers. Credentials, ports, queries, fragments, alternate hosts,
   and redirect URLs are rejected before any fetch.
@@ -32,8 +35,8 @@ Launch posture: owner-only preview; public Technocore writes require a separate 
 `npm run test:security` checks security headers, duplicate JSON keys, invalid UTF-8, body limits,
 tampered signatures, fixed-origin observer behavior, receipt-ID boundaries, SSRF URL policy,
 cross-repository binding, and forbidden receipt fields. `npm run test:smoke` additionally checks
-stale acceptance, altered revision parent hashes, independent attestations, proof pages, Atlas, and
-artifact byte round-trips.
+stale acceptance, altered revision parent hashes, execution evidence binding, independent
+attestations, proof pages, Atlas, and artifact byte round-trips.
 
 ## Residual risks
 

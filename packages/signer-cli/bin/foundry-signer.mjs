@@ -4,10 +4,10 @@ import { createReadStream, createWriteStream, openSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
-import { createVault, parseStrictJson, parseVault, signEvent, signTcr1, signTechnocore, unlockVault } from '../core.mjs';
+import { createVault, parseStrictJson, parseVault, signEvent, signTcr1, signTechnocore, signVerification, unlockVault } from '../core.mjs';
 
 function usage() {
-  return `foundry-signer <command> --vault <path> [--input <path|->]\n\nCommands:\n  init             create a browser-compatible encrypted vault\n  did              print the public DID without unlocking\n  doctor           unlock and perform a sign/verify recovery test\n  sign-event       sign an unsigned foundry-event-v1 object\n  sign-tcr1        sign an unsigned TCR-1 receipt\n  sign-technocore  sign an exact room|nonce|text Technocore payload\n\nPassphrases are accepted only from the controlling terminal; never argv, env, stdin, or files.`;
+  return `foundry-signer <command> --vault <path> [--input <path|->]\n\nCommands:\n  init               create a browser-compatible encrypted vault\n  did                print the public DID without unlocking\n  doctor             unlock and perform a sign/verify recovery test\n  sign-event         sign an unsigned foundry-event-v1 object\n  sign-tcr1          sign an unsigned TCR-1 receipt\n  sign-verification  sign an unsigned foundry-verification-receipt-v1 object\n  sign-technocore    sign an exact room|nonce|text Technocore payload\n\nPassphrases are accepted only from the controlling terminal; never argv, env, stdin, or files.`;
 }
 
 function option(name) {
@@ -112,9 +112,11 @@ async function main() {
     ? signEvent(vault, passphrase, input)
     : command === 'sign-tcr1'
       ? signTcr1(vault, passphrase, input)
-      : command === 'sign-technocore'
-        ? signTechnocore(vault, passphrase, input)
-        : null;
+      : command === 'sign-verification'
+        ? signVerification(vault, passphrase, input)
+        : command === 'sign-technocore'
+          ? signTechnocore(vault, passphrase, input)
+          : null;
   if (!output) throw new Error(`Unknown command: ${command}`);
   stdout.write(`${JSON.stringify(output)}\n`);
 }

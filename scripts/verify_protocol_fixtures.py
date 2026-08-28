@@ -130,6 +130,18 @@ if tcr_payload.hex() != tcr["signing_payload_hex"]:
     raise SystemExit("TCR-1 signing bytes mismatch")
 verify(public_key, tcr["receipt"]["signature"]["value"], tcr_payload)
 
+verification = fixture["vectors"]["verification_receipt"]
+verification_receipt = verification["envelope"]["receipt"]
+if verification_receipt["verifierDid"] != fixture["key"]["did"]:
+    raise SystemExit("Verification receipt verifier DID mismatch")
+verification_canonical = canonical_json(verification_receipt)
+if verification_canonical != verification["canonical_unsigned"]:
+    raise SystemExit("Verification receipt canonical JSON mismatch")
+verification_payload = b"foundry-verification-receipt-v1\0" + verification_canonical.encode()
+if verification_payload.hex() != verification["signing_payload_hex"]:
+    raise SystemExit("Verification receipt signing bytes mismatch")
+verify(public_key, verification["envelope"]["signature"]["value"], verification_payload)
+
 technocore = fixture["vectors"]["technocore_message"]
 message = technocore["message"]
 if not re.fullmatch(r"\d{1,19}", message["nonce"]):
@@ -164,6 +176,7 @@ print(json.dumps({
     "changeRequest": "valid",
     "revisionChain": "valid",
     "tcr1": "valid",
+    "verificationReceipt": "valid",
     "technocore": "valid",
     "canonical": "match",
     "invalidRejected": len(fixture["invalid_json"]) + len(fixture["invalid_utf8"]),

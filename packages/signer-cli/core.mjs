@@ -15,6 +15,7 @@ export const VAULT_SCHEMA = 'foundry-vault-v1';
 export const EVENT_SCHEMA = 'foundry-event-v1';
 export const TCR1_TYPE = 'technocore-task-receipt';
 export const TCR1_DOMAIN = 'technocore-task-receipt:v1';
+export const VERIFICATION_RECEIPT_SCHEMA = 'foundry-verification-receipt-v1';
 const BASE58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 const ED25519_MULTICODEC = Buffer.from([0xed, 0x01]);
 const KDF_ITERATIONS = 310_000;
@@ -260,6 +261,32 @@ function assertFoundryEvent(event, did) {
   if (!valid) throw new Error('Malformed or noncanonical Foundry event.');
 }
 
+function assertVerificationReceipt(receipt, did) {
+  if (!receipt || typeof receipt !== 'object' || Array.isArray(receipt) || 'signature' in receipt) throw new Error('Input must be an unsigned verification receipt.');
+  const digest = (value) => typeof value === 'string' && /^sha256:[a-f0-9]{64}$/.test(value);
+  const forbidden = (value) => Array.isArray(value) ? value.some(forbidden) : value && typeof value === 'object' ? Object.entries(value).some(([key, item]) => /secret|private|password|token|airdrop|eligib/i.test(key) || forbidden(item)) : false;
+  const checkValid = (check) => check && typeof check === 'object' && !Array.isArray(check) &&
+    hasOnlyKeys(check, ['id', 'executableSha256', 'argvSha256', 'exitCode', 'stdoutSha256', 'stderrSha256', 'durationMs']) &&
+    typeof check.id === 'string' && /^[a-z0-9][a-z0-9_.:-]{1,63}$/.test(check.id) &&
+    digest(check.executableSha256) &&
+    digest(check.argvSha256) &&
+    Number.isSafeInteger(check.exitCode) && check.exitCode >= 0 && check.exitCode <= 255 &&
+    digest(check.stdoutSha256) &&
+    digest(check.stderrSha256) &&
+    Number.isSafeInteger(check.durationMs) && check.durationMs >= 0 && check.durationMs <= 3_600_000;
+  const valid = hasOnlyKeys(receipt, ['schema', 'resultId', 'resultReceiptSha256', 'candidateCommit', 'verifierDid', 'checks', 'createdAt']) &&
+    !forbidden(receipt) &&
+    receipt.schema === VERIFICATION_RECEIPT_SCHEMA &&
+    /^res_[a-f0-9]{24}$/.test(receipt.resultId) &&
+    digest(receipt.resultReceiptSha256) &&
+    typeof receipt.candidateCommit === 'string' && /^[a-f0-9]{40}$/.test(receipt.candidateCommit) &&
+    receipt.verifierDid === did &&
+    validTimestamp(receipt.createdAt) &&
+    Array.isArray(receipt.checks) && receipt.checks.length >= 1 && receipt.checks.length <= 20 &&
+    receipt.checks.every(checkValid);
+  if (!valid) throw new Error('Malformed or noncanonical verification receipt.');
+}
+
 export function signEvent(vault, passphrase, event) {
   assertFoundryEvent(event, vault.did);
   const privateKey = unlockVault(vault, passphrase);
@@ -280,6 +307,15 @@ export function signTcr1(vault, passphrase, unsigned) {
   return {
     ...unsigned,
     signature: { algorithm: 'Ed25519', domain: TCR1_DOMAIN, value: base64url(sign(null, domainBytes(TCR1_DOMAIN, unsigned), privateKey)) },
+  };
+}
+
+export function signVerification(vault, passphrase, receipt) {
+  assertVerificationReceipt(receipt, vault.did);
+  const privateKey = unlockVault(vault, passphrase);
+  return {
+    receipt,
+    signature: { algorithm: 'Ed25519', domain: VERIFICATION_RECEIPT_SCHEMA, value: base64url(sign(null, domainBytes(VERIFICATION_RECEIPT_SCHEMA, receipt), privateKey)) },
   };
 }
 

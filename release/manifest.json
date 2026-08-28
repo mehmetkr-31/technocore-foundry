@@ -10,14 +10,15 @@
     "observationTrust": "transport_unverifiable"
   },
   "artifacts": {
-    "protocolFixtureSha256": "2c9b26b1bd98a04cccbf89e0ec278bd02afc8bb696fdfabe75774e8597c62249",
+    "protocolFixtureSha256": "7d2da4245b0bdcf26cdcddc73a21bcc93f505c1937b4c1b22e984375f66d262c",
     "sbomSha256": "6fc7a0b99330d85205c7bc3fecbd6e16f57502e892129f78cd92687048bf1f33",
     "migrationSha256": {
       "0000_thick_ego.sql": "a88554a918ec1bb5833e4b9ac0d6a3d2d2f7a087bb13aa3f1ffca3edce1ebc28",
       "0001_dusty_lizard.sql": "dd06be9e43e84ace19d556d6a97bc212499d955c98ca690fc22af4c7422a01d9",
       "0002_lyrical_christian_walker.sql": "727cc459ee875853a618fdc2b51d52c317650772c6c3c70ca856bcfce0614111",
       "0003_yielding_speed.sql": "6b49610331b8e307e1ea490c7e1d8571b239899d522a3f767cbbc8eeeb4258d8",
-      "0004_woozy_sphinx.sql": "082c6383fee9c649913af807e6f06e8d06215cdbe7d1aa355ab74fe9731cb058"
+      "0004_woozy_sphinx.sql": "082c6383fee9c649913af807e6f06e8d06215cdbe7d1aa355ab74fe9731cb058",
+      "0005_confused_sinister_six.sql": "347b9cb55898904dfbcd9026522c8023adfe2f079b236734addb53fbd6d3741d"
     }
   },
   "gates": [

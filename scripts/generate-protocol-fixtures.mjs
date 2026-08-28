@@ -111,9 +111,34 @@ const tcrReceipt = {
   ...tcrUnsigned,
   signature: { algorithm: 'Ed25519', domain: 'technocore-task-receipt:v1', value: signature(privateKey, tcrPayload) },
 };
+const tcrReceiptHash = await sha256(canonicalJson(tcrReceipt));
+
+const verificationReceipt = {
+  schema: 'foundry-verification-receipt-v1',
+  resultId: `res_${'4'.repeat(24)}`,
+  resultReceiptSha256: `sha256:${tcrReceiptHash}`,
+  candidateCommit: TECHNOCORE_SOURCE_COMMIT,
+  verifierDid: did,
+  checks: [{
+    id: 'protocol-fixture',
+    executableSha256: `sha256:${await sha256('fixture executable bytes')}`,
+    argvSha256: `sha256:${await sha256('["npm","run","test:protocol"]')}`,
+    exitCode: 0,
+    stdoutSha256: `sha256:${await sha256('fixture stdout')}`,
+    stderrSha256: `sha256:${await sha256('')}`,
+    durationMs: 4812,
+  }],
+  createdAt: '2026-08-27T00:00:05.000Z',
+};
+const verificationCanonical = canonicalJson(verificationReceipt);
+const verificationPayload = Buffer.concat([Buffer.from('foundry-verification-receipt-v1\0'), Buffer.from(verificationCanonical)]);
+const verificationEnvelope = {
+  receipt: verificationReceipt,
+  signature: { algorithm: 'Ed25519', domain: 'foundry-verification-receipt-v1', value: signature(privateKey, verificationPayload) },
+};
 
 const parentResultId = `res_${'1'.repeat(24)}`;
-const parentReceiptHash = await sha256(canonicalJson(tcrReceipt));
+const parentReceiptHash = tcrReceiptHash;
 const changeRequestEvent = {
   schema: 'foundry-event-v1',
   type: 'change_request',
@@ -209,6 +234,12 @@ const fixture = {
       signing_payload_hex: tcrPayload.toString('hex'),
       receipt: tcrReceipt,
     },
+    verification_receipt: {
+      domain: 'foundry-verification-receipt-v1',
+      canonical_unsigned: verificationCanonical,
+      signing_payload_hex: verificationPayload.toString('hex'),
+      envelope: verificationEnvelope,
+    },
     technocore_message: {
       domain: '<room>|<nonce>|<text>',
       raw_text_before_sweep: rawMessage,
@@ -242,4 +273,4 @@ const projectRoot = fileURLToPath(new URL('..', import.meta.url));
 const fixtureDirectory = `${projectRoot}/protocol/fixtures`;
 await mkdir(fixtureDirectory, { recursive: true });
 await writeFile(`${fixtureDirectory}/v1.json`, `${JSON.stringify(fixture, null, 2)}\n`, 'utf8');
-console.log(JSON.stringify({ fixture: 'protocol/fixtures/v1.json', did, vectors: 6, invalid: fixture.invalid_json.length + fixture.invalid_utf8.length }));
+console.log(JSON.stringify({ fixture: 'protocol/fixtures/v1.json', did, vectors: 7, invalid: fixture.invalid_json.length + fixture.invalid_utf8.length }));

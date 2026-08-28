@@ -63,6 +63,12 @@ async function signTcr(keyPair, unsigned) {
   return { ...unsigned, signature: { algorithm: 'Ed25519', domain: 'technocore-task-receipt:v1', value: Buffer.from(signature).toString('base64url') } };
 }
 
+async function signVerification(keyPair, receipt) {
+  const input = joinBytes(new TextEncoder().encode('foundry-verification-receipt-v1\0'), new TextEncoder().encode(JSON.stringify(canonical(receipt))));
+  const signature = await crypto.subtle.sign('Ed25519', keyPair.privateKey, input);
+  return { receipt, signature: { algorithm: 'Ed25519', domain: 'foundry-verification-receipt-v1', value: Buffer.from(signature).toString('base64url') } };
+}
+
 const commitResponse = await fetch('https://api.github.com/repos/flop-labs/technocore-chat/commits/main', {
   headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'technocore-foundry-smoke/0.3' },
   signal: AbortSignal.timeout(10_000),
@@ -195,6 +201,31 @@ const evidenceCheck = await jsonRequest('/api/evidence/github', { resultId: revi
 if (evidenceCheck.github !== 'verified' || evidenceCheck.identityBinding !== 'not_established') {
   throw new Error(`Evidence separation failed: ${JSON.stringify(evidenceCheck)}`);
 }
+const verificationReceipt = {
+  schema: 'foundry-verification-receipt-v1',
+  resultId: revisedResultId,
+  resultReceiptSha256: revision.sha256,
+  candidateCommit: publicCommit,
+  verifierDid: did,
+  checks: [{
+    id: 'smoke.lifecycle',
+    executableSha256: `sha256:${await sha256('node')}`,
+    argvSha256: `sha256:${await sha256('["npm","run","test:smoke"]')}`,
+    exitCode: 0,
+    stdoutSha256: `sha256:${await sha256('smoke stdout elided')}`,
+    stderrSha256: `sha256:${await sha256('')}`,
+    durationMs: 1234,
+  }],
+  createdAt: new Date().toISOString(),
+};
+const badVerification = await fetch(`${ORIGIN}/api/evidence/receipts`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(await signVerification(keyPair, { ...verificationReceipt, resultReceiptSha256: `sha256:${'0'.repeat(64)}` })),
+  signal: AbortSignal.timeout(20_000),
+});
+if (badVerification.status !== 409) throw new Error(`Bad verification binding was not rejected: ${badVerification.status}`);
+const verification = await jsonRequest('/api/evidence/receipts', await signVerification(keyPair, verificationReceipt));
 const acceptance = await jsonRequest('/api/acceptances', await signFoundry({
   schema: 'foundry-event-v1', type: 'acceptance', missionId, resultId: revisedResultId,
   resultSha256: revision.sha256, decision: 'accepted', note: 'Phase 5 smoke test verified the exact revised bytes and both hash-chain bindings.',
@@ -227,15 +258,17 @@ if (
   detail.actorResult?.revisionReceipt?.id !== revision.revisionReceipt.id ||
   detail.actorResult?.acceptance?.decision !== 'accepted' ||
   detail.actorResult?.evidenceCheck?.github !== 'verified' ||
+  !detail.actorResult?.executionEvidence?.some((item) => item.id === verification.id) ||
   detail.actorResult?.finalization?.id !== finalization.id ||
   !detail.actorResult?.attestations?.some((item) => item.id === attestation.id && item.statement === 'reproduced')
 ) throw new Error(`Lifecycle detail mismatch: ${JSON.stringify(detail)}`);
 
-const [rootProofPage, changeRequestProofPage, revisionProofPage, chainProofPage, attestationProofPage, finalProofPage, artifact, atlas] = await Promise.all([
+const [rootProofPage, changeRequestProofPage, revisionProofPage, chainProofPage, verificationProofPage, attestationProofPage, finalProofPage, artifact, atlas] = await Promise.all([
   fetch(`${ORIGIN}/receipt/${resultId}`),
   fetch(`${ORIGIN}${changeRequest.portableUrl}`),
   fetch(`${ORIGIN}${revision.portableUrl}`),
   fetch(`${ORIGIN}${revision.revisionReceipt.portableUrl}`),
+  fetch(`${ORIGIN}${verification.portableUrl}`),
   fetch(`${ORIGIN}${attestation.portableUrl}`),
   fetch(`${ORIGIN}${finalization.portableUrl}`),
   fetch(`${ORIGIN}${revision.artifactUrl}`),
@@ -243,12 +276,12 @@ const [rootProofPage, changeRequestProofPage, revisionProofPage, chainProofPage,
 ]);
 if (
   !rootProofPage.ok || !changeRequestProofPage.ok || !revisionProofPage.ok ||
-  !chainProofPage.ok || !attestationProofPage.ok || !finalProofPage.ok || !artifact.ok ||
+  !chainProofPage.ok || !verificationProofPage.ok || !attestationProofPage.ok || !finalProofPage.ok || !artifact.ok ||
   await artifact.text() !== new TextDecoder().decode(revisedArtifactBytes)
 ) {
   throw new Error('Revision proof chain or artifact bytes did not round-trip.');
 }
-if (!atlas.contributions.some((item) => item.resultId === revisedResultId && item.finalizedReceiptId === finalization.id && item.attestationCount >= 1)) {
+if (!atlas.contributions.some((item) => item.resultId === revisedResultId && item.finalizedReceiptId === finalization.id && item.attestationCount >= 1 && item.verificationReceiptCount >= 1)) {
   throw new Error('Finalized accepted contribution did not appear in Atlas.');
 }
 
@@ -260,10 +293,11 @@ console.log(JSON.stringify({
   revision: revision.id,
   revisionReceipt: revision.revisionReceipt.id,
   github: evidenceCheck.github,
+  verification: verification.id,
   acceptance: acceptance.id,
   attestation: attestation.id,
   finalization: finalization.id,
-  proofPages: [rootProofPage.status, changeRequestProofPage.status, revisionProofPage.status, chainProofPage.status, attestationProofPage.status, finalProofPage.status],
+  proofPages: [rootProofPage.status, changeRequestProofPage.status, revisionProofPage.status, chainProofPage.status, verificationProofPage.status, attestationProofPage.status, finalProofPage.status],
   artifact: artifact.status,
   atlas: 'present',
 }));

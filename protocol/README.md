@@ -1,7 +1,7 @@
 # Technocore Foundry protocol package
 
 This directory contains deterministic, offline-verifiable interoperability material for
-Foundry events, TCR-1 receipts, and Technocore signed messages.
+Foundry events, TCR-1 receipts, execution evidence receipts, and Technocore signed messages.
 
 ## Pinned sources
 
@@ -26,6 +26,7 @@ The fixture covers:
 - canonical Ed25519 `did:key` decoding;
 - `foundry-event-v1` claim, issuer change-request, claimant revision-chain, and peer-attestation signatures;
 - current TCR-1 claimant object, canonical bytes, and signature;
+- `foundry-verification-receipt-v1` verifier signatures bound to exact result receipts and local check digests;
 - Technocore's `<room>|<nonce>|<text>` transport signature;
 - Unicode code-point key ordering, including integer-like and astral keys;
 - duplicate keys, floats, unsafe integers, lone surrogates, invalid UTF-8, and non-JSON constants;

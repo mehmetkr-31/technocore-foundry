@@ -28,5 +28,6 @@ export const signer = {
   doctor: (vault, options = {}) => runSigner('doctor', { vault, ...options }),
   signEvent: (vault, payload, options = {}) => runSigner('sign-event', { vault, payload, ...options }),
   signTcr1: (vault, payload, options = {}) => runSigner('sign-tcr1', { vault, payload, ...options }),
+  signVerification: (vault, payload, options = {}) => runSigner('sign-verification', { vault, payload, ...options }),
   signTechnocore: (vault, payload, options = {}) => runSigner('sign-technocore', { vault, payload, ...options }),
 };

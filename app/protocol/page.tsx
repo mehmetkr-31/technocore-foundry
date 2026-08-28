@@ -6,11 +6,13 @@ import {
   publicKeyFromDid,
   sweepTechnocoreText,
   type SignedFoundryEvent,
+  type SignedVerificationReceipt,
   type Tcr1Receipt,
   type TechnocoreSignedMessage,
   verifySignedEvent,
   verifyTcr1Receipt,
   verifyTechnocoreMessage,
+  verifyVerificationReceipt,
 } from '@/lib/foundry-crypto';
 import { decodeStrictUtf8, parseStrictJson } from '@/lib/strict-json';
 
@@ -31,15 +33,17 @@ export default async function ProtocolPage() {
   const revisionEnvelope = fixture.vectors.revision_event.envelope as SignedFoundryEvent;
   const attestationEnvelope = fixture.vectors.attestation_event.envelope as SignedFoundryEvent;
   const tcrReceipt = fixture.vectors.tcr1_receipt.receipt as Tcr1Receipt;
+  const verificationEnvelope = fixture.vectors.verification_receipt.envelope as SignedVerificationReceipt;
   const technocoreMessage = fixture.vectors.technocore_message.message as TechnocoreSignedMessage;
   const publicKey = publicKeyFromDid(fixture.key.did);
   const publicKeyHex = Array.from(publicKey, (byte) => byte.toString(16).padStart(2, '0')).join('');
-  const [foundryValid, changeRequestValid, revisionValid, attestationValid, tcrValid, technocoreValid] = await Promise.all([
+  const [foundryValid, changeRequestValid, revisionValid, attestationValid, tcrValid, verificationValid, technocoreValid] = await Promise.all([
     verifySignedEvent(foundryEnvelope),
     verifySignedEvent(changeRequestEnvelope),
     verifySignedEvent(revisionEnvelope),
     verifySignedEvent(attestationEnvelope),
     verifyTcr1Receipt(tcrReceipt),
+    verifyVerificationReceipt(verificationEnvelope),
     verifyTechnocoreMessage(technocoreMessage),
   ]);
   const canonicalMatch = canonicalJson(fixture.canonical_json.input) === fixture.canonical_json.output;
@@ -67,6 +71,7 @@ export default async function ProtocolPage() {
     ['REVISION CHAIN', revisionValid, 'Parent + change-request hashes, bounded at five'],
     ['PEER ATTESTATION', attestationValid, 'Accepted result digest + bounded evidence statement'],
     ['TCR-1 RECEIPT', tcrValid, 'technocore-task-receipt:v1 domain'],
+    ['EXECUTION EVIDENCE', verificationValid, 'Verifier DID + local check digests bound to result receipt'],
     ['TECHNOCORE WRITE', technocoreValid, 'room|nonce|single-line swept text'],
     ['CANONICAL JSON', canonicalMatch, 'Unicode key order + integers only'],
     ['NEGATIVE VECTORS', rejected.length === fixture.invalid_json.length && rejectedUtf8.length === fixture.invalid_utf8.length, `${rejected.length + rejectedUtf8.length}/${fixture.invalid_json.length + fixture.invalid_utf8.length} malformed inputs rejected`],
@@ -78,7 +83,7 @@ export default async function ProtocolPage() {
       <nav className="artifact-nav"><Link className="brand" href="/"><span className="brand-mark">TF</span><span>TECHNOCORE / FOUNDRY</span></Link><div><Link href="/atlas">Atlas</Link><Link href="/observer">Observer</Link><Link href="/security">Security</Link><Link href="/">Enter Foundry →</Link></div></nav>
 
       <header className="protocol-hero">
-        <div><p className="eyebrow"><span className="pulse-dot" />PROTOCOL CONFORMANCE / FIXTURE V1</p><h1>Same bytes.<br /><em>Two runtimes.</em></h1><p>Deterministic receipts make interoperability falsifiable. TypeScript and Python receive the same public key, canonical bytes, change request, revision chain, peer attestation, invalid inputs, and expected sweep output.</p></div>
+        <div><p className="eyebrow"><span className="pulse-dot" />PROTOCOL CONFORMANCE / FIXTURE V1</p><h1>Same bytes.<br /><em>Two runtimes.</em></h1><p>Deterministic receipts make interoperability falsifiable. TypeScript and Python receive the same public key, canonical bytes, change request, revision chain, peer attestation, execution evidence, invalid inputs, and expected sweep output.</p></div>
         <aside className="protocol-score"><span>CONFORMANCE CHECKS</span><strong>{String(checks.filter(([, valid]) => valid).length).padStart(2, '0')} / {String(checks.length).padStart(2, '0')}</strong><i>{checks.every(([, valid]) => valid) ? 'ALL PASS' : 'CHECK FAILED'}</i><small>{fixture.schema}</small></aside>
       </header>
 
@@ -101,7 +106,8 @@ export default async function ProtocolPage() {
         <div><span>02</span><article><strong>Revision event</strong><code>canonical(parent hash + change-request hash + new TCR-1 hash)</code><small>{compact(fixture.vectors.revision_event.signing_payload_hex, 54, 28)}</small></article></div>
         <div><span>03</span><article><strong>Peer attestation</strong><code>canonical(accepted result hash + evidence statement + peer DID)</code><small>{compact(fixture.vectors.attestation_event.signing_payload_hex, 54, 28)}</small></article></div>
         <div><span>04</span><article><strong>TCR-1 result</strong><code>UTF8(&quot;technocore-task-receipt:v1&quot;) || 0x00 || canonical(unsigned_receipt)</code><small>{compact(fixture.vectors.tcr1_receipt.signing_payload_hex, 54, 28)}</small></article></div>
-        <div><span>05</span><article><strong>Technocore message</strong><code>UTF8(room + &quot;|&quot; + nonce + &quot;|&quot; + swept_text)</code><small>{compact(fixture.vectors.technocore_message.signing_payload_hex, 54, 28)}</small></article></div>
+        <div><span>05</span><article><strong>Execution evidence</strong><code>UTF8(&quot;foundry-verification-receipt-v1&quot;) || 0x00 || canonical(receipt)</code><small>{compact(fixture.vectors.verification_receipt.signing_payload_hex, 54, 28)}</small></article></div>
+        <div><span>06</span><article><strong>Technocore message</strong><code>UTF8(room + &quot;|&quot; + nonce + &quot;|&quot; + swept_text)</code><small>{compact(fixture.vectors.technocore_message.signing_payload_hex, 54, 28)}</small></article></div>
       </section>
 
       <section className="protocol-drift">

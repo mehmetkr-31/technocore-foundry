@@ -4,7 +4,7 @@ import { sha256Hex } from './foundry-crypto';
 export const TECHNOCORE_ORIGIN = 'https://technocore.chat' as const;
 export const FOUNDRY_ROOM = 'foundry-contributions' as const;
 export const TECHNOCORE_SOURCE_COMMIT = '9c7df0e3616cf28d17e7c8ebeb0c05de6adf117c' as const;
-const RECEIPT_PATTERN = /\b(?:frc|fms|res|fac|fcr|frv|fat|tcf)_[a-f0-9]{24}\b/;
+const RECEIPT_PATTERN = /\b(?:frc|fms|res|fac|fcr|frv|fat|tcf|fev)_[a-f0-9]{24}\b/;
 
 export type TechnocoreRoomMessage = { seq: number; ts: string; from: string; text: string };
 export type TechnocoreRoomView = {

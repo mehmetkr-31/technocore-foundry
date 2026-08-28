@@ -15,6 +15,7 @@ import {
   signRevision,
   signTcr1Receipt,
   signTechnocoreAnnouncement,
+  type SignedVerificationReceipt,
   type FoundryAcceptanceEvent,
   type FoundryAttestationEvent,
   type FoundryChangeRequestEvent,
@@ -28,6 +29,8 @@ import {
   unlockVault,
   verifySignedEvent,
   verifyTcr1Receipt,
+  verifyVerificationReceipt,
+  VERIFICATION_RECEIPT_SCHEMA,
 } from '@/lib/foundry-crypto';
 import { loadVault, saveVault } from '@/lib/vault-storage';
 import { decodeStrictUtf8, parseStrictJson } from '@/lib/strict-json';
@@ -108,6 +111,15 @@ type ResultRecord = {
     portableUrl: string;
     rawUrl: string;
   };
+  executionEvidence: Array<{
+    id: string;
+    kind: 'verification';
+    actorDid: string;
+    receiptSha256: string;
+    createdAt: string;
+    portableUrl: string;
+    rawUrl: string;
+  }>;
   attestations: Array<{
     id: string;
     actorDid: string;
@@ -722,9 +734,11 @@ export default function FoundryApp() {
     setError('');
     setVerifyResult(undefined);
     try {
-      const receipt = parseStrictJson(verifyInput) as Tcr1Receipt | SignedFoundryEvent;
+      const receipt = parseStrictJson(verifyInput) as Tcr1Receipt | SignedFoundryEvent | SignedVerificationReceipt;
       if ('type' in receipt && receipt.type === 'technocore-task-receipt') {
         setVerifyResult({ valid: await verifyTcr1Receipt(receipt), kind: 'TCR-1 TASK RECEIPT' });
+      } else if ('receipt' in receipt && receipt.receipt?.schema === VERIFICATION_RECEIPT_SCHEMA) {
+        setVerifyResult({ valid: await verifyVerificationReceipt(receipt), kind: 'EXECUTION EVIDENCE RECEIPT' });
       } else {
         setVerifyResult({ valid: await verifySignedEvent(receipt as SignedFoundryEvent), kind: 'FOUNDRY EVENT' });
       }
@@ -820,7 +834,7 @@ export default function FoundryApp() {
               <div className="chain-proof"><span>PARENT</span><code>{result.parent?.receiptSha256 ?? 'GENESIS / NO PARENT'}</code><span>REVISION EVENT</span><code>{result.revisionReceipt?.id ?? 'ROOT TCR-1 SIGNATURE'}</code></div>
               {result.changeRequest && <div className="change-request-note"><span>ISSUER CHANGE REQUEST · {result.changeRequest.id}</span><p>{result.changeRequest.note}</p><code>{result.changeRequest.receiptSha256}</code></div>}
               {result.attestations.length > 0 && <div className="attestation-list"><span>INDEPENDENT PEER EVIDENCE · {result.attestations.length}</span>{result.attestations.map((attestation) => <p key={attestation.id}><a href={attestation.portableUrl} target="_blank" rel="noreferrer">{attestation.statement.toUpperCase()}</a> · {compactDid(attestation.actorDid)} — {attestation.note}</p>)}</div>}
-              <div className="evidence-mini"><span>GITHUB {result.evidenceCheck?.github.toUpperCase() ?? 'NOT CHECKED'}</span><span>CI {result.evidenceCheck?.ci.replace('_', ' ').toUpperCase() ?? 'NOT CHECKED'}</span><span>PEERS {result.attestations.length}</span><span>FINAL {result.finalization ? 'BOUND' : 'PENDING'}</span></div>
+              <div className="evidence-mini"><span>GITHUB {result.evidenceCheck?.github.toUpperCase() ?? 'NOT CHECKED'}</span><span>CI {result.evidenceCheck?.ci.replace('_', ' ').toUpperCase() ?? 'NOT CHECKED'}</span><span>EXECUTION {result.executionEvidence.length}</span><span>PEERS {result.attestations.length}</span><span>FINAL {result.finalization ? 'BOUND' : 'PENDING'}</span></div>
               <div className="result-actions"><a href={result.artifact.url}>Artifact</a><a href={result.portableUrl} target="_blank" rel="noreferrer">Proof page</a>{result.revisionReceipt && <a href={result.revisionReceipt.portableUrl} target="_blank" rel="noreferrer">Chain receipt</a>}{result.changeRequest && <a href={result.changeRequest.portableUrl} target="_blank" rel="noreferrer">Change request</a>}{result.repositoryUrl && <button type="button" disabled={busy} onClick={() => checkEvidence(result)}>{result.evidenceCheck ? 'Refresh GitHub' : 'Check GitHub'}</button>}{vault?.did === detail.mission.issuerDid && !result.acceptance && !result.changeRequest && !hasChild && <button type="button" onClick={() => openAcceptance(result)}>Review</button>}{vault?.did === result.actorDid && result.changeRequest && !hasChild && result.revision < MAX_RESULT_REVISIONS && <button type="button" onClick={() => openRevision(result)}>Submit revision</button>}{vault?.did === result.actorDid && result.acceptance?.decision === 'accepted' && !result.finalization && <button type="button" onClick={() => openFinalization(result)}>Finalize TCR-1</button>}{vault && result.acceptance?.decision === 'accepted' && vault.did !== result.actorDid && vault.did !== detail.mission.issuerDid && <button type="button" onClick={() => openAttestation(result)}>Peer attest</button>}{(vault?.did === result.actorDid || vault?.did === detail.mission.issuerDid) && <button type="button" onClick={() => openAnnouncement(result)}>Announce</button>}</div>
             </article>;
           })}</div>}

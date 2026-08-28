@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-  if (!/^(frc|fms|res|fac|fcr|frv|fat|tcf)_[a-f0-9]{24}$/.test(id)) {
+  if (!/^(frc|fms|res|fac|fcr|frv|fat|tcf|fev)_[a-f0-9]{24}$/.test(id)) {
     return Response.json({ error: 'Invalid receipt identifier.' }, { status: 400 });
   }
 

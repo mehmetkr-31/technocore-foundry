@@ -5,11 +5,14 @@ import {
   publicKeyFromDid,
   sweepTechnocoreText,
   type SignedFoundryEvent,
+  type SignedVerificationReceipt,
   type Tcr1Receipt,
   type TechnocoreSignedMessage,
+  verificationReceiptSigningBytes,
   verifySignedEvent,
   verifyTcr1Receipt,
   verifyTechnocoreMessage,
+  verifyVerificationReceipt,
 } from '../lib/foundry-crypto';
 import { decodeStrictUtf8, parseStrictJson } from '../lib/strict-json';
 
@@ -22,6 +25,7 @@ type Fixture = {
     revision_event: { canonical_unsigned: string; signing_payload_hex: string; envelope: SignedFoundryEvent };
     attestation_event: { canonical_unsigned: string; signing_payload_hex: string; envelope: SignedFoundryEvent };
     tcr1_receipt: { canonical_unsigned: string; signing_payload_hex: string; receipt: Tcr1Receipt };
+    verification_receipt: { canonical_unsigned: string; signing_payload_hex: string; envelope: SignedVerificationReceipt };
     technocore_message: { signing_payload_hex: string; message: TechnocoreSignedMessage };
   };
   canonical_json: { input: unknown; output: string };
@@ -57,6 +61,11 @@ if (canonicalJson(unsignedTcr) !== tcr.canonical_unsigned) throw new Error('TCR-
 const tcrBytes = new TextEncoder().encode(`technocore-task-receipt:v1\0${tcr.canonical_unsigned}`);
 if (hex(tcrBytes) !== tcr.signing_payload_hex) throw new Error('TCR-1 signing bytes mismatch.');
 if (!(await verifyTcr1Receipt(tcr.receipt))) throw new Error('TCR-1 signature is invalid.');
+
+const verification = fixture.vectors.verification_receipt;
+if (canonicalJson(verification.envelope.receipt) !== verification.canonical_unsigned) throw new Error('Verification receipt canonical JSON mismatch.');
+if (hex(verificationReceiptSigningBytes(verification.envelope.receipt)) !== verification.signing_payload_hex) throw new Error('Verification receipt signing bytes mismatch.');
+if (!(await verifyVerificationReceipt(verification.envelope))) throw new Error('Verification receipt signature is invalid.');
 
 const technocore = fixture.vectors.technocore_message;
 const messageBytes = new TextEncoder().encode(`${technocore.message.room}|${technocore.message.nonce}|${technocore.message.text}`);
@@ -94,6 +103,7 @@ console.log(JSON.stringify({
   revisionChain: 'valid',
   peerAttestation: 'valid',
   tcr1: 'valid',
+  verificationReceipt: 'valid',
   technocore: 'valid',
   canonical: 'match',
   invalidRejected: fixture.invalid_json.length + fixture.invalid_utf8.length,

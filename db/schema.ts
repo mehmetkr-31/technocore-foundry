@@ -165,6 +165,24 @@ export const evidenceChecks = sqliteTable('evidence_checks', {
   checkedAt: text('checked_at').notNull(),
 });
 
+export const evidenceReceipts = sqliteTable(
+  'evidence_receipts',
+  {
+    id: text('id').primaryKey(),
+    resultId: text('result_id').notNull(),
+    missionId: text('mission_id').notNull(),
+    kind: text('kind').notNull(),
+    actorDid: text('actor_did').notNull(),
+    receiptSha256: text('receipt_sha256').notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('idx_evidence_receipts_result_kind_actor').on(table.resultId, table.kind, table.actorDid),
+    index('idx_evidence_receipts_result_created').on(table.resultId, table.createdAt),
+    index('idx_evidence_receipts_mission_created').on(table.missionId, table.createdAt),
+  ],
+);
+
 export const resultFinalizations = sqliteTable(
   'result_finalizations',
   {

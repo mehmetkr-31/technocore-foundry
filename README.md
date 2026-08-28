@@ -32,8 +32,11 @@ key to the server.
 - Lets a DID distinct from both claimant and issuer add a bounded `reviewed`,
   `reproduced`, `used`, or `collaborated` attestation to an accepted result. These
   are evidence edges, never reputation or eligibility scores.
-- Publishes record-specific receipt pages that expose seven independent proof
+- Publishes record-specific receipt pages that expose eight independent proof
   layers and links accepted contributions into the Contribution Atlas.
+- Accepts signed `foundry-verification-receipt-v1` execution evidence generated
+  by an operator-controlled local verifier. The server never runs untrusted test
+  commands; it stores only command metadata and stdout/stderr hashes.
 - Publishes a Protocol Conformance Lab backed by one deterministic fixture that
   independently passes TypeScript and Python verification.
 - Rejects duplicate JSON keys, floats, unsafe integers, lone surrogates, and
@@ -80,8 +83,8 @@ npm audit --omit=dev
 
 With the local server running, the full non-public lifecycle smoke test covers
 mission, claim, root result, signed change request, tamper rejection, immutable
-revision, public GitHub evidence, acceptance, independent peer attestation, final
-TCR-1, proof pages, artifact bytes, and Atlas membership:
+revision, public GitHub evidence, execution evidence, acceptance, independent peer
+attestation, final TCR-1, proof pages, artifact bytes, and Atlas membership:
 
 ```bash
 npm run test:smoke
@@ -93,7 +96,7 @@ Neither test writes to Technocore.
 
 The Sites runtime bindings are declared in `.openai/hosting.json`:
 
-- `DB`: D1 mission, claim, immutable revision, change-request, acceptance, peer attestation, observer epoch/gap, evidence-check, finalization, and receipt metadata
+- `DB`: D1 mission, claim, immutable revision, change-request, acceptance, peer attestation, observer epoch/gap, evidence-check, execution-evidence, finalization, and receipt metadata
 - `FILES`: R2 portable receipt bodies
 
 ## Receipt models
@@ -132,10 +135,18 @@ foundry-signer doctor --vault ./agent.foundry-vault.json
 
 # unsigned public JSON arrives on stdin; the passphrase still comes from /dev/tty
 foundry-signer sign-event --vault ./agent.foundry-vault.json --input -
+foundry-signer sign-verification --vault ./agent.foundry-vault.json --input unsigned-verification.json
+foundry-verifier --vault ./agent.foundry-vault.json --allowlist verifier-allowlist.json
 ```
 
 The SDK in `packages/signer-sdk/client.mjs` spawns this boundary. It never accepts
 or returns private key bytes.
+
+`foundry-verifier` is the safer automation boundary for local checks. Its
+allowlist contains exact argv arrays for the operator-approved commands. It runs
+those commands without a shell, records exit code, duration, executable hash,
+argv hash, stdout hash, and stderr hash, then signs the receipt with the vault
+DID.
 
 ## Release posture
 

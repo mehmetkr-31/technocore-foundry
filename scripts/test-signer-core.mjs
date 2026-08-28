@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createVault, parseStrictJson, parseVault, signEvent, signTcr1, signTechnocore, unlockVault } from '../packages/signer-cli/core.mjs';
+import { createVault, parseStrictJson, parseVault, signEvent, signTcr1, signTechnocore, signVerification, unlockVault } from '../packages/signer-cli/core.mjs';
 
 const passphrase = 'correct horse battery staple';
 const vault = createVault(passphrase, new Date('2026-08-27T00:00:00.000Z'));
@@ -25,6 +25,26 @@ const unsignedTcr1 = {
 };
 assert.match(signTcr1(vault, passphrase, unsignedTcr1).signature.value, /^[A-Za-z0-9_-]{86}$/);
 assert.throws(() => signTcr1(vault, passphrase, { ...unsignedTcr1, private_token: 'nope' }), /Malformed|noncanonical/);
+const verificationReceipt = {
+  schema: 'foundry-verification-receipt-v1',
+  resultId: `res_${'3'.repeat(24)}`,
+  resultReceiptSha256: `sha256:${'4'.repeat(64)}`,
+  candidateCommit: '9c7df0e3616cf28d17e7c8ebeb0c05de6adf117c',
+  verifierDid: vault.did,
+  checks: [{
+    id: 'unit-tests',
+    executableSha256: `sha256:${'5'.repeat(64)}`,
+    argvSha256: `sha256:${'6'.repeat(64)}`,
+    exitCode: 0,
+    stdoutSha256: `sha256:${'7'.repeat(64)}`,
+    stderrSha256: `sha256:${'8'.repeat(64)}`,
+    durationMs: 4812,
+  }],
+  createdAt: '2026-08-27T00:00:00.000Z',
+};
+assert.match(signVerification(vault, passphrase, verificationReceipt).signature.value, /^[A-Za-z0-9_-]{86}$/);
+assert.throws(() => signVerification(vault, passphrase, { ...verificationReceipt, verifierDid: 'did:key:z6Mkwrong' }), /verifier|Malformed|noncanonical/);
+assert.throws(() => signVerification(vault, passphrase, { ...verificationReceipt, secret_token: 'nope' }), /Malformed|noncanonical/);
 assert.match(signTechnocore(vault, passphrase, { room: 'foundry-contributions', nonce: '2026082700000000001', text: 'proof res_123' }).sig, /^[A-Za-z0-9_-]{86}$/);
 
 console.log(JSON.stringify({ signerCore: 'ok', vaultSchema: vault.schema, did: vault.did }));
