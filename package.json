@@ -1,7 +1,12 @@
 {
-  "name": "sites-project",
+  "name": "technocore-foundry",
   "version": "0.9.0-preview.6",
+  "description": "A local-first contribution and portable-proof layer for the Technocore ecosystem.",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mehmetkr-31/technocore-foundry.git"
+  },
   "engines": {
     "node": ">=22.13.0"
   },
