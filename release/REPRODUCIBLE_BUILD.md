@@ -11,6 +11,9 @@ npm run build
 npm run test:protocol
 npm run test:signer
 npm run test:observer
+npm run test:security:unit
+npm run commons:verify
+npm run test:commons
 npm audit --omit=dev
 ```
 
@@ -21,6 +24,8 @@ npm run test:security
 npm run test:smoke
 ```
 
-`release/manifest.json` pins the protocol fixture, every SQL migration, the SBOM, the fixed
-Technocore lane, and the upstream protocol commit. It is a deterministic unsigned build manifest,
-not an operator signature or endorsement.
+`release/manifest.json` pins the protocol fixture, every SQL migration, the SBOM, dependency-license
+report, root license and notice, fixed Technocore lane, and upstream protocol commit.
+`release/licenses.json` is a deterministic inventory derived from the lockfile; `NOASSERTION`
+requires manual review before distributing a compiled bundle. These are unsigned build artifacts,
+not operator signatures or endorsements.

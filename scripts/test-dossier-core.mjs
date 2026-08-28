@@ -6,7 +6,7 @@ import {
   signEvent,
   signTcr1,
 } from '../packages/signer-cli/core.mjs';
-import { verifyContributionDossierBytes } from '../packages/signer-cli/dossier.mjs';
+import { deriveContributionDossierLayers, verifyContributionDossierBytes } from '../packages/signer-cli/dossier.mjs';
 
 const passphrase = 'dossier-test-passphrase';
 const claimantVault = createVault(passphrase, new Date('2026-08-28T00:00:00.000Z'));
@@ -126,5 +126,26 @@ assert.throws(() => verifyContributionDossierBytes(Buffer.from(`${bytes.toString
 const tampered = structuredClone(dossier);
 tampered.revisionChain[0].artifact.bytes += 1;
 assert.throws(() => verifyContributionDossierBytes(Buffer.from(canonicalJson(tampered))), /bind|hash|artifact/i);
+
+const latestOnlyLayers = deriveContributionDossierLayers({
+  revisionChain: [
+    {
+      issuerOutcome: { acceptanceReceiptId: null, changeRequestReceiptId: 'fcr_old' },
+      executionEvidenceReceiptIds: ['fev_old'],
+      reviewReceiptIds: ['frw_old'],
+      attestationReceiptIds: ['fat_old'],
+    },
+    {
+      issuerOutcome: { acceptanceReceiptId: 'fac_latest', changeRequestReceiptId: null },
+      executionEvidenceReceiptIds: [],
+      reviewReceiptIds: [],
+      attestationReceiptIds: [],
+    },
+  ],
+});
+assert.equal(latestOnlyLayers.issuerOutcome, 'valid');
+assert.equal(latestOnlyLayers.executionEvidence, 'absent');
+assert.equal(latestOnlyLayers.structuredReview, 'absent');
+assert.equal(latestOnlyLayers.peerEvidence, 'absent');
 
 console.log(JSON.stringify({ dossierCore: 'ok', id: verified.id, layers: verified.layers }));

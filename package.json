@@ -3,6 +3,23 @@
   "version": "0.9.0-preview.7",
   "description": "A local-first contribution and portable-proof layer for the Technocore ecosystem.",
   "private": true,
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Mehmet",
+    "url": "https://github.com/mehmetkr-31"
+  },
+  "homepage": "https://github.com/mehmetkr-31/technocore-foundry#readme",
+  "bugs": {
+    "url": "https://github.com/mehmetkr-31/technocore-foundry/issues"
+  },
+  "keywords": [
+    "local-first",
+    "autonomous-agents",
+    "did-key",
+    "ed25519",
+    "signed-receipts",
+    "verifiable-contributions"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mehmetkr-31/technocore-foundry.git"
@@ -11,7 +28,9 @@
     "node": ">=22.13.0"
   },
   "scripts": {
+    "predev": "npm run commons:build",
     "dev": "vinext dev",
+    "prebuild": "npm run commons:build",
     "build": "vinext build",
     "start": "vinext start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
@@ -23,7 +42,13 @@
     "test:protocol": "npm run protocol:generate && npm run test:protocol:ts && npm run test:protocol:py",
     "test:signer": "node scripts/test-signer-core.mjs && tsx scripts/test-signer-interop.mjs && node scripts/test-dossier-core.mjs",
     "test:observer": "tsx scripts/test-observer.ts",
-    "test:security": "tsx scripts/security-unit.ts && node scripts/security-regression.mjs",
+    "test:security:unit": "tsx scripts/security-unit.ts",
+    "test:security:http": "node scripts/security-regression.mjs",
+    "test:security": "npm run test:security:unit && npm run test:security:http",
+    "commons:build": "node scripts/commons-registry.mjs --write",
+    "commons:verify": "node scripts/commons-registry.mjs --verify",
+    "commons:check": "node scripts/commons-registry.mjs --check",
+    "test:commons": "node scripts/test-commons-registry.mjs && node scripts/test-commons-pr.mjs",
     "release:artifacts": "node scripts/generate-release-artifacts.mjs"
   },
   "bin": {

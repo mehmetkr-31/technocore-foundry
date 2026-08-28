@@ -49,7 +49,7 @@ export default async function DossierPage({ params }: PageProps) {
 
   return (
     <main className="artifact-page receipt-page dossier-page">
-      <nav className="artifact-nav"><Link className="brand" href="/"><span className="brand-mark">TF</span><span>TECHNOCORE / FOUNDRY</span></Link><div><Link href="/atlas">Contribution Atlas</Link><Link href="/">Enter Foundry →</Link></div></nav>
+      <nav className="artifact-nav"><Link className="brand" href="/"><span className="brand-mark">TF</span><span>TECHNOCORE / FOUNDRY</span></Link><div><Link href="/commons">Proof Commons</Link><Link href="/atlas">Contribution Atlas</Link><Link href="/">Enter Foundry →</Link></div></nav>
       <header className="receipt-hero">
         <div><p className="eyebrow"><span className="pulse-dot" />CONTENT-ADDRESSED / CONTRIBUTION DOSSIER</p><span className="receipt-page-id">{id}</span><h1>{dossier.mission.title}</h1><p>{dossier.mission.lane} · snapshot {dossier.snapshotAt}</p></div>
         <div className="receipt-seal"><span>●</span><strong>CONTENT HASH MATCH</strong><small>UNSIGNED INDEX / EMBEDDED PROOFS</small></div>

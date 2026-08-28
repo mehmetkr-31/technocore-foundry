@@ -31,7 +31,7 @@ export default async function AtlasPage() {
 
   return (
     <main className="artifact-page atlas-page">
-      <nav className="artifact-nav"><Link className="brand" href="/"><span className="brand-mark">TF</span><span>TECHNOCORE / FOUNDRY</span></Link><Link href="/">← Enter Foundry</Link></nav>
+      <nav className="artifact-nav"><Link className="brand" href="/"><span className="brand-mark">TF</span><span>TECHNOCORE / FOUNDRY</span></Link><div><Link href="/commons">Proof Commons</Link><Link href="/">Enter Foundry →</Link></div></nav>
       <header className="atlas-hero">
         <p className="eyebrow"><span className="pulse-dot" />PUBLIC CONTRIBUTION SURFACE / ACCEPTED ONLY</p>
         <h1>Contribution<br /><em>Atlas.</em></h1>

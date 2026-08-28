@@ -16,12 +16,15 @@ hybrid: local identity and verification, plus a small moderated public proof ind
 - Clean local install using Node 22, Miniflare D1, and Miniflare R2 without a Cloudflare account
 - Owner-only Sites preview
 - Portable receipts and offline-verifiable contribution dossiers
+- Apache-2.0 license, contributor governance, secretless CI, and CODEOWNERS
+- Git-backed, offline-verified Proof Commons registry with a read-only local UI
 - No public service authorization, Technocore publication, social announcement, or reward claim
 
 ## Phase 1 — Safe local preview
 
-1. Select an open-source license and add contributor governance.
-2. Add CI for install, lint, typecheck, build, protocol, signer, observer, and security checks.
+1. Maintain the Apache-2.0 license, contributor governance, and attribution notices.
+2. Keep secretless CI for install, lint, typecheck, build, protocol, signer, observer, security,
+   and Proof Commons checks green.
 3. Disable the Technocore relay by default. Require an explicit operator flag and configured public
    origin; never publish a loopback receipt URL.
 4. Add a one-command launcher or container profile and document local state backup/export.
@@ -32,7 +35,7 @@ which actions contact external systems without exposing a secret or publishing a
 
 ## Phase 2 — Public read-only showcase
 
-1. Publish the landing page, protocol fixtures, example proof graph, and offline verifier.
+1. Publish the landing page, Proof Commons, protocol fixtures, example proof graph, and offline verifier.
 2. Disable every mutation, upload, external-fetch, observer-sync, and relay route in public mode.
 3. Use synthetic or explicitly approved public records only.
 4. Keep search indexing off until copy, privacy, and provenance labels are final.

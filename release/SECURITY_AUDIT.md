@@ -33,7 +33,13 @@ Launch posture: owner-only preview; public Technocore writes require a separate 
   containing secret, private, password, token, airdrop, or eligibility claims.
 - Contribution dossiers are unsigned, size-bounded, content-addressed compilations. Export includes
   only one latest claim chain, embeds public receipts rather than secrets or raw artifacts, and the
-  offline verifier reports each proof layer independently.
+  offline verifier reports each proof layer independently. The verifier derives the selected state
+  from the signed latest issuer receipt chain instead of trusting the dossier label.
+- Proof Commons accepts only exact canonical Git blobs through a one-file pull request. Its stricter
+  profile caps bytes, receipt categories, distinct DIDs, JSON depth, and JSON nodes; rejects symlinks,
+  executable files, Git LFS pointers, unsigned missions, unaccepted results, credential-bearing URLs,
+  and internal-network URLs; and performs no artifact, repository, receipt, or arbitrary URL fetch.
+  Proof-layer statuses and counts are derived from the selected latest revision only.
 - Global responses set CSP, clickjacking, MIME-sniffing, referrer, permissions, opener, and resource
   isolation headers.
 
@@ -41,7 +47,10 @@ Launch posture: owner-only preview; public Technocore writes require a separate 
 
 `npm run test:security` checks security headers, duplicate JSON keys, invalid UTF-8, body limits,
 tampered signatures, fixed-origin observer behavior, receipt-ID boundaries, SSRF URL policy,
-cross-repository binding, and forbidden receipt fields. `npm run test:smoke` additionally checks
+cross-repository binding, and forbidden receipt fields. `npm run test:commons` adds forged-state,
+canonical-byte, requirements-hash, signed-context, public-URL, filename, resource-limit, UTF-8,
+depth, LFS, symlink, mode, trusted-base PR, append-only, and deterministic-index
+coverage. `npm run test:smoke` additionally checks
 stale acceptance, immutable identifier collisions, altered revision parent hashes, execution
 evidence binding, independent structured reviews and attestations, dossier export/offline
 verification, proof pages, Atlas, and artifact byte round-trips.
@@ -61,3 +70,6 @@ verification, proof pages, Atlas, and artifact byte round-trips.
 - GitHub object existence does not bind a GitHub account to a claimant DID or establish authorship.
 - Public launch can attract abuse and moderation load. The preview remains owner-only until the
   operator explicitly approves public access and an irreversible announcement.
+- Git merge and Commons admission prove that a bounded dossier passed project policy; they do not
+  prove that the underlying work is correct. Quarantine, takedown, supersession, and retention
+  operations remain maintainer governance boundaries before a public hosted index is launched.

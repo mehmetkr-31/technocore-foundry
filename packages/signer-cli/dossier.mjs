@@ -37,6 +37,14 @@ function exactKeys(value, keys) {
     Object.keys(value).length === keys.length && keys.every((key) => Object.hasOwn(value, key));
 }
 
+function validTimestamp(value) {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(value) && Number.isFinite(Date.parse(value));
+}
+
+function boundedText(value, minimum, maximum) {
+  return typeof value === 'string' && value.length >= minimum && value.length <= maximum && !/[\u0000-\u001f\u007f]/u.test(value);
+}
+
 function base58Decode(value) {
   if (!value || Array.from(value).some((character) => !BASE58.includes(character))) throw new Error('Malformed did:key base58 value.');
   let number = 0n;
@@ -54,7 +62,7 @@ function base58Decode(value) {
 }
 
 function publicKeyForDid(did) {
-  if (typeof did !== 'string' || !did.startsWith('did:key:z')) throw new Error('Expected an Ed25519 did:key signer.');
+  if (typeof did !== 'string' || !/^did:key:z[1-9A-HJ-NP-Za-km-z]{47}$/.test(did)) throw new Error('Expected a bounded Ed25519 did:key signer.');
   const decoded = base58Decode(did.slice('did:key:z'.length));
   if (decoded.length !== 34 || decoded[0] !== 0xed || decoded[1] !== 0x01) throw new Error('Unsupported did:key multicodec.');
   return createPublicKey({ key: Buffer.concat([ED25519_SPKI_PREFIX, decoded.subarray(2)]), type: 'spki', format: 'der' });
@@ -73,6 +81,31 @@ function claimantDid(receipt) {
   return typeof receipt.claimant === 'string' ? receipt.claimant : receipt.claimant?.did;
 }
 
+function validTcr1Shape(payload) {
+  const allowed = (value, keys) => value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).every((key) => keys.includes(key));
+  const artifactValid = (artifact) => allowed(artifact, ['type', 'uri', 'sha256', 'size']) &&
+    boundedText(artifact.type, 1, 120) && boundedText(artifact.uri, 1, 2_000) && /^[a-f0-9]{64}$/.test(artifact.sha256) &&
+    (artifact.size === undefined || (Number.isSafeInteger(artifact.size) && artifact.size >= 0 && artifact.size <= 5 * 1024 * 1024));
+  const claimant = typeof payload?.claimant === 'string'
+    ? payload.claimant
+    : exactKeys(payload?.claimant, ['did']) ? payload.claimant.did : null;
+  const evidence = payload?.evidence;
+  const evidenceValid = evidence === undefined || (allowed(evidence, ['repository', 'commit', 'pull_request', 'ci_url', 'ci_status', 'acceptance_sha256']) &&
+    (evidence.repository === undefined || boundedText(evidence.repository, 1, 500)) &&
+    (evidence.commit === undefined || /^[a-f0-9]{40}$/.test(evidence.commit)) &&
+    (evidence.pull_request === undefined || boundedText(evidence.pull_request, 1, 500)) &&
+    (evidence.ci_url === undefined || boundedText(evidence.ci_url, 1, 500)) &&
+    (evidence.ci_status === undefined || ['success', 'failure', 'pending', 'cancelled'].includes(evidence.ci_status)) &&
+    (evidence.acceptance_sha256 === undefined || /^[a-f0-9]{64}$/.test(evidence.acceptance_sha256)));
+  return allowed(payload, ['type', 'version', 'task', 'claimant', 'artifacts', 'created_at', 'expires_at', 'evidence', 'signature']) &&
+    exactKeys(payload.task, ['id', 'issuer', 'requirements_sha256']) && boundedText(payload.task.id, 1, 120) &&
+    typeof payload.task.issuer === 'string' && /^[a-f0-9]{64}$/.test(payload.task.requirements_sha256) &&
+    typeof claimant === 'string' && validTimestamp(payload.created_at) &&
+    (payload.expires_at === undefined || validTimestamp(payload.expires_at)) &&
+    Array.isArray(payload.artifacts) && payload.artifacts.length >= 1 && payload.artifacts.length <= 16 && payload.artifacts.every(artifactValid) &&
+    evidenceValid;
+}
+
 function verifyReceiptSignature(kind, payload) {
   if (['mission', 'claim', 'revision', 'change_request', 'acceptance', 'attestation'].includes(kind)) {
     if (!exactKeys(payload, ['event', 'signature']) || payload.event?.schema !== EVENT_SCHEMA) throw new Error(`Malformed ${kind} Foundry event envelope.`);
@@ -87,11 +120,7 @@ function verifyReceiptSignature(kind, payload) {
     if (!payload || payload.type !== TCR1_TYPE || payload.version !== 1 || !payload.signature ||
       payload.signature.algorithm !== 'Ed25519' || payload.signature.domain !== TCR1_DOMAIN ||
       !exactKeys(payload.signature, ['algorithm', 'domain', 'value']) ||
-      !Object.keys(payload).every((key) => ['type', 'version', 'task', 'claimant', 'artifacts', 'created_at', 'expires_at', 'evidence', 'signature'].includes(key)) ||
-      !payload.task || !Object.keys(payload.task).every((key) => ['id', 'issuer', 'requirements_sha256'].includes(key)) ||
-      !Array.isArray(payload.artifacts) || payload.artifacts.length < 1 ||
-      !payload.artifacts.every((artifact) => artifact && !Array.isArray(artifact) && Object.keys(artifact).every((key) => ['type', 'uri', 'sha256', 'size'].includes(key))) ||
-      (payload.evidence && (!Object.keys(payload.evidence).every((key) => ['repository', 'commit', 'pull_request', 'ci_url', 'ci_status', 'acceptance_sha256'].includes(key))))) throw new Error(`Malformed ${kind} TCR-1 receipt.`);
+      !validTcr1Shape(payload)) throw new Error(`Malformed ${kind} TCR-1 receipt.`);
     const unsigned = { ...payload };
     delete unsigned.signature;
     const did = claimantDid(payload);
@@ -128,16 +157,24 @@ function assertDossierShape(dossier) {
   }
   publicKeyForDid(dossier.subject.claimantDid);
   if (!exactKeys(dossier.mission, ['id', 'title', 'lane', 'summary', 'requirementsHash', 'issuerDid', 'status', 'createdAt', 'receiptId']) ||
-    dossier.mission.id !== dossier.subject.missionId || !/^sha256:[a-f0-9]{64}$/.test(dossier.mission.requirementsHash)) {
+    dossier.mission.id !== dossier.subject.missionId || !/^sha256:[a-f0-9]{64}$/.test(dossier.mission.requirementsHash) ||
+    !boundedText(dossier.mission.title, 8, 100) || !boundedText(dossier.mission.lane, 3, 40) ||
+    !boundedText(dossier.mission.summary, 20, 300) || !['open', 'closed'].includes(dossier.mission.status) ||
+    !validTimestamp(dossier.mission.createdAt) || (dossier.mission.receiptId !== null && !/^fms_[a-f0-9]{24}$/.test(dossier.mission.receiptId))) {
     throw new Error('Malformed dossier mission snapshot.');
   }
   publicKeyForDid(dossier.mission.issuerDid);
   if (!exactKeys(dossier.claim, ['id', 'actorDid', 'createdAt', 'receiptId']) ||
     dossier.claim.id !== dossier.subject.claimId || dossier.claim.receiptId !== dossier.claim.id ||
-    dossier.claim.actorDid !== dossier.subject.claimantDid) throw new Error('Malformed dossier claim snapshot.');
+    dossier.claim.actorDid !== dossier.subject.claimantDid || !validTimestamp(dossier.claim.createdAt) || !validTimestamp(dossier.snapshotAt)) {
+    throw new Error('Malformed dossier claim or declared snapshot timestamp.');
+  }
   if (!Array.isArray(dossier.revisionChain) || dossier.revisionChain.length < 1 || dossier.revisionChain.length > 5 ||
     !Array.isArray(dossier.receipts) || dossier.receipts.length < 2 || dossier.receipts.length > MAX_DOSSIER_RECEIPTS ||
-    !Array.isArray(dossier.limitations) || !Array.isArray(dossier.caveats)) throw new Error('Malformed dossier collections.');
+    !Array.isArray(dossier.limitations) || dossier.limitations.length > 16 ||
+    !dossier.limitations.every((value) => typeof value === 'string' && /^[a-z0-9][a-z0-9_]{0,63}$/.test(value)) ||
+    !Array.isArray(dossier.caveats) || dossier.caveats.length > 16 ||
+    !dossier.caveats.every((value) => boundedText(value, 1, 500))) throw new Error('Malformed dossier collections.');
 }
 
 function receiptMap(dossier) {
@@ -145,6 +182,7 @@ function receiptMap(dossier) {
   for (const receipt of dossier.receipts) {
     if (!exactKeys(receipt, ['id', 'kind', 'schema', 'actorDid', 'createdAt', 'canonicalSha256', 'storedBytesSha256', 'rawPath', 'proofPath', 'payload']) ||
       !KINDS.has(receipt.kind) || !/^(?:fms|frc|res|frv|fcr|fev|frw|fac|tcf|fat)_[a-f0-9]{24}$/.test(receipt.id) ||
+      !boundedText(receipt.schema, 1, 80) || !validTimestamp(receipt.createdAt) ||
       receipt.rawPath !== `/api/receipts/${receipt.id}` || receipt.proofPath !== `/receipt/${receipt.id}` || map.has(receipt.id)) {
       throw new Error('Malformed or duplicate embedded dossier receipt.');
     }
@@ -176,6 +214,12 @@ function digestOf(receipt) {
   return receipt.canonicalSha256;
 }
 
+function evidenceWithoutAcceptance(evidence) {
+  if (!evidence) return null;
+  const output = Object.fromEntries(Object.entries(evidence).filter(([key]) => key !== 'acceptance_sha256'));
+  return Object.keys(output).length ? output : null;
+}
+
 function verifyBindings(dossier, map) {
   const referenced = new Set();
   const issuer = dossier.mission.issuerDid;
@@ -185,7 +229,9 @@ function verifyBindings(dossier, map) {
     const mission = requireReceipt(map, dossier.mission.receiptId, 'mission', referenced).payload.event;
     if (mission.actor !== issuer || mission.missionId !== dossier.mission.id || mission.title !== dossier.mission.title ||
       mission.lane.toUpperCase() !== dossier.mission.lane || mission.summary !== dossier.mission.summary ||
-      mission.requirementsHash !== dossier.mission.requirementsHash) throw new Error('Mission receipt does not bind the dossier mission snapshot.');
+      mission.requirementsHash !== dossier.mission.requirementsHash || sha256(mission.requirements) !== mission.requirementsHash.slice(7)) {
+      throw new Error('Mission receipt does not bind the dossier mission snapshot and exact requirements bytes.');
+    }
   } else if (!dossier.limitations.includes('mission_receipt_unavailable')) {
     throw new Error('Unsigned seed mission limitation is not declared.');
   }
@@ -199,8 +245,16 @@ function verifyBindings(dossier, map) {
     if (!exactKeys(revision, ['revision', 'resultId', 'receiptId', 'resultReceiptSha256', 'createdAt', 'artifact', 'github', 'revisionLink', 'issuerOutcome', 'executionEvidenceReceiptIds', 'reviewReceiptIds', 'attestationReceiptIds']) ||
       revision.revision !== index + 1 || revision.receiptId !== revision.resultId || !/^res_[a-f0-9]{24}$/.test(revision.resultId) ||
       !exactKeys(revision.artifact, ['name', 'mediaType', 'bytes', 'sha256', 'downloadPath']) ||
-      revision.artifact.downloadPath !== `/api/artifacts/${revision.resultId}` || !/^sha256:[a-f0-9]{64}$/.test(revision.artifact.sha256)) {
+      !boundedText(revision.artifact.name, 1, 180) || !boundedText(revision.artifact.mediaType, 1, 120) ||
+      !Number.isSafeInteger(revision.artifact.bytes) || revision.artifact.bytes < 0 || revision.artifact.bytes > 5 * 1024 * 1024 ||
+      !validTimestamp(revision.createdAt) || revision.artifact.downloadPath !== `/api/artifacts/${revision.resultId}` ||
+      !/^sha256:[a-f0-9]{64}$/.test(revision.artifact.sha256)) {
       throw new Error('Malformed dossier revision entry.');
+    }
+    if (!exactKeys(revision.github, ['claim', 'observation']) || !exactKeys(revision.github.claim, ['repository', 'commit']) ||
+      (revision.github.claim.repository !== null && !boundedText(revision.github.claim.repository, 1, 500)) ||
+      (revision.github.claim.commit !== null && !/^[a-f0-9]{40}$/.test(revision.github.claim.commit))) {
+      throw new Error('Malformed dossier GitHub claim snapshot.');
     }
     const resultProof = requireReceipt(map, revision.receiptId, 'result', referenced);
     const result = resultProof.payload;
@@ -223,11 +277,13 @@ function verifyBindings(dossier, map) {
         link.parentResultId !== parent.resultId || link.parentReceiptSha256 !== parent.resultReceiptSha256) throw new Error('Revision parent hash link mismatch.');
       const change = requireReceipt(map, link.changeRequestReceiptId, 'change_request', referenced);
       if (link.changeRequestReceiptSha256 !== digestOf(change) || change.payload.event.actor !== issuer ||
-        change.payload.event.resultId !== parent.resultId || change.payload.event.resultSha256 !== parent.resultReceiptSha256) {
+        change.payload.event.missionId !== dossier.mission.id || change.payload.event.resultId !== parent.resultId ||
+        change.payload.event.resultSha256 !== parent.resultReceiptSha256) {
         throw new Error('Revision change-request link mismatch.');
       }
       const chain = requireReceipt(map, link.revisionReceiptId, 'revision', referenced).payload.event;
-      if (chain.actor !== claimant || chain.resultId !== revision.resultId || chain.resultSha256 !== revision.resultReceiptSha256 ||
+      if (chain.actor !== claimant || chain.missionId !== dossier.mission.id || chain.claimId !== dossier.subject.claimId ||
+        chain.resultId !== revision.resultId || chain.resultSha256 !== revision.resultReceiptSha256 ||
         chain.parentResultId !== parent.resultId || chain.parentResultSha256 !== parent.resultReceiptSha256 ||
         chain.changeRequestId !== link.changeRequestReceiptId || chain.changeRequestSha256 !== link.changeRequestReceiptSha256 ||
         chain.revision !== revision.revision) throw new Error('Claimant revision receipt link mismatch.');
@@ -237,13 +293,15 @@ function verifyBindings(dossier, map) {
     if (!exactKeys(outcome, ['decision', 'changeRequestReceiptId', 'acceptanceReceiptId', 'finalReceiptId'])) throw new Error('Malformed issuer outcome.');
     if (outcome.changeRequestReceiptId) {
       const change = requireReceipt(map, outcome.changeRequestReceiptId, 'change_request', referenced).payload.event;
-      if (change.actor !== issuer || change.resultId !== revision.resultId || change.resultSha256 !== revision.resultReceiptSha256) throw new Error('Issuer change request target mismatch.');
+      if (change.actor !== issuer || change.missionId !== dossier.mission.id || change.resultId !== revision.resultId ||
+        change.resultSha256 !== revision.resultReceiptSha256) throw new Error('Issuer change request target mismatch.');
     }
     let acceptanceProof;
     if (outcome.acceptanceReceiptId) {
       acceptanceProof = requireReceipt(map, outcome.acceptanceReceiptId, 'acceptance', referenced);
       const acceptance = acceptanceProof.payload.event;
-      if (acceptance.actor !== issuer || acceptance.resultId !== revision.resultId || acceptance.resultSha256 !== revision.resultReceiptSha256 || acceptance.decision !== outcome.decision) {
+      if (acceptance.actor !== issuer || acceptance.missionId !== dossier.mission.id || acceptance.resultId !== revision.resultId ||
+        acceptance.resultSha256 !== revision.resultReceiptSha256 || acceptance.decision !== outcome.decision) {
         throw new Error('Issuer acceptance target mismatch.');
       }
     } else if (outcome.decision !== null) throw new Error('Issuer decision lacks its signed receipt.');
@@ -251,8 +309,12 @@ function verifyBindings(dossier, map) {
       if (!acceptanceProof || outcome.decision !== 'accepted') throw new Error('Finalization lacks exact issuer acceptance.');
       const final = requireReceipt(map, outcome.finalReceiptId, 'finalization', referenced).payload;
       if (claimantDid(final) !== claimant || final.task?.id !== dossier.mission.id ||
+        final.task?.issuer !== issuer || final.task?.requirements_sha256 !== dossier.mission.requirementsHash.slice(7) ||
         final.evidence?.acceptance_sha256 !== digestOf(acceptanceProof).slice(7) ||
-        final.artifacts?.[0]?.sha256 !== revision.artifact.sha256.slice(7)) throw new Error('Final TCR-1 acceptance binding mismatch.');
+        canonicalJson(final.task) !== canonicalJson(result.task) || canonicalJson(final.artifacts) !== canonicalJson(result.artifacts) ||
+        canonicalJson(evidenceWithoutAcceptance(final.evidence)) !== canonicalJson(evidenceWithoutAcceptance(result.evidence))) {
+        throw new Error('Final TCR-1 must preserve the result and exact issuer acceptance binding.');
+      }
     }
 
     const verificationDigests = new Set();
@@ -285,8 +347,30 @@ function verifyBindings(dossier, map) {
     }
   }
   if (dossier.revisionChain.at(-1).resultId !== dossier.subject.selectedResultId) throw new Error('Selected result is not the latest revision.');
+  const latestOutcome = dossier.revisionChain.at(-1).issuerOutcome;
+  const derivedState = latestOutcome.finalReceiptId ? 'finalized'
+    : latestOutcome.acceptanceReceiptId ? latestOutcome.decision
+      : latestOutcome.changeRequestReceiptId ? 'changes_requested'
+        : 'submitted';
+  if (dossier.subject.selectedState !== derivedState) throw new Error('Selected state does not match the signed latest receipt chain.');
   const unreferenced = dossier.receipts.filter((receipt) => !referenced.has(receipt.id));
   if (unreferenced.length) throw new Error(`Dossier contains unreferenced receipt ${unreferenced[0].id}.`);
+}
+
+export function deriveContributionDossierLayers(dossier, artifact = 'not_checked') {
+  const selected = dossier.revisionChain.at(-1);
+  const outcomePresent = Boolean(selected.issuerOutcome.acceptanceReceiptId || selected.issuerOutcome.changeRequestReceiptId);
+  return {
+    contentAddress: 'valid',
+    receiptSignatures: 'valid',
+    missionAndClaim: 'valid',
+    revisionChain: 'valid',
+    issuerOutcome: outcomePresent ? 'valid' : 'absent',
+    executionEvidence: selected.executionEvidenceReceiptIds.length ? 'valid' : 'absent',
+    structuredReview: selected.reviewReceiptIds.length ? 'valid' : 'absent',
+    peerEvidence: selected.attestationReceiptIds.length ? 'valid' : 'absent',
+    artifact,
+  };
 }
 
 export function verifyContributionDossierBytes(input, options = {}) {
@@ -310,7 +394,6 @@ export function verifyContributionDossierBytes(input, options = {}) {
     if (supplied.length !== selected.bytes || sha256(supplied) !== selected.sha256.slice(7)) throw new Error('Supplied artifact bytes do not match the selected revision.');
     artifact = 'valid';
   }
-  const count = (kind) => dossier.receipts.filter((receipt) => receipt.kind === kind).length;
   return {
     ok: true,
     id,
@@ -318,17 +401,7 @@ export function verifyContributionDossierBytes(input, options = {}) {
     sha256: `sha256:${digest}`,
     selectedResultId: dossier.subject.selectedResultId,
     selectedState: dossier.subject.selectedState,
-    layers: {
-      contentAddress: 'valid',
-      receiptSignatures: 'valid',
-      missionAndClaim: 'valid',
-      revisionChain: 'valid',
-      issuerOutcome: count('acceptance') || count('change_request') ? 'valid' : 'absent',
-      executionEvidence: count('verification') ? 'valid' : 'absent',
-      structuredReview: count('review') ? 'valid' : 'absent',
-      peerEvidence: count('attestation') ? 'valid' : 'absent',
-      artifact,
-    },
+    layers: deriveContributionDossierLayers(dossier, artifact),
     caveat: 'Valid signatures and hash links prove key control and byte integrity, not authorship, correctness, identity, payment, or airdrop eligibility.',
   };
 }

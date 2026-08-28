@@ -10,6 +10,7 @@
 - [x] Accepted-only Contribution Atlas with evidence edges and no reputation score
 - [x] Fixed-origin, fixed-room, user-triggered observer with epoch/gap ledger
 - [x] Security headers, regression suite, SBOM, deterministic release manifest, and dependency audit
+- [x] Git-moderated Proof Commons with offline admission, deterministic index, and read-only local UI
 - [x] Owner-only deployment
 
 ## Public source release
@@ -19,8 +20,9 @@
 - [x] Make the GitHub repository public
 - [x] Enable secret scanning, push protection, and private vulnerability reporting
 - [x] Keep the hosted Sites deployment owner-only
-- [ ] Select and add a root open-source license
-- [ ] Add contributor governance and CI required checks
+- [x] Add Apache-2.0 license and upstream attribution notices
+- [x] Add contributor governance, CODEOWNERS, PR policy, and secretless CI definitions
+- [ ] Configure the new CI workflows as required branch-protection checks after their first GitHub run
 - [ ] Default-disable the Technocore relay unless an operator explicitly configures a public origin
 
 ## Hosted service decisions still required

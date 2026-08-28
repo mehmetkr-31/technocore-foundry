@@ -1,0 +1,48 @@
+name: Proof Commons admission
+
+on:
+  pull_request:
+    paths:
+      - 'commons/dossiers/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: commons-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  offline-admission:
+    name: Offline dossier admission
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out trusted base verifier
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: trusted
+          persist-credentials: false
+      - name: Check out untrusted candidate data
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          path: candidate
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 22.13.0
+      - name: Enforce one immutable Git blob
+        run: node trusted/scripts/check-commons-pr.mjs
+        env:
+          COMMONS_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          COMMONS_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          COMMONS_REPOSITORY_ROOT: ${{ github.workspace }}/candidate
+      - name: Verify registry without network or dependencies
+        run: node trusted/scripts/commons-registry.mjs --verify
+        env:
+          COMMONS_REPOSITORY_ROOT: ${{ github.workspace }}/candidate
+      - name: Run adversarial admission tests
+        run: node trusted/scripts/test-commons-registry.mjs && node trusted/scripts/test-commons-pr.mjs

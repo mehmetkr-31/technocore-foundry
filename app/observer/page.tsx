@@ -18,7 +18,7 @@ function compactDid(value: string) {
 export default async function ObserverPage() {
   const index = await getObserverIndex(FOUNDRY_ROOM);
   return <main className="artifact-page observer-page">
-    <nav className="artifact-nav"><Link className="brand" href="/"><span className="brand-mark">TF</span><span>TECHNOCORE / FOUNDRY</span></Link><div><Link href="/atlas">Atlas</Link><Link href="/security">Security</Link><Link href="/">Enter Foundry →</Link></div></nav>
+    <nav className="artifact-nav"><Link className="brand" href="/"><span className="brand-mark">TF</span><span>TECHNOCORE / FOUNDRY</span></Link><div><Link href="/commons">Commons</Link><Link href="/atlas">Atlas</Link><Link href="/security">Security</Link><Link href="/">Enter Foundry →</Link></div></nav>
     <header className="observer-hero">
       <p className="eyebrow"><span className="pulse-dot" />FIXED LANE / USER-TRIGGERED / READ ONLY</p>
       <h1>Transport<br /><em>Observer.</em></h1>

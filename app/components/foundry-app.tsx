@@ -782,7 +782,8 @@ export default function FoundryApp() {
     <main>
       <nav className="nav-shell" aria-label="Primary navigation">
         <a className="brand" href="#top" aria-label="Technocore Foundry home"><span className="brand-mark" aria-hidden="true">TF</span><span>TECHNOCORE / FOUNDRY</span></a>
-        <div className="nav-links"><a href="#missions">Missions</a><a href="/atlas">Atlas</a><a href="/observer">Observer</a><a href="/security">Security</a><a href="/protocol">Protocol Lab</a><button type="button" onClick={() => openDialog('verify')}>Verify</button></div>
+        <div className="nav-links"><a href="#missions">Missions</a><a href="/commons">Commons</a><a href="/atlas">Atlas</a><a href="/observer">Observer</a><a href="/security">Security</a><a href="/protocol">Protocol Lab</a><button type="button" onClick={() => openDialog('verify')}>Verify</button></div>
+        <a className="nav-mobile-link" href="/commons">Commons</a>
         <button className="nav-cta" type="button" onClick={() => openDialog(vault ? 'restore' : 'forge')}>{vault ? `DID ${compactDid(vault.did)}` : 'Enter Foundry'} <span aria-hidden="true">↗</span></button>
       </nav>
 

@@ -57,12 +57,16 @@ exposing the current unrestricted write APIs.
 - Builds an unsigned `foundry-contribution-dossier-v1` for the latest revision of
   one claim. The canonical bundle embeds exact public receipts, is addressed as
   `fds_<sha256-prefix>`, and can be exported and verified offline without a vault.
+- Maintains Proof Commons as a Git-moderated, read-only dossier registry. Admission
+  accepts one canonical content-addressed file per pull request, performs no URL
+  fetch, and derives a deterministic static proof-gap index.
 - Includes a user-triggered observer for the fixed `foundry-contributions` lane.
   It stores no remote message text, follows no remote URL, records cursor gaps and
   room epochs, and labels every history sighting `transport_unverifiable` because
   Technocore JSON reads omit historical signatures.
 - Ships security headers, SSRF and strict-input regression tests, a CycloneDX SBOM,
-  deterministic release manifest, security audit, and controlled launch checklist.
+  deterministic dependency-license inventory and release manifest, security audit,
+  and controlled launch checklist.
 - Produces a signed, retryable announcement package for Technocore and can relay
   it only to the fixed `foundry-contributions` room after explicit confirmation.
 - Verifies downloaded receipts locally in the browser.
@@ -108,6 +112,9 @@ npx tsc --noEmit
 npm run build
 npm run test:signer
 npm run test:observer
+npm run test:security:unit
+npm run commons:verify
+npm run test:commons
 npm run release:artifacts
 npm audit --omit=dev
 ```
@@ -125,6 +132,31 @@ npm run test:security
 ```
 
 Neither test writes to Technocore.
+
+## Proof Commons
+
+[`/commons`](http://localhost:3000/commons) is a read-only view over dossiers in
+`commons/dossiers/`. It separates content/signature validity, issuer outcome,
+execution evidence, structured review, peer evidence, and artifact-byte checking.
+Missing layers become concrete collaboration openings; they are never a score or
+reward prediction.
+
+The registry has no upload API. A public submission is a pull request that adds
+exactly one `commons/dossiers/fds_<24hex>.json` file. The bounded validator checks
+canonical bytes, the content-addressed filename, every embedded signature and hash
+link, the signed latest state, resource caps, file mode, and registry policy without
+network access:
+
+```bash
+npm run commons:verify
+npm run test:commons
+npm run commons:build
+```
+
+`npm run dev` and `npm run build` regenerate `public/commons/index.json` from the
+verified source registry. See [`commons/README.md`](commons/README.md) and
+[`CONTRIBUTING.md`](CONTRIBUTING.md#proof-commons-admission) for the exact admission
+contract.
 
 The Sites runtime bindings are declared in `.openai/hosting.json`:
 
@@ -187,11 +219,8 @@ DID.
 
 ## Release posture
 
-Technical phases 1–10 are implemented. The GitHub repository is public, while the
-deployed preview remains owner-only. Public hosting and publishing the first
+Technical phases 1–10 and the first local-first Proof Commons slice are implemented.
+The source is licensed under Apache-2.0 and the GitHub repository is public, while
+the deployed preview remains owner-only. Public hosting and publishing the first
 irreversible Technocore message are separate operator decisions tracked in
 `release/LAUNCH_CHECKLIST.md` and `release/PUBLIC_RELEASE_PLAN.md`.
-
-No reuse license has been selected yet. Public visibility alone does not grant
-redistribution or modification rights; a root `LICENSE` is an explicit remaining
-release decision.

@@ -85,7 +85,7 @@ export default async function ProtocolPage() {
 
   return (
     <main className="artifact-page protocol-page">
-      <nav className="artifact-nav"><Link className="brand" href="/"><span className="brand-mark">TF</span><span>TECHNOCORE / FOUNDRY</span></Link><div><Link href="/atlas">Atlas</Link><Link href="/observer">Observer</Link><Link href="/security">Security</Link><Link href="/">Enter Foundry →</Link></div></nav>
+      <nav className="artifact-nav"><Link className="brand" href="/"><span className="brand-mark">TF</span><span>TECHNOCORE / FOUNDRY</span></Link><div><Link href="/commons">Commons</Link><Link href="/atlas">Atlas</Link><Link href="/observer">Observer</Link><Link href="/security">Security</Link><Link href="/">Enter Foundry →</Link></div></nav>
 
       <header className="protocol-hero">
         <div><p className="eyebrow"><span className="pulse-dot" />PROTOCOL CONFORMANCE / FIXTURE V1</p><h1>Same bytes.<br /><em>Two runtimes.</em></h1><p>Deterministic receipts make interoperability falsifiable. TypeScript and Python receive the same public key, canonical bytes, change request, revision chain, peer attestation, execution evidence, invalid inputs, and expected sweep output.</p></div>

@@ -1,0 +1,161 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: 22.13.0
+
+jobs:
+  quality:
+    name: Lint, typecheck, build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm run build
+      - run: npm run db:generate
+      - name: Require generated migration artifacts to be committed
+        run: test -z "$(git status --porcelain -- drizzle)"
+
+  protocol:
+    name: Cross-language protocol
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: npm ci
+      - run: python -m pip install -r requirements-dev.txt
+      - run: npm run test:protocol
+      - name: Require deterministic fixture output
+        run: git diff --exit-code -- protocol/fixtures/v1.json
+
+  core:
+    name: Signer, observer, security, Commons
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run test:signer
+      - run: npm run test:observer
+      - run: npm run test:security:unit
+      - run: npm run commons:verify
+      - run: npm run test:commons
+
+  local-http:
+    name: Local HTTP boundary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Start isolated local node
+        run: |
+          npm run dev > /tmp/foundry-dev.log 2>&1 &
+          echo $! > /tmp/foundry-dev.pid
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://localhost:3000/security > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/foundry-dev.log
+          exit 1
+      - run: npm run test:security:http
+        env:
+          FOUNDRY_ORIGIN: http://localhost:3000
+      - name: Stop local node and print log on failure
+        if: always()
+        run: |
+          if test -f /tmp/foundry-dev.pid; then
+            kill "$(cat /tmp/foundry-dev.pid)" 2>/dev/null || true
+          fi
+          if test "${{ job.status }}" != success; then
+            cat /tmp/foundry-dev.log 2>/dev/null || true
+          fi
+
+  release-drift:
+    name: Release artifact drift
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run release:artifacts
+      - run: git diff --exit-code -- release/manifest.json release/sbom.cdx.json release/licenses.json
+
+  dependency-audit:
+    name: Dependency audit (informational)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm audit --omit=dev --audit-level=high

@@ -80,7 +80,7 @@ export default async function ReceiptPage({ params }: PageProps) {
 
   return (
     <main className="artifact-page receipt-page">
-      <nav className="artifact-nav"><Link className="brand" href="/"><span className="brand-mark">TF</span><span>TECHNOCORE / FOUNDRY</span></Link><div><Link href="/atlas">Contribution Atlas</Link><Link href="/">Enter Foundry →</Link></div></nav>
+      <nav className="artifact-nav"><Link className="brand" href="/"><span className="brand-mark">TF</span><span>TECHNOCORE / FOUNDRY</span></Link><div><Link href="/commons">Proof Commons</Link><Link href="/atlas">Contribution Atlas</Link><Link href="/">Enter Foundry →</Link></div></nav>
       <header className="receipt-hero">
         <div><p className="eyebrow"><span className="pulse-dot" />PORTABLE PROOF / {metadata.schema.toUpperCase()}</p><span className="receipt-page-id">{id}</span><h1>{metadata.missionTitle ?? 'Signed contribution receipt'}</h1><p>{metadata.missionLane ?? 'FOUNDRY EVENT'} · observed {new Date(metadata.createdAt).toISOString()}</p></div>
         <div className="receipt-seal"><span>{cryptoValid ? '●' : '○'}</span><strong>{cryptoValid ? 'SIGNATURE VALID' : 'SIGNATURE INVALID'}</strong><small>{isTcr1 ? 'TCR-1 / Ed25519' : isVerification ? 'EXECUTION EVIDENCE / Ed25519' : isReview ? 'STRUCTURED REVIEW / Ed25519' : `${eventSchema} / Ed25519`}</small></div>

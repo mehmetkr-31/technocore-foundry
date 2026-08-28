@@ -11,7 +11,10 @@
   },
   "artifacts": {
     "protocolFixtureSha256": "09182dab214bb4744c4c339470b23793b4586bb9c16ee4c18c24cd61ffebe27d",
-    "sbomSha256": "cd849844390e476c0d03e72c5ac96757062241f22e8c67f6d692316462eaa6a7",
+    "sbomSha256": "b48cf9bb08379f20dfd8fca6892f2368f690e11c7b50a7ac4a660c856f89f365",
+    "dependencyLicensesSha256": "a6daeeadc18ac7a045990697c55584c2c645b67dfdfb8374d17a98af3426c5d9",
+    "licenseSha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "noticeSha256": "1b3221e9ab8ca0ea2ffabd3c36eea2e53e1c4cddb6e0ed4dd52164f1f76e96cd",
     "migrationSha256": {
       "0000_thick_ego.sql": "a88554a918ec1bb5833e4b9ac0d6a3d2d2f7a087bb13aa3f1ffca3edce1ebc28",
       "0001_dusty_lizard.sql": "dd06be9e43e84ace19d556d6a97bc212499d955c98ca690fc22af4c7422a01d9",
@@ -30,6 +33,7 @@
     "protocol-python",
     "signer",
     "dossier-offline",
+    "commons-offline",
     "observer",
     "security",
     "smoke",

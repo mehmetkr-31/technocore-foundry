@@ -1,0 +1,12 @@
+{
+  "schema": "foundry-proof-commons-index-v1",
+  "policyVersion": "2026-08-28.v1",
+  "registryPath": "commons/dossiers",
+  "metrics": {
+    "dossiers": 0,
+    "participants": 0,
+    "receipts": 0,
+    "proofGaps": 0
+  },
+  "entries": []
+}

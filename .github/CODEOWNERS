@@ -1,0 +1,12 @@
+* @mehmetkr-31
+
+/.github/ @mehmetkr-31
+/commons/ @mehmetkr-31
+/protocol/ @mehmetkr-31
+/packages/signer-cli/ @mehmetkr-31
+/packages/signer-sdk/ @mehmetkr-31
+/lib/foundry-crypto.ts @mehmetkr-31
+/lib/strict-json.ts @mehmetkr-31
+/app/api/technocore/publish/ @mehmetkr-31
+/db/ @mehmetkr-31
+/drizzle/ @mehmetkr-31
