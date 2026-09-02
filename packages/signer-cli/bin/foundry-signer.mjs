@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { chmod, open, readFile } from 'node:fs/promises';
+import { chmod, open, readFile, stat } from 'node:fs/promises';
 import { createReadStream, createWriteStream, openSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
@@ -36,7 +36,8 @@ async function terminalPassphrase(label, confirm = false) {
   const rl = createInterface({ input, output, terminal: true });
   const readHidden = async (prompt) => {
     output.write(prompt);
-    spawnSync('stty', ['-echo'], { stdio: [ttyFd, ttyFd, ttyFd] });
+    const hidden = spawnSync('stty', ['-echo'], { stdio: [ttyFd, ttyFd, ttyFd] });
+    if (hidden.status !== 0) throw new Error('Secure hidden passphrase entry is unavailable. Use macOS, Linux, or WSL2 with a controlling terminal.');
     try {
       return await rl.question('');
     } finally {
@@ -62,18 +63,29 @@ async function readInput(path) {
 }
 
 async function readRaw(path, maximum = 256 * 1024) {
-  const bytes = path === '-' ? await new Promise((resolve, reject) => {
+  if (path !== '-') {
+    const metadata = await stat(path);
+    if (!metadata.isFile()) throw new Error('Input must be a regular file.');
+    if (metadata.size > maximum) throw new Error(`Input exceeds the ${maximum}-byte limit.`);
+  }
+  const bytes = path === '-' ? await (async () => {
     const chunks = [];
-    stdin.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
-    stdin.on('end', () => resolve(Buffer.concat(chunks)));
-    stdin.on('error', reject);
-  }) : await readFile(path);
+    let size = 0;
+    for await (const chunk of stdin) {
+      const bytes = Buffer.from(chunk);
+      size += bytes.length;
+      if (size > maximum) throw new Error(`Input exceeds the ${maximum}-byte limit.`);
+      chunks.push(bytes);
+    }
+    return Buffer.concat(chunks, size);
+  })() : await readFile(path);
   if (bytes.length > maximum) throw new Error(`Input exceeds the ${maximum}-byte limit.`);
   return bytes;
 }
 
 async function loadVault(path) {
-  return parseVault(JSON.parse(await readFile(path, 'utf8')));
+  const bytes = await readRaw(path, 32 * 1024);
+  return parseVault(parseStrictJson(new TextDecoder('utf-8', { fatal: true }).decode(bytes)));
 }
 
 async function main() {

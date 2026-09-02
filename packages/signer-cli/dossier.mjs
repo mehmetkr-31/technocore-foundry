@@ -42,7 +42,8 @@ function validTimestamp(value) {
 }
 
 function boundedText(value, minimum, maximum) {
-  return typeof value === 'string' && value.length >= minimum && value.length <= maximum && !/[\u0000-\u001f\u007f]/u.test(value);
+  return typeof value === 'string' && value.length >= minimum && value.length <= maximum &&
+    !/[\u0000-\u001f\u007f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/u.test(value);
 }
 
 function base58Decode(value) {
@@ -363,7 +364,7 @@ export function deriveContributionDossierLayers(dossier, artifact = 'not_checked
   return {
     contentAddress: 'valid',
     receiptSignatures: 'valid',
-    missionAndClaim: 'valid',
+    missionAndClaim: dossier.mission?.receiptId ? 'valid' : 'absent',
     revisionChain: 'valid',
     issuerOutcome: outcomePresent ? 'valid' : 'absent',
     executionEvidence: selected.executionEvidenceReceiptIds.length ? 'valid' : 'absent',

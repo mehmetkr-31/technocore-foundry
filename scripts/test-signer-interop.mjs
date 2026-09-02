@@ -1,10 +1,24 @@
 import assert from 'node:assert/strict';
-import { createVault as createNodeVault, signEvent as signNodeEvent, signReview as signNodeReview, unlockVault as unlockNodeVault } from '../packages/signer-cli/core.mjs';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { createVault as createNodeVault, parseVault as parseNodeVault, signEvent as signNodeEvent, signReview as signNodeReview, unlockVault as unlockNodeVault } from '../packages/signer-cli/core.mjs';
 import { createVault as createBrowserVault, parseVault, unlockVault, verifyReviewReceipt, verifySignedEvent } from '../lib/foundry-crypto.ts';
 
 const passphrase = 'browser and cli interop phrase';
 const cliVault = createNodeVault(passphrase, new Date('2026-08-27T00:00:00.000Z'));
 await unlockVault(parseVault(cliVault), passphrase);
+assert.equal(parseNodeVault(structuredClone(cliVault)).did, cliVault.did);
+for (const malformed of [
+  { ...cliVault, extra: true },
+  { ...cliVault, kdf: { ...cliVault.kdf, iterations: 9_999_999_999 } },
+  { ...cliVault, ciphertext: 'A'.repeat(10_000) },
+  { ...cliVault, createdAt: 'not-a-timestamp' },
+]) {
+  assert.throws(() => parseVault(malformed));
+  assert.throws(() => parseNodeVault(malformed));
+}
 
 const event = {
   schema: 'foundry-event-v1', type: 'claim', missionId: 'M-042',
@@ -39,5 +53,22 @@ assert.equal(await verifyReviewReceipt({
 
 const browserVault = await createBrowserVault(passphrase);
 assert.ok(unlockNodeVault(browserVault, passphrase));
+
+const verifierFixture = await mkdtemp(join(tmpdir(), 'foundry-verifier-'));
+try {
+  const oversizedVault = join(verifierFixture, 'oversized-vault.json');
+  const allowlist = join(verifierFixture, 'allowlist.json');
+  await writeFile(oversizedVault, 'x'.repeat(32 * 1024 + 1));
+  await writeFile(allowlist, '{}');
+  const bounded = spawnSync(process.execPath, [
+    'packages/signer-cli/bin/foundry-verifier.mjs',
+    '--vault', oversizedVault,
+    '--allowlist', allowlist,
+  ], { cwd: new URL('..', import.meta.url), encoding: 'utf8' });
+  assert.equal(bounded.status, 1);
+  assert.match(bounded.stderr, /Vault exceeds the 32768-byte limit/);
+} finally {
+  await rm(verifierFixture, { recursive: true, force: true });
+}
 
 console.log(JSON.stringify({ signerInterop: 'ok', directions: ['cli-to-browser', 'browser-to-cli'], proofs: ['event', 'review'] }));

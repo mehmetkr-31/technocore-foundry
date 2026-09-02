@@ -49,7 +49,16 @@ await expect('/api/observer/sync', {
   body: JSON.stringify({ url: 'http://127.0.0.1:8080/private' }),
 }, 400, 'observer SSRF input');
 
+const relayPolicy = await expect('/api/technocore/publish', undefined, 200, 'relay policy');
+const relayPolicyBody = await relayPolicy.json();
+if (relayPolicyBody.enabled !== false || relayPolicyBody.code !== 'disabled') {
+  throw new Error('Local Technocore relay must be disabled by default.');
+}
+await expect('/api/technocore/publish', {
+  method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+}, 403, 'disabled relay');
+
 await expect('/api/receipts/fat_not-a-receipt', undefined, 400, 'receipt identifier boundary');
 await expect('/security', undefined, 200, 'security surface');
 
-console.log(JSON.stringify({ securityRegression: 'ok', gates: ['headers', 'strict-json', 'utf8', 'size', 'signature', 'fixed-origin', 'receipt-id'] }));
+console.log(JSON.stringify({ securityRegression: 'ok', gates: ['headers', 'strict-json', 'utf8', 'size', 'signature', 'fixed-origin', 'receipt-id', 'relay-default-off'] }));

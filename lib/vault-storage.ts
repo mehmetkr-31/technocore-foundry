@@ -1,4 +1,4 @@
-import type { FoundryVault } from './foundry-crypto';
+import { parseVault, type FoundryVault } from './foundry-crypto';
 
 const DATABASE = 'technocore-foundry';
 const STORE = 'vaults';
@@ -36,5 +36,5 @@ export async function loadVault() {
     request.onerror = () => reject(request.error ?? new Error('Could not read the local vault.'));
   });
   database.close();
-  return result;
+  return result === undefined ? undefined : parseVault(result);
 }

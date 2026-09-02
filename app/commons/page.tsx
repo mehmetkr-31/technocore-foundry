@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import commonsIndexJson from '@/public/commons/index.json';
+import { ProofInspector } from './proof-inspector';
 
 export const metadata: Metadata = {
   title: 'Proof Commons — Technocore Foundry',
@@ -100,6 +101,8 @@ export default async function CommonsPage({ searchParams }: PageProps) {
           <code>{commonsIndex.policyVersion}</code>
         </aside>
       </header>
+
+      <ProofInspector />
 
       <section className="atlas-metrics commons-metrics" aria-label="Commons metrics">
         <article><span>INDEXED DOSSIERS</span><strong>{commonsIndex.metrics.dossiers.toString().padStart(2, '0')}</strong></article>

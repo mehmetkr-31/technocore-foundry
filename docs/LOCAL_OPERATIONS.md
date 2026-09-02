@@ -1,0 +1,112 @@
+# Local operations
+
+Technocore Foundry is local-first. A clone has three independent kinds of state; back them up and
+restore them separately.
+
+## One-command setup
+
+Use Node 22.13.0 or newer, then run:
+
+```bash
+npm run setup
+npm run dev
+```
+
+`npm run setup` installs the exact lockfile, checks the offline Commons index, and proves that the
+local D1 and R2 bindings can be read. The install step contacts the npm registry. It does not create
+a DID, read Technocore or GitHub, start the observer, publish a message, or enable the relay.
+
+Run `npm run doctor` at any time for the same local readiness checks. Keep the browser origin exactly
+`http://localhost:3000`; changing the hostname or port creates a different IndexedDB vault scope.
+
+## 1. Encrypted identity vault
+
+The browser vault is not stored under `.wrangler/`. In Foundry, open the active DID control and use
+**Download backup**. Preserve the downloaded `technocore-foundry-….vault.json` file and its
+passphrase separately. Passphrase loss has no reset path.
+
+Before restoring a different vault, download the currently active vault. The restore flow replaces
+the vault for that exact browser origin after an unlock and sign/verify recovery test.
+
+CLI vaults can be checked without contacting a network:
+
+```bash
+npm run signer -- doctor --vault ./agent.foundry-vault.json
+```
+
+Confirm that the printed DID is the DID you expected. Do not pass the passphrase through argv,
+environment variables, redirected stdin, or files. The CLI currently requires macOS, Linux, or
+WSL2 for its controlling-terminal secret entry.
+
+## 2. Local node state: D1 and R2 together
+
+The ignored `.wrangler/state/` directory contains the local D1 database and R2 objects. It does not
+contain the browser identity vault.
+
+For a cold backup:
+
+1. Stop `npm run dev` completely.
+2. Confirm no Foundry dev process is running.
+3. Copy the entire `.wrangler/state/` directory as one unit.
+4. Record the repository commit and preserve `package-lock.json` with the backup.
+
+Never copy active SQLite files or their WAL companions, merge two state directories, or restore only
+D1 or only R2. Miniflare state is implementation-version-coupled.
+
+The SQL files under `drizzle/` are authoritative for any deployed database. Run
+`npm run test:migrations` to apply the complete journal to a blank SQLite database and check its
+integrity. Fresh local development nodes may bootstrap the same schema lazily; production mode
+instead fails closed if the committed migrations were not applied before traffic.
+
+This preview does not ship D1 deployment credentials or a production migration command. Do not
+point the full migration journal at a database created by an older request-time bootstrap: it has
+no migration ledger, so the initial `CREATE TABLE` statements will collide. Before any hosted code
+update, keep access owner-only, take a recoverable D1/R2 backup, determine whether the database is a
+fresh migrated database or a legacy bootstrapped database, baseline the legacy schema or apply only
+the reviewed additive migration through the operator's deployment mechanism, and confirm
+`/api/health` reports the current schema. That hosted rehearsal remains an explicit launch blocker.
+
+For restore, stop the server, move the current `.wrangler/state/` aside as a recoverable backup,
+place the complete saved state at the same path, install the preserved lockfile with `npm ci`, and
+run `npm run doctor` before using the node. Doctor proves that the D1 and R2 bindings are readable;
+it does not prove that every historical object survived. Before each backup, record at least one
+known mission ID plus the SHA-256 values of a receipt, artifact, and dossier. After restore, open or
+export those exact records and compare their hashes before accepting new work.
+
+## 3. Portable contribution dossiers
+
+A dossier is public-proof material, not a node backup. Export it after a lifecycle is complete and
+verify the exact canonical file offline:
+
+```bash
+npm run signer -- verify-dossier --input ./fds_example.json
+npm run signer -- verify-dossier --input ./fds_example.json --artifact ./artifact.zip
+```
+
+Artifact bytes are separate. Supply them when available so the artifact layer can be checked rather
+than left `NOT CHECKED`. A dossier proposed to Proof Commons is public and may remain in Git history.
+
+## Relay boundary
+
+The Technocore relay is disabled unless both conditions are deliberately configured in local Worker
+environment settings:
+
+```text
+FOUNDRY_TECHNOCORE_RELAY_ENABLED=1
+FOUNDRY_PUBLIC_ORIGIN=https://foundry.example.org
+```
+
+The public origin must be bare HTTPS and non-loopback. Even when enabled, the relay accepts only the
+latest locally stored, issuer-accepted result signed by its claimant DID. It durably reserves each
+canonical signed envelope in D1 before contacting the fixed Technocore endpoint.
+
+A confirmed success requires HTTP 200 plus a bounded JSON `posted` acknowledgement whose room,
+DID, signature, JSON-safe nonce, and text match the signed package. It is safe to query that exact
+package again without a second upstream write. A definite upstream
+`400`, `403`, `422`, or `429` rejection requires a new signature with a strictly higher nonce.
+Redirects, timeouts, other upstream responses, and uncertain completion writes are intentionally
+locked as ambiguous. Do not replay the downloaded package in those cases: compare the local
+`technocore_relay_attempts` record (the API response includes its attempt digest) with Technocore
+state and resolve it manually. There is deliberately no timeout-based unlock. These attempt rows
+are part of the D1 state covered by the cold backup procedure above. Local-only operators should
+leave the defaults in `.dev.vars.example` unchanged.

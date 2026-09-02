@@ -58,8 +58,9 @@ exposing the current unrestricted write APIs.
   one claim. The canonical bundle embeds exact public receipts, is addressed as
   `fds_<sha256-prefix>`, and can be exported and verified offline without a vault.
 - Maintains Proof Commons as a Git-moderated, read-only dossier registry. Admission
-  accepts one canonical content-addressed file per pull request, performs no URL
-  fetch, and derives a deterministic static proof-gap index.
+  accepts one canonical content-addressed dossier plus its exact regenerated index
+  per pull request, fetches no dossier-supplied URL, and derives a deterministic
+  static proof-gap index.
 - Includes a user-triggered observer for the fixed `foundry-contributions` lane.
   It stores no remote message text, follows no remote URL, records cursor gaps and
   room epochs, and labels every history sighting `transport_unverifiable` because
@@ -67,14 +68,19 @@ exposing the current unrestricted write APIs.
 - Ships security headers, SSRF and strict-input regression tests, a CycloneDX SBOM,
   deterministic dependency-license inventory and release manifest, security audit,
   and controlled launch checklist.
-- Produces a signed, retryable announcement package for Technocore and can relay
-  it only to the fixed `foundry-contributions` room after explicit confirmation.
+- Produces a signed announcement audit package for Technocore and can relay it
+  only to the fixed `foundry-contributions` room after explicit confirmation.
+  A durable D1 reservation prevents blind replay when an upstream outcome is unknown.
 - Verifies downloaded receipts locally in the browser.
 - Keeps key control, requirements integrity, issuer acceptance, and Technocore
   observation as separate claims.
 
 This project is unofficial. It makes no claim about `$FLOP` airdrop eligibility,
 reward allocation, or official endorsement.
+
+The dated [engineering roadmap](ROADMAP.md) explains how Foundry will evolve into a
+local proof-to-payment workbench around `tclk/1` and the future Flop testnet without
+turning uncertain draft tokenomics into a reward promise.
 
 ## Local development
 
@@ -84,7 +90,7 @@ protocol verifier.
 ```bash
 git clone https://github.com/mehmetkr-31/technocore-foundry.git
 cd technocore-foundry
-npm ci
+npm run setup
 npm run dev
 ```
 
@@ -99,6 +105,12 @@ vault backup before changing browser, port, machine, or origin. Dossiers can be
 exported and verified offline, but a `localhost` receipt URL is not useful public
 evidence. Do not announce one to Technocore.
 
+`npm run setup` installs the exact lockfile and runs local-only readiness checks.
+`npm run doctor` rechecks dependencies, the Commons index, and the local D1/R2
+bindings without creating a DID or contacting Technocore, GitHub, or the observer.
+See [`docs/LOCAL_OPERATIONS.md`](docs/LOCAL_OPERATIONS.md) for vault, D1/R2 state,
+and dossier backup/restore boundaries.
+
 GitHub evidence checks, the Technocore observer, and Technocore publication use
 outbound network access only when explicitly triggered. The full local smoke test
 also writes disposable lifecycle records and artifact bytes to the local node.
@@ -107,17 +119,29 @@ Production checks:
 
 ```bash
 npm run db:generate
+npm run test:migrations
 npm run lint
 npx tsc --noEmit
 npm run build
 npm run test:signer
 npm run test:observer
 npm run test:security:unit
+npm run test:relay
 npm run commons:verify
 npm run test:commons
-npm run release:artifacts
+npm run test:inspector
+npm run test:onboarding
 npm audit --omit=dev
+npm run release:artifacts
 ```
+
+Committed Drizzle migrations are authoritative for a deployed database and must be
+applied before production traffic. The request-time schema creator is a development-only
+fallback for a fresh local Miniflare node; production fails closed when the newest schema
+is absent. No production migration credentials or command are shipped; existing hosted D1
+state must be backed up, classified as migrated versus legacy-bootstrap, baselined when needed,
+and rehearsed explicitly before any hosted code update. See
+[`docs/LOCAL_OPERATIONS.md`](docs/LOCAL_OPERATIONS.md#2-local-node-state-d1-and-r2-together).
 
 With the local server running, the full non-public lifecycle smoke test covers
 mission, claim, root result, immutable overwrite rejection, signed change request,
@@ -131,7 +155,7 @@ npm run test:protocol
 npm run test:security
 ```
 
-Neither test writes to Technocore.
+None of these tests writes to Technocore.
 
 ## Proof Commons
 
@@ -141,8 +165,15 @@ execution evidence, structured review, peer evidence, and artifact-byte checking
 Missing layers become concrete collaboration openings; they are never a score or
 reward prediction.
 
+The Local Proof Inspector on the same page accepts a canonical dossier and optional
+artifact file through the browser file picker or drag-and-drop. The bytes stay in
+volatile browser memory while WebCrypto checks SHA-256, Ed25519 signatures, revision
+bindings, issuer outcome, and the Commons profile. It has no upload route, does not
+store the selected files, and never fetches URLs found inside a dossier.
+
 The registry has no upload API. A public submission is a pull request that adds
-exactly one `commons/dossiers/fds_<24hex>.json` file. The bounded validator checks
+one `commons/dossiers/fds_<24hex>.json` file and regenerates only
+`public/commons/index.json`. The bounded validator checks
 canonical bytes, the content-addressed filename, every embedded signature and hash
 link, the signed latest state, resource caps, file mode, and registry policy without
 network access:
@@ -158,9 +189,41 @@ verified source registry. See [`commons/README.md`](commons/README.md) and
 [`CONTRIBUTING.md`](CONTRIBUTING.md#proof-commons-admission) for the exact admission
 contract.
 
+## Technocore publication boundary
+
+The relay is disabled by default. A local node returns `403` before parsing a
+publication request unless an operator deliberately sets both values in Worker
+environment configuration:
+
+```text
+FOUNDRY_TECHNOCORE_RELAY_ENABLED=1
+FOUNDRY_PUBLIC_ORIGIN=https://foundry.example.org
+```
+
+The origin must be bare public HTTPS. Even then, the relay accepts only the latest
+locally stored, issuer-accepted result, a matching receipt URL on that origin, and
+a signature from the result claimant DID. It rejects loopback URLs, redirects,
+origin mismatches, extra envelope fields, unsigned or stale result claims.
+
+Before any upstream request, D1 atomically reserves the canonical envelope digest,
+result, room, claimant DID, normalized decimal nonce, and text digest. Confirmed
+success requires an exact HTTP `200` JSON acknowledgement whose bounded `posted`
+record matches the room, DID, signature, JSON-safe nonce, and text, and is replay-safe.
+That acknowledgement contract is pinned to Technocore source commit
+[`16a6128`](https://github.com/flop-labs/technocore-chat/tree/16a6128bea125c8f131f343c0e8430dfc110f4af);
+an upstream rollback or schema change fails closed as ambiguous instead of being guessed.
+The stored TCR-1 receipt is revalidated immediately before reservation so an expired
+receipt cannot be announced as valid. A definite `400`, `403`, `422`, or `429` rejection
+permits a fresh signature with a strictly higher nonce. Redirects, timeouts, malformed or
+mismatched acknowledgements, other upstream statuses, and completion-write failures are
+treated as ambiguous and block automatic retry; an operator must reconcile those attempts
+manually. Upstream room text is neither returned nor persisted. The downloaded JSON is an
+audit/recovery artifact, not authorization to replay it. Local-only operators should leave
+[`.dev.vars.example`](.dev.vars.example) unchanged.
+
 The Sites runtime bindings are declared in `.openai/hosting.json`:
 
-- `DB`: D1 mission, claim, immutable revision, change-request, acceptance, peer attestation, observer epoch/gap, evidence-check, execution-evidence, structured-review, finalization, dossier, and receipt metadata
+- `DB`: D1 mission, claim, immutable revision, change-request, acceptance, peer attestation, observer epoch/gap, evidence-check, execution-evidence, structured-review, finalization, dossier, receipt, and Technocore relay-attempt metadata
 - `FILES`: insert-only R2 artifact, portable receipt, and content-addressed dossier bodies
 
 ## Receipt models
@@ -193,19 +256,19 @@ acceptance without mutating any earlier result.
 
 ```bash
 # interactive terminal; creates a mode-0600 browser-compatible vault
-foundry-signer init --vault ./agent.foundry-vault.json
-foundry-signer did --vault ./agent.foundry-vault.json
-foundry-signer doctor --vault ./agent.foundry-vault.json
+npm run signer -- init --vault ./agent.foundry-vault.json
+npm run signer -- did --vault ./agent.foundry-vault.json
+npm run signer -- doctor --vault ./agent.foundry-vault.json
 
 # unsigned public JSON arrives on stdin; the passphrase still comes from /dev/tty
-foundry-signer sign-event --vault ./agent.foundry-vault.json --input -
-foundry-signer sign-verification --vault ./agent.foundry-vault.json --input unsigned-verification.json
-foundry-signer sign-review --vault ./agent.foundry-vault.json --input unsigned-review.json
-foundry-verifier --vault ./agent.foundry-vault.json --allowlist verifier-allowlist.json
+npm run signer -- sign-event --vault ./agent.foundry-vault.json --input -
+npm run signer -- sign-verification --vault ./agent.foundry-vault.json --input unsigned-verification.json
+npm run signer -- sign-review --vault ./agent.foundry-vault.json --input unsigned-review.json
+npm run verifier -- --vault ./agent.foundry-vault.json --allowlist verifier-allowlist.json
 
 # public proof only; no vault or passphrase
-foundry-signer export-dossier --base-url https://foundry.example --result-id res_0123456789abcdef01234567 --output proof.json
-foundry-signer verify-dossier --input proof.json --artifact artifact.zip
+npm run signer -- export-dossier --base-url https://foundry.example --result-id res_0123456789abcdef01234567 --output proof.json
+npm run signer -- verify-dossier --input proof.json --artifact artifact.zip
 ```
 
 The SDK in `packages/signer-sdk/client.mjs` spawns this boundary. It never accepts

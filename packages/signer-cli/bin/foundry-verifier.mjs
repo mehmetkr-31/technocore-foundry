@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createReadStream, createWriteStream, openSync } from 'node:fs';
@@ -35,7 +35,11 @@ async function terminalPassphrase() {
   }
   const rl = createInterface({ input, output, terminal: true });
   output.write('Vault passphrase: ');
-  spawnSync('stty', ['-echo'], { stdio: [ttyFd, ttyFd, ttyFd] });
+  const hidden = spawnSync('stty', ['-echo'], { stdio: [ttyFd, ttyFd, ttyFd] });
+  if (hidden.status !== 0) {
+    rl.close();
+    throw new Error('Secure hidden passphrase entry is unavailable. Use macOS, Linux, or WSL2 with a controlling terminal.');
+  }
   try {
     return await rl.question('');
   } finally {
@@ -43,6 +47,15 @@ async function terminalPassphrase() {
     output.write('\n');
     rl.close();
   }
+}
+
+async function readBoundedJson(path, maximum, label) {
+  const metadata = await stat(path);
+  if (!metadata.isFile()) throw new Error(`${label} must be a regular file.`);
+  if (metadata.size > maximum) throw new Error(`${label} exceeds the ${maximum}-byte limit.`);
+  const bytes = await readFile(path);
+  if (bytes.length > maximum) throw new Error(`${label} exceeds the ${maximum}-byte limit.`);
+  return parseStrictJson(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
 }
 
 function assertAllowlist(plan) {
@@ -111,8 +124,8 @@ async function main() {
   const allowlistPath = option('--allowlist');
   if (!vaultPath || !allowlistPath) throw new Error('Both --vault and --allowlist are required.');
   const [vault, plan] = await Promise.all([
-    readFile(vaultPath, 'utf8').then((text) => parseVault(JSON.parse(text))),
-    readFile(allowlistPath).then((bytes) => parseStrictJson(new TextDecoder('utf-8', { fatal: true }).decode(bytes))),
+    readBoundedJson(vaultPath, 32 * 1024, 'Vault').then(parseVault),
+    readBoundedJson(allowlistPath, 256 * 1024, 'Allowlist'),
   ]);
   assertAllowlist(plan);
   const checks = [];
