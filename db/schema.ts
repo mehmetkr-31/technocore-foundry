@@ -291,3 +291,24 @@ export const observerGaps = sqliteTable(
   },
   (table) => [index('idx_observer_gaps_room_detected').on(table.room, table.detectedAt)],
 );
+
+export const technocoreRelayAttempts = sqliteTable(
+  'technocore_relay_attempts',
+  {
+    envelopeSha256: text('envelope_sha256').primaryKey(),
+    resultId: text('result_id').notNull(),
+    room: text('room').notNull(),
+    actorDid: text('actor_did').notNull(),
+    nonceValue: text('nonce_value').notNull(),
+    textSha256: text('text_sha256').notNull(),
+    state: text('state').notNull(),
+    upstreamStatus: integer('upstream_status'),
+    upstreamDetail: text('upstream_detail'),
+    reservedAt: text('reserved_at').notNull(),
+    completedAt: text('completed_at'),
+  },
+  (table) => [
+    uniqueIndex('idx_technocore_relay_nonce').on(table.room, table.actorDid, table.nonceValue),
+    index('idx_technocore_relay_result_state').on(table.resultId, table.state),
+  ],
+);

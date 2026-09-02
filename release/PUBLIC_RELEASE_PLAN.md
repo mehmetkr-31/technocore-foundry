@@ -18,6 +18,11 @@ hybrid: local identity and verification, plus a small moderated public proof ind
 - Portable receipts and offline-verifiable contribution dossiers
 - Apache-2.0 license, contributor governance, secretless CI, and CODEOWNERS
 - Git-backed, offline-verified Proof Commons registry with a read-only local UI
+- Browser-local Proof Inspector with no upload, storage, resolver, or dossier URL fetch
+- One-command locked setup, local readiness doctor, and documented cold-state recovery
+- Protected `main` branch with strict required CI checks and no administrator bypass
+- Technocore relay disabled unless an explicit flag and matching public HTTPS origin are configured
+- Personal-node relay uses durable nonce/envelope reservation and blocks ambiguous automatic replay
 - No public service authorization, Technocore publication, social announcement, or reward claim
 
 ## Phase 1 — Safe local preview
@@ -26,9 +31,16 @@ hybrid: local identity and verification, plus a small moderated public proof ind
 2. Keep secretless CI for install, lint, typecheck, build, protocol, signer, observer, security,
    and Proof Commons checks green.
 3. Disable the Technocore relay by default. Require an explicit operator flag and configured public
-   origin; never publish a loopback receipt URL.
-4. Add a one-command launcher or container profile and document local state backup/export.
+   origin; never publish a loopback receipt URL. Persist a reservation before the upstream request,
+   make confirmed results idempotent, and fail closed rather than replay an ambiguous outcome.
+4. Keep locked setup (`npm run setup`) separate from the explicit long-running start command
+   (`npm run dev`) and document local state backup/export. Do not hide installation or network
+   activity inside an implicit launcher.
 5. Keep `package.json` private to prevent accidental npm publication.
+
+Implementation status: the Phase 1 local controls are present using the documented two-command
+setup/start flow. A clean-machine release rehearsal remains
+part of each tagged preview, but it does not authorize public hosting or publication.
 
 Exit gate: a new operator can clone, run, back up identity/state, export a dossier, and understand
 which actions contact external systems without exposing a secret or publishing accidentally.

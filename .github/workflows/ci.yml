@@ -38,6 +38,7 @@ jobs:
       - run: npm run db:generate
       - name: Require generated migration artifacts to be committed
         run: test -z "$(git status --porcelain -- drizzle)"
+      - run: npm run test:migrations
 
   protocol:
     name: Cross-language protocol
@@ -56,7 +57,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
-          python-version: '3.12'
+          python-version: '3.12.10'
           cache: pip
           cache-dependency-path: requirements-dev.txt
       - run: npm ci
@@ -83,8 +84,11 @@ jobs:
       - run: npm run test:signer
       - run: npm run test:observer
       - run: npm run test:security:unit
+      - run: npm run test:relay
       - run: npm run commons:verify
       - run: npm run test:commons
+      - run: npm run test:inspector
+      - run: npm run test:onboarding
 
   local-http:
     name: Local HTTP boundary
@@ -106,7 +110,7 @@ jobs:
           npm run dev > /tmp/foundry-dev.log 2>&1 &
           echo $! > /tmp/foundry-dev.pid
           for attempt in $(seq 1 60); do
-            if curl --fail --silent http://localhost:3000/security > /dev/null; then
+            if curl --fail --silent http://localhost:3000/api/health > /dev/null; then
               exit 0
             fi
             sleep 1
@@ -116,6 +120,7 @@ jobs:
       - run: npm run test:security:http
         env:
           FOUNDRY_ORIGIN: http://localhost:3000
+      - run: npm run doctor -- --origin http://localhost:3000 --no-spawn --json
       - name: Stop local node and print log on failure
         if: always()
         run: |

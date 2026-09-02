@@ -1,0 +1,6 @@
+# Outbound publication is fail-closed. Keep this at 0 for local-only nodes.
+FOUNDRY_TECHNOCORE_RELAY_ENABLED=0
+
+# Required only when the relay is explicitly enabled with value 1. It must be a
+# bare public HTTPS origin, for example https://foundry.example.org.
+FOUNDRY_PUBLIC_ORIGIN=

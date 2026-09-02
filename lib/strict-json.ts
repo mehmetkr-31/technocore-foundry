@@ -73,14 +73,17 @@ export function canonicalJson(value: unknown): string {
 class Parser {
   private index = 0;
 
-  constructor(private readonly source: string) {}
+  constructor(
+    private readonly source: string,
+    private readonly preserveUnsafeIntegers = false,
+  ) {}
 
   parse() {
     this.skipWhitespace();
     const value = this.parseValue();
     this.skipWhitespace();
     if (this.index !== this.source.length) throw this.error('Unexpected trailing input.');
-    assertStrictJsonValue(value);
+    if (!this.preserveUnsafeIntegers) assertStrictJsonValue(value);
     return value;
   }
 
@@ -141,7 +144,10 @@ class Parser {
     this.index += match[0].length;
     if (/[.eE]/.test(match[0])) throw this.error('Floats are forbidden.');
     const value = Number(match[0]);
-    if (!Number.isSafeInteger(value)) throw this.error('JSON integer exceeds the safe cross-language profile.');
+    if (!Number.isSafeInteger(value)) {
+      if (this.preserveUnsafeIntegers) return BigInt(match[0]);
+      throw this.error('JSON integer exceeds the safe cross-language profile.');
+    }
     return value;
   }
 
@@ -212,4 +218,13 @@ export function decodeStrictUtf8(bytes: ArrayBuffer | Uint8Array) {
 
 export function parseStrictJsonBytes(bytes: ArrayBuffer | Uint8Array) {
   return parseStrictJson(decodeStrictUtf8(bytes));
+}
+
+// Transport acknowledgements can contain unrelated legacy 19-digit nonces. Preserve those as
+// bigint while retaining fatal UTF-8, duplicate-key, Unicode, integer-only, and grammar checks.
+// Callers must still require safe integers for every field they trust.
+export function parseLosslessIntegerJsonBytes(bytes: ArrayBuffer | Uint8Array) {
+  const source = decodeStrictUtf8(bytes);
+  assertUnicode(source);
+  return new Parser(source, true).parse();
 }

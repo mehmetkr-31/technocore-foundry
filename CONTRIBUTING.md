@@ -46,10 +46,11 @@ Security vulnerabilities belong in a [private report](SECURITY.md), not a public
 ## Proof Commons admission
 
 Proof Commons is deliberately narrower than a general code pull request. An admission pull request
-must add exactly one file and change nothing else:
+must add exactly one dossier and update only its deterministic display index:
 
 ```text
 commons/dossiers/fds_<first-24-hex-of-canonical-sha256>.json
+public/commons/index.json
 ```
 
 The dossier must:
@@ -71,14 +72,19 @@ Verify it without network access:
 node packages/signer-cli/bin/foundry-signer.mjs verify-dossier \
   --input commons/dossiers/fds_0123456789abcdef01234567.json
 npm run commons:verify
+npm run commons:build
+npm run commons:check
 npm run test:commons
 ```
 
-CI uses the untrusted-fork-safe `pull_request` event, read-only permissions, no secrets, and no URL
-fetches. The verifier and admission scripts execute from a separate checkout pinned to the trusted
-base commit; the candidate checkout is treated only as untrusted data. A merged dossier is an immutable public evidence bundle. Corrections are new
-content-addressed dossiers; they do not overwrite old bytes. Maintainers may later quarantine an
-index entry for privacy, abuse, legal, or integrity reasons while preserving Git history.
+CI uses `pull_request_target` with `contents: read` plus narrowly scoped `statuses: write` permission
+to report one fixed status on the candidate head and GitHub test-merge commits. It receives no repository or organization secret.
+The workflow, verifier, and admission scripts execute from the trusted base commit; candidate bytes
+are checked out separately, treated only as data, and never executed. The verifier never follows URLs
+embedded in a dossier. The regenerated index must exactly match trusted deterministic output. A
+merged dossier is an immutable public evidence bundle. Corrections are new content-addressed dossiers;
+they do not overwrite old bytes. Maintainers may later quarantine an index entry for privacy, abuse,
+legal, or integrity reasons while preserving Git history.
 
 ## Contribution license
 

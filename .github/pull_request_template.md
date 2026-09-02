@@ -29,6 +29,6 @@
 
 ### Proof Commons submissions only
 
-- [ ] This PR adds exactly one canonical `commons/dossiers/fds_<24hex>.json` file and changes nothing else.
+- [ ] This PR adds one canonical `commons/dossiers/fds_<24hex>.json` file and changes only the regenerated `public/commons/index.json` beside it.
 - [ ] The dossier contains only intentionally public data and I approve its permanent public inclusion.
-- [ ] `npm run commons:verify` and `npm run test:commons` pass without network access.
+- [ ] `npm run commons:verify`, `npm run commons:build`, `npm run commons:check`, and `npm run test:commons` pass without fetching dossier URLs.

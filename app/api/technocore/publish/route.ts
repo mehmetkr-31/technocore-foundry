@@ -1,48 +1,46 @@
-import { type TechnocoreSignedMessage, verifyTechnocoreMessage } from '@/lib/foundry-crypto';
-import { parseStrictJsonBytes } from '@/lib/strict-json';
+import { env } from 'cloudflare:workers';
+import { findPublishableResult } from '@/db/queries';
+import { createTechnocoreRelayAttemptStore } from '@/db/technocore-relay-attempts';
+import { verifyTcr1Receipt, verifyTechnocoreMessage } from '@/lib/foundry-crypto';
+import {
+  FOUNDRY_PUBLIC_ORIGIN,
+  relayConfiguration,
+  TECHNOCORE_RELAY_FLAG,
+} from '@/lib/technocore-relay-policy';
+import { handleTechnocoreRelayPost } from '@/lib/technocore-relay-service';
 
 export const dynamic = 'force-dynamic';
 
-const ROOM = 'foundry-contributions';
-const TECHNOCORE_ORIGIN = 'https://technocore.chat';
+function runtimeRelayConfiguration() {
+  const workerEnvironment = env as unknown as Record<string, unknown>;
+  const value = (name: typeof TECHNOCORE_RELAY_FLAG | typeof FOUNDRY_PUBLIC_ORIGIN) => {
+    const workerValue = workerEnvironment[name];
+    if (typeof workerValue === 'string') return workerValue;
+    return process.env[name];
+  };
+  return relayConfiguration({
+    [TECHNOCORE_RELAY_FLAG]: value(TECHNOCORE_RELAY_FLAG),
+    [FOUNDRY_PUBLIC_ORIGIN]: value(FOUNDRY_PUBLIC_ORIGIN),
+  });
+}
 
-function looksLikeMessage(value: unknown): value is TechnocoreSignedMessage {
-  if (!value || typeof value !== 'object') return false;
-  const message = value as Partial<TechnocoreSignedMessage>;
-  return Boolean(
-    message.room === ROOM &&
-    typeof message.did === 'string' && message.did.length <= 160 &&
-    typeof message.sig === 'string' && message.sig.length <= 100 &&
-    typeof message.nonce === 'string' && /^\d{1,19}$/.test(message.nonce) &&
-    typeof message.text === 'string' && message.text.length >= 30 && message.text.length <= 4096,
-  );
+export async function GET() {
+  return Response.json(runtimeRelayConfiguration(), { headers: { 'Cache-Control': 'no-store' } });
 }
 
 export async function POST(request: Request) {
-  let message: unknown;
-  try {
-    const raw = await request.arrayBuffer();
-    if (raw.byteLength > 8192) throw new Error('oversized');
-    message = parseStrictJsonBytes(raw);
-  } catch {
-    return Response.json({ error: 'Expected a signed Technocore announcement.' }, { status: 400 });
+  const configuration = runtimeRelayConfiguration();
+  if (!configuration.enabled || !configuration.publicOrigin) {
+    return Response.json({ error: configuration.reason, code: configuration.code }, { status: 403 });
   }
-  if (!looksLikeMessage(message)) return Response.json({ error: 'Malformed Technocore announcement.' }, { status: 400 });
-  if (!message.text.startsWith('[FOUNDRY]') || !message.text.includes('/receipt/')) {
-    return Response.json({ error: 'Only Foundry receipt announcements can use this relay.' }, { status: 400 });
+  if (!env.DB) {
+    return Response.json({ error: 'The durable relay attempt store is unavailable; no upstream request was made.', code: 'reservation_unavailable' }, { status: 503 });
   }
-  try {
-    if (!(await verifyTechnocoreMessage(message))) return Response.json({ error: 'Technocore message signature is invalid.' }, { status: 400 });
-    const upstream = await fetch(`${TECHNOCORE_ORIGIN}/r/${ROOM}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'User-Agent': 'Technocore-Foundry/1.0' },
-      body: JSON.stringify({ did: message.did, sig: message.sig, nonce: message.nonce, text: message.text }),
-      signal: AbortSignal.timeout(8_000),
-    });
-    const detail = (await upstream.text()).slice(0, 500);
-    if (!upstream.ok) return Response.json({ error: 'Technocore rejected the announcement.', upstreamStatus: upstream.status, detail }, { status: 502 });
-    return Response.json({ status: 'published', room: ROOM, upstreamStatus: upstream.status, detail });
-  } catch {
-    return Response.json({ error: 'Technocore is temporarily unreachable. Download the signed package and retry later.' }, { status: 503 });
-  }
+  return handleTechnocoreRelayPost(request, configuration, {
+    verifyMessage: verifyTechnocoreMessage,
+    verifyResultReceipt: verifyTcr1Receipt,
+    findPublishableResult,
+    attempts: createTechnocoreRelayAttemptStore(env.DB),
+    upstreamFetch: fetch,
+  });
 }

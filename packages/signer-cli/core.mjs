@@ -26,7 +26,7 @@ function base64url(bytes) {
 }
 
 function fromBase64url(value) {
-  if (typeof value !== 'string' || !/^[A-Za-z0-9_-]+$/.test(value)) throw new Error('Malformed base64url value.');
+  if (typeof value !== 'string' || value.length < 1 || value.length > 4096 || !/^[A-Za-z0-9_-]+$/.test(value)) throw new Error('Malformed or oversized base64url value.');
   return Buffer.from(value, 'base64url');
 }
 
@@ -206,12 +206,18 @@ export function createVault(passphrase, now = new Date()) {
 
 export function parseVault(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Vault must be a JSON object.');
-  if (value.schema !== VAULT_SCHEMA || value.cipher !== 'AES-GCM' || value.kdf?.name !== 'PBKDF2' || value.kdf?.hash !== 'SHA-256' || value.kdf?.iterations !== KDF_ITERATIONS) {
+  if (!hasOnlyKeys(value, ['schema', 'did', 'publicKey', 'ciphertext', 'salt', 'iv', 'kdf', 'cipher', 'createdAt']) ||
+    Object.keys(value).length !== 9 ||
+    value.schema !== VAULT_SCHEMA || value.cipher !== 'AES-GCM' ||
+    !value.kdf || !hasOnlyKeys(value.kdf, ['name', 'hash', 'iterations']) || Object.keys(value.kdf).length !== 3 ||
+    value.kdf.name !== 'PBKDF2' || value.kdf.hash !== 'SHA-256' || value.kdf.iterations !== KDF_ITERATIONS ||
+    typeof value.did !== 'string' || !/^did:key:z[1-9A-HJ-NP-Za-km-z]{47}$/.test(value.did) ||
+    !validTimestamp(value.createdAt)) {
     throw new Error('Unsupported Foundry vault.');
   }
   const publicKey = fromBase64url(value.publicKey);
   if (didFromPublicKey(publicKey) !== value.did) throw new Error('Vault DID does not match its public key.');
-  if (fromBase64url(value.iv).length !== 12 || fromBase64url(value.salt).length !== 16 || fromBase64url(value.ciphertext).length < 17) throw new Error('Malformed vault encryption fields.');
+  if (publicKey.length !== 32 || fromBase64url(value.iv).length !== 12 || fromBase64url(value.salt).length !== 16 || fromBase64url(value.ciphertext).length !== 64) throw new Error('Malformed vault encryption fields.');
   return value;
 }
 

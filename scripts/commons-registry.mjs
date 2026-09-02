@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -24,6 +24,10 @@ if (mode === '--write') {
   await mkdir(dirname(indexPath), { recursive: true });
   await writeFile(indexPath, serialized, { encoding: 'utf8', mode: 0o644 });
 } else if (mode === '--check') {
+  const metadata = await lstat(indexPath).catch(() => null);
+  if (!metadata?.isFile() || metadata.isSymbolicLink() || (metadata.mode & 0o111) !== 0 || metadata.size > 16 * 1024 * 1024) {
+    throw new Error('public/commons/index.json must be a bounded regular non-executable file.');
+  }
   const current = await readFile(indexPath, 'utf8').catch(() => '');
   if (current !== serialized) throw new Error('public/commons/index.json is stale. Run npm run commons:build.');
 }

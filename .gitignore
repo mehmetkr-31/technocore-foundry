@@ -31,6 +31,7 @@ yarn-error.log*
 .env*
 !.env.example
 .dev.vars*
+!.dev.vars.example
 
 # local Foundry identity vaults
 *.vault.json

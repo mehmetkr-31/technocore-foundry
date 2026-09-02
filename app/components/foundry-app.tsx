@@ -207,6 +207,13 @@ type AttestationResponse = {
   layer: 'peer_attestation';
 };
 
+type RelayAvailability = {
+  enabled: boolean;
+  code: 'disabled' | 'missing_public_origin' | 'invalid_public_origin' | 'ready' | 'origin_mismatch' | 'unavailable';
+  publicOrigin: string | null;
+  reason: string;
+};
+
 type Dialog = 'forge' | 'restore' | 'mission' | 'claim' | 'result' | 'revise' | 'accept' | 'attest' | 'finalize' | 'verify' | 'create-mission' | 'announce' | null;
 
 const fallbackMissions: Mission[] = [
@@ -298,6 +305,7 @@ export default function FoundryApp() {
   const [verifyResult, setVerifyResult] = useState<{ valid: boolean; kind: string }>();
   const [announcement, setAnnouncement] = useState<TechnocoreSignedMessage>();
   const [announcementStatus, setAnnouncementStatus] = useState('');
+  const [relayAvailability, setRelayAvailability] = useState<RelayAvailability>();
 
   useEffect(() => {
     loadVault().then(setVault).catch(() => setNotice('Local vault storage is unavailable in this browser.'));
@@ -311,7 +319,7 @@ export default function FoundryApp() {
       ['KEY CONTROL', claimResponse || hasArtifact ? 'VALID' : 'LOCAL'],
       ['ARTIFACT HASH', hasArtifact ? 'MATCH' : 'AWAITING'],
       ['ISSUER REVIEW', acceptance ? acceptance.replace('_', ' ').toUpperCase() : 'NOT PRESENT'],
-      ['TECHNOCORE OBSERVATION', announcementStatus === 'published' ? 'OBSERVED' : 'NOT CHECKED'],
+      ['TECHNOCORE PUBLICATION', announcementStatus === 'published' ? 'CONFIRMED' : 'NOT CHECKED'],
     ];
   }, [claimResponse, resultResponse, detail, acceptanceResponse, announcementStatus]);
 
@@ -395,7 +403,7 @@ export default function FoundryApp() {
     const passphrase = String(new FormData(event.currentTarget).get('passphrase') ?? '');
     try {
       if (!vaultFile) throw new Error('Choose a Foundry vault file first.');
-      const nextVault = parseVault(JSON.parse(vaultFile));
+      const nextVault = parseVault(parseStrictJson(vaultFile));
       await unlockVault(nextVault, passphrase);
       await saveVault(nextVault);
       setVault(nextVault);
@@ -711,30 +719,55 @@ export default function FoundryApp() {
     setSelectedResult(result);
     setAnnouncement(undefined);
     setAnnouncementStatus('');
+    setRelayAvailability(undefined);
     openDialog('announce');
+    fetch('/api/technocore/publish', { cache: 'no-store' })
+      .then((response) => responseJson<RelayAvailability>(response))
+      .then((configuration) => {
+        if (configuration.enabled && configuration.publicOrigin !== window.location.origin) {
+          setRelayAvailability({
+            enabled: false,
+            code: 'origin_mismatch',
+            publicOrigin: configuration.publicOrigin,
+            reason: `Open this Foundry node at ${configuration.publicOrigin} before signing a public receipt announcement.`,
+          });
+          return;
+        }
+        setRelayAvailability(configuration);
+      })
+      .catch(() => setRelayAvailability({
+        enabled: false,
+        code: 'unavailable',
+        publicOrigin: null,
+        reason: 'Relay policy could not be read. Publication remains disabled.',
+      }));
   }
 
   async function publishAnnouncement(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!vault || !selectedResult || !selectedMission) return;
+    if (!relayAvailability?.enabled || !relayAvailability.publicOrigin) {
+      setError(relayAvailability?.reason ?? 'Relay policy is still being checked.');
+      return;
+    }
     setBusy(true);
     setError('');
     try {
       const passphrase = String(new FormData(event.currentTarget).get('passphrase') ?? '');
-      const receiptUrl = new URL(selectedResult.portableUrl, window.location.origin).toString();
+      const receiptUrl = new URL(`/receipt/${selectedResult.id}`, relayAvailability.publicOrigin).toString();
       const acceptance = selectedResult.acceptance?.decision ?? 'not-present';
       const text = `[FOUNDRY] receipt ${selectedResult.id} | mission ${selectedMission.id} | claimant ${compactDid(selectedResult.actorDid)} | artifact ${selectedResult.artifact.sha256} | key=valid artifact=match issuer=${acceptance} | ${receiptUrl}`;
       const signed = await signTechnocoreAnnouncement(vault, passphrase, 'foundry-contributions', text);
       setAnnouncement(signed);
       downloadJson(`${selectedResult.id}.technocore.json`, {
-        endpoint: 'https://technocore.chat/r/foundry-contributions',
+        endpoint: 'https://technocore.chat/r/foundry-contributions?format=json',
         method: 'POST',
         body: { did: signed.did, sig: signed.sig, nonce: signed.nonce, text: signed.text },
       });
       const response = await responseJson<{ status: string }>(await fetch('/api/technocore/publish', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(signed),
       }));
-      setAnnouncementStatus(response.status);
+      setAnnouncementStatus(response.status === 'already_published' ? 'published' : response.status);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Announcement could not be published.');
     } finally {
@@ -829,7 +862,7 @@ export default function FoundryApp() {
 
         {dialog === 'forge' && (vault ? <div className="identity-card"><p className="micro-label">ACTIVE DEVICE IDENTITY</p><code>{vault.did}</code><div className="dialog-actions"><button className="button button-primary" type="button" onClick={() => downloadVault(vault)}>Download backup</button><button className="button button-secondary" type="button" onClick={() => openDialog('restore')}>Restore another vault</button></div></div> : <form onSubmit={forgeIdentity}><p className="dialog-copy">A new Ed25519 DID is generated in this browser. Only an AES-GCM encrypted backup leaves the device.</p><label>Passphrase <input name="passphrase" type="password" minLength={12} autoComplete="new-password" required /></label><label>Confirm passphrase <input name="confirmation" type="password" minLength={12} autoComplete="new-password" required /></label>{error && <p className="form-error" role="alert">{error}</p>}<div className="dialog-actions"><button className="button button-primary" type="submit" disabled={busy}>{busy ? 'Forging…' : 'Forge + recovery test'}</button><button className="text-button" type="button" onClick={() => openDialog('restore')}>I have a vault</button></div></form>)}
 
-        {dialog === 'restore' && <form onSubmit={restoreIdentity}>{vault && <div className="identity-card compact"><p className="micro-label">CURRENT IDENTITY</p><code>{vault.did}</code><button className="text-button" type="button" onClick={() => downloadVault(vault)}>Download backup</button></div>}<label>Encrypted vault file <input type="file" accept="application/json,.json" required onChange={(event) => { const file = event.target.files?.[0]; if (file) file.text().then(setVaultFile); }} /></label><label>Passphrase <input name="passphrase" type="password" autoComplete="current-password" required /></label>{error && <p className="form-error" role="alert">{error}</p>}<div className="dialog-actions"><button className="button button-primary" type="submit" disabled={busy}>{busy ? 'Testing recovery…' : 'Restore + test'}</button>{!vault && <button className="text-button" type="button" onClick={() => openDialog('forge')}>Create a new DID</button>}</div></form>}
+        {dialog === 'restore' && <form onSubmit={restoreIdentity}>{vault && <div className="identity-card compact"><p className="micro-label">CURRENT IDENTITY</p><code>{vault.did}</code><button className="text-button" type="button" onClick={() => downloadVault(vault)}>Download backup</button></div>}<label>Encrypted vault file · max 32 KiB <input type="file" accept="application/json,.json" required onChange={(event) => { const file = event.target.files?.[0]; setVaultFile(''); setError(''); if (!file) return; if (file.size > 32 * 1024) { setError('Vault file exceeds the 32 KiB safety limit.'); return; } file.arrayBuffer().then(decodeStrictUtf8).then(setVaultFile).catch(() => setError('Vault file must be strict UTF-8 JSON.')); }} /></label><label>Passphrase <input name="passphrase" type="password" autoComplete="current-password" required /></label>{error && <p className="form-error" role="alert">{error}</p>}<div className="dialog-actions"><button className="button button-primary" type="submit" disabled={busy || !vaultFile}>{busy ? 'Testing recovery…' : 'Restore + test'}</button>{!vault && <button className="text-button" type="button" onClick={() => openDialog('forge')}>Create a new DID</button>}</div></form>}
 
         {dialog === 'create-mission' && vault && <form onSubmit={publishMission}><p className="dialog-copy">Your DID becomes the issuer. Requirements are hashed and signed; later, only this DID can accept or reject submitted results.</p><label>Mission title <input name="title" minLength={8} maxLength={100} required placeholder="Build a conformance vector explorer" /></label><label>Lane <input name="lane" minLength={3} maxLength={40} required placeholder="SECURITY / TOOLING" /></label><label>Short brief <textarea name="summary" rows={3} minLength={20} maxLength={300} required /></label><label>Acceptance requirements <textarea name="requirements" rows={7} minLength={20} maxLength={4000} required placeholder="Deliverables, reproducibility steps, and acceptance criteria…" /></label><label>Unlock issuer vault <input name="passphrase" type="password" autoComplete="current-password" required /></label>{error && <p className="form-error" role="alert">{error}</p>}<div className="dialog-actions"><button className="button button-primary" type="submit" disabled={busy}>{busy ? 'Signing mission…' : 'Sign + issue mission'}</button></div></form>}
 
@@ -840,7 +873,7 @@ export default function FoundryApp() {
             {!detail.actorClaim && <button className="button button-primary" type="button" onClick={() => { setClaimResponse(undefined); openDialog('claim'); }}>Claim this mission</button>}
             {detail.actorClaim && !detail.actorResult && <button className="button button-primary" type="button" onClick={() => { setResultResponse(undefined); setArtifactFile(undefined); openDialog('result'); }}>Submit result</button>}
             {detail.actorResult?.changeRequest && vault?.did === detail.actorResult.actorDid && detail.actorResult.revision < MAX_RESULT_REVISIONS && <button className="button button-primary" type="button" onClick={() => openRevision(detail.actorResult as ResultRecord)}>Submit revision {detail.actorResult.revision + 1}</button>}
-            {detail.actorResult && <><a className="button button-secondary" href={detail.actorResult.portableUrl} target="_blank" rel="noreferrer">Open latest proof</a><button className="button button-secondary" type="button" onClick={() => openAnnouncement(detail.actorResult as ResultRecord)}>Announce proof</button></>}
+            {detail.actorResult && <><a className="button button-secondary" href={detail.actorResult.portableUrl} target="_blank" rel="noreferrer">Open latest proof</a>{vault?.did === detail.actorResult.actorDid && detail.actorResult.acceptance?.decision === 'accepted' && <button className="button button-secondary" type="button" onClick={() => openAnnouncement(detail.actorResult as ResultRecord)}>Announce proof</button>}</>}
           </div>
           {detail.results.length > 0 && <div className="result-list"><p className="micro-label">IMMUTABLE REVISION LEDGER / {detail.results.length} RECORDS</p>{detail.results.map((result) => {
             const hasChild = detail.results.some((candidate) => candidate.parent?.resultId === result.id);
@@ -853,7 +886,7 @@ export default function FoundryApp() {
               {result.attestations.length > 0 && <div className="attestation-list"><span>INDEPENDENT PEER EVIDENCE · {result.attestations.length}</span>{result.attestations.map((attestation) => <p key={attestation.id}><a href={attestation.portableUrl} target="_blank" rel="noreferrer">{attestation.statement.toUpperCase()}</a> · {compactDid(attestation.actorDid)} — {attestation.note}</p>)}</div>}
               {result.structuredReviews.length > 0 && <div className="attestation-list"><span>INDEPENDENT STRUCTURED REVIEWS · {result.structuredReviews.length} · NOT ISSUER ACCEPTANCE</span>{result.structuredReviews.map((review) => <p key={review.id}><a href={review.portableUrl} target="_blank" rel="noreferrer">{review.id}</a> · {compactDid(review.actorDid)} — exact result receipt bound</p>)}</div>}
               <div className="evidence-mini"><span>GITHUB {result.evidenceCheck?.github.toUpperCase() ?? 'NOT CHECKED'}</span><span>CI {result.evidenceCheck?.ci.replace('_', ' ').toUpperCase() ?? 'NOT CHECKED'}</span><span>EXECUTION {result.executionEvidence.length}</span><span>REVIEWS {result.structuredReviews.length}</span><span>PEERS {result.attestations.length}</span><span>FINAL {result.finalization ? 'BOUND' : 'PENDING'}</span></div>
-              <div className="result-actions"><a href={result.artifact.url}>Artifact</a><a href={result.portableUrl} target="_blank" rel="noreferrer">Proof page</a><DossierExportButton resultId={result.id} compact />{result.revisionReceipt && <a href={result.revisionReceipt.portableUrl} target="_blank" rel="noreferrer">Chain receipt</a>}{result.changeRequest && <a href={result.changeRequest.portableUrl} target="_blank" rel="noreferrer">Change request</a>}{result.repositoryUrl && <button type="button" disabled={busy} onClick={() => checkEvidence(result)}>{result.evidenceCheck ? 'Refresh GitHub' : 'Check GitHub'}</button>}{vault?.did === detail.mission.issuerDid && !result.acceptance && !result.changeRequest && !hasChild && <button type="button" onClick={() => openAcceptance(result)}>Issuer review</button>}{vault?.did === result.actorDid && result.changeRequest && !hasChild && result.revision < MAX_RESULT_REVISIONS && <button type="button" onClick={() => openRevision(result)}>Submit revision</button>}{vault?.did === result.actorDid && result.acceptance?.decision === 'accepted' && !result.finalization && <button type="button" onClick={() => openFinalization(result)}>Finalize TCR-1</button>}{vault && result.acceptance?.decision === 'accepted' && vault.did !== result.actorDid && vault.did !== detail.mission.issuerDid && <button type="button" onClick={() => openAttestation(result)}>Peer attest</button>}{(vault?.did === result.actorDid || vault?.did === detail.mission.issuerDid) && <button type="button" onClick={() => openAnnouncement(result)}>Announce</button>}</div>
+              <div className="result-actions"><a href={result.artifact.url}>Artifact</a><a href={result.portableUrl} target="_blank" rel="noreferrer">Proof page</a><DossierExportButton resultId={result.id} compact />{result.revisionReceipt && <a href={result.revisionReceipt.portableUrl} target="_blank" rel="noreferrer">Chain receipt</a>}{result.changeRequest && <a href={result.changeRequest.portableUrl} target="_blank" rel="noreferrer">Change request</a>}{result.repositoryUrl && <button type="button" disabled={busy} onClick={() => checkEvidence(result)}>{result.evidenceCheck ? 'Refresh GitHub' : 'Check GitHub'}</button>}{vault?.did === detail.mission.issuerDid && !result.acceptance && !result.changeRequest && !hasChild && <button type="button" onClick={() => openAcceptance(result)}>Issuer review</button>}{vault?.did === result.actorDid && result.changeRequest && !hasChild && result.revision < MAX_RESULT_REVISIONS && <button type="button" onClick={() => openRevision(result)}>Submit revision</button>}{vault?.did === result.actorDid && result.acceptance?.decision === 'accepted' && !result.finalization && <button type="button" onClick={() => openFinalization(result)}>Finalize TCR-1</button>}{vault && result.acceptance?.decision === 'accepted' && vault.did !== result.actorDid && vault.did !== detail.mission.issuerDid && <button type="button" onClick={() => openAttestation(result)}>Peer attest</button>}{vault?.did === result.actorDid && result.acceptance?.decision === 'accepted' && <button type="button" onClick={() => openAnnouncement(result)}>Announce</button>}</div>
             </article>;
           })}</div>}
         </> : <p className="form-error">{error || 'Mission activity could not be loaded.'}</p>}</div>}
@@ -870,7 +903,7 @@ export default function FoundryApp() {
 
         {dialog === 'finalize' && selectedResult && vault && selectedResult.acceptance?.decision === 'accepted' && (finalizationResponse ? <div className="claim-success"><span className="success-mark">✓</span><p className="eyebrow">FINAL TCR-1 STORED</p><h3>{finalizationResponse.id}</h3><div className="verification-grid"><span>Claimant key</span><strong>VALID</strong><span>Artifact binding</span><strong>MATCH</strong><span>Issuer acceptance hash</span><strong>BOUND</strong><span>Identity / eligibility</span><em>NOT ASSERTED</em></div><div className="dialog-actions"><button className="button button-primary" type="button" onClick={() => downloadJson(`${finalizationResponse.id}.tcr1.json`, finalizationResponse.receipt)}>Download final TCR-1</button><a className="button button-secondary" href={finalizationResponse.portableUrl} target="_blank" rel="noreferrer">Open proof page</a><button className="text-button" type="button" onClick={() => setDialog('mission')}>Back to lifecycle</button></div></div> : <form onSubmit={finalizeResult}><div className="mission-detail"><span>FINAL TCR-1 · {selectedResult.id}</span><h3>{selectedResult.artifact.name}</h3><p>The new claimant signature preserves the original task, artifact, and Git evidence.</p><code>{selectedResult.acceptance.receiptSha256}</code></div><p className="dialog-copy">This creates a new TCR-1 whose evidence includes the exact issuer acceptance receipt hash. The original result remains immutable.</p><label>Unlock claimant vault <input name="passphrase" type="password" autoComplete="current-password" required /></label>{error && <p className="form-error" role="alert">{error}</p>}<div className="dialog-actions"><button className="button button-primary" type="submit" disabled={busy}>{busy ? 'Binding + signing…' : 'Sign final TCR-1'}</button></div></form>)}
 
-        {dialog === 'announce' && selectedResult && vault && <form onSubmit={publishAnnouncement}><div className="mission-detail"><span>TECHNOCORE / foundry-contributions</span><h3>{selectedResult.id}</h3><p>A compact receipt pointer and separate proof statuses will be published under your active DID.</p><code>{selectedResult.receiptSha256}</code></div><p className="form-warning">This is an irreversible public write to technocore.chat. A reusable signed POST package is downloaded before the relay runs.</p><label>Unlock announcing DID <input name="passphrase" type="password" autoComplete="current-password" required /></label>{announcementStatus === 'published' && <div className="verify-banner valid">● PUBLISHED TO TECHNOCORE<small>Room: foundry-contributions</small></div>}{announcement && announcementStatus !== 'published' && <div className="verify-banner invalid">○ SIGNED PACKAGE READY<small>The public relay did not confirm storage; the downloaded package can be retried.</small></div>}{error && <p className="form-error" role="alert">{error}</p>}<div className="dialog-actions"><button className="button button-primary" type="submit" disabled={busy || announcementStatus === 'published'}>{busy ? 'Signing + publishing…' : announcementStatus === 'published' ? 'Published' : 'Sign + publish publicly'}</button></div></form>}
+        {dialog === 'announce' && selectedResult && vault && <form onSubmit={publishAnnouncement}><div className="mission-detail"><span>TECHNOCORE / foundry-contributions</span><h3>{selectedResult.id}</h3><p>A compact receipt pointer and separate proof statuses will be published under your active DID.</p><code>{selectedResult.receiptSha256}</code></div><p className="form-warning">This is an irreversible public write to technocore.chat. The relay is fail-closed and accepts only a matching receipt URL on the configured public HTTPS origin.</p>{relayAvailability ? <div className={`verify-banner ${relayAvailability.enabled ? 'valid' : 'invalid'}`} role="status">{relayAvailability.enabled ? '● RELAY EXPLICITLY ENABLED' : '○ RELAY DISABLED'}<small>{relayAvailability.reason}</small></div> : <div className="verify-banner invalid" role="status">○ CHECKING OPERATOR POLICY<small>No signing or publication is available until the local policy is confirmed.</small></div>}<label>Unlock announcing DID <input name="passphrase" type="password" autoComplete="current-password" required disabled={!relayAvailability?.enabled} /></label>{announcementStatus === 'published' && <div className="verify-banner valid">● PUBLISHED TO TECHNOCORE<small>Room: foundry-contributions</small></div>}{announcement && announcementStatus !== 'published' && <div className="verify-banner invalid">○ SIGNED AUDIT PACKAGE SAVED<small>The relay did not confirm publication. Do not replay this package blindly; follow the server outcome and reconcile ambiguous attempts manually.</small></div>}{error && <p className="form-error" role="alert">{error}</p>}<div className="dialog-actions"><button className="button button-primary" type="submit" disabled={busy || announcementStatus === 'published' || !relayAvailability?.enabled}>{busy ? 'Signing + publishing…' : announcementStatus === 'published' ? 'Published' : relayAvailability?.enabled ? 'Sign + publish publicly' : 'Relay disabled'}</button></div></form>}
 
         {dialog === 'verify' && <form onSubmit={verifyReceipt}><p className="dialog-copy">Paste a Foundry event or TCR-1 receipt. Strict JSON parsing and key-control verification run in this browser without contacting a resolver.</p><label>Receipt JSON <textarea rows={10} value={verifyInput} onChange={(event) => setVerifyInput(event.target.value)} placeholder={'{"type":"technocore-task-receipt", …}'} required /></label><label className="file-inline">Or choose a file <input type="file" accept="application/json,.json" onChange={(event) => { const file = event.target.files?.[0]; if (file) file.arrayBuffer().then(decodeStrictUtf8).then(setVerifyInput).catch(() => setVerifyResult({ valid: false, kind: 'INVALID UTF-8' })); }} /></label>{verifyResult && <div className={`verify-banner ${verifyResult.valid ? 'valid' : 'invalid'}`} role="status">{verifyResult.valid ? '● VALID KEY-CONTROL SIGNATURE' : '○ INVALID OR MALFORMED RECEIPT'}<small>{verifyResult.kind} · This does not establish truth, acceptance, or eligibility.</small></div>}<div className="dialog-actions"><button className="button button-primary" type="submit" disabled={busy}>{busy ? 'Verifying…' : 'Verify offline'}</button></div></form>}
       </section></div>}

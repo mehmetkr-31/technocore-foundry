@@ -1,6 +1,6 @@
 {
   "name": "technocore-foundry",
-  "version": "0.9.0-preview.7",
+  "version": "0.9.0-preview.8",
   "description": "A local-first contribution and portable-proof layer for the Technocore ecosystem.",
   "private": true,
   "license": "Apache-2.0",
@@ -28,6 +28,10 @@
     "node": ">=22.13.0"
   },
   "scripts": {
+    "setup": "node scripts/setup-local.mjs",
+    "doctor": "node scripts/local-doctor.mjs",
+    "signer": "node packages/signer-cli/bin/foundry-signer.mjs",
+    "verifier": "node packages/signer-cli/bin/foundry-verifier.mjs",
     "predev": "npm run commons:build",
     "dev": "vinext dev",
     "prebuild": "npm run commons:build",
@@ -35,6 +39,7 @@
     "start": "vinext start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
+    "test:migrations": "node scripts/test-migrations.mjs",
     "test:smoke": "node scripts/smoke-lifecycle.mjs",
     "protocol:generate": "node scripts/generate-protocol-fixtures.mjs",
     "test:protocol:ts": "tsx scripts/verify-protocol-fixtures.ts",
@@ -44,11 +49,14 @@
     "test:observer": "tsx scripts/test-observer.ts",
     "test:security:unit": "tsx scripts/security-unit.ts",
     "test:security:http": "node scripts/security-regression.mjs",
-    "test:security": "npm run test:security:unit && npm run test:security:http",
+    "test:relay": "tsx scripts/test-technocore-relay.ts",
+    "test:security": "npm run test:security:unit && npm run test:relay && npm run test:security:http",
     "commons:build": "node scripts/commons-registry.mjs --write",
     "commons:verify": "node scripts/commons-registry.mjs --verify",
     "commons:check": "node scripts/commons-registry.mjs --check",
     "test:commons": "node scripts/test-commons-registry.mjs && node scripts/test-commons-pr.mjs",
+    "test:inspector": "tsx scripts/test-browser-dossier-verifier.mjs",
+    "test:onboarding": "node scripts/test-onboarding.mjs",
     "release:artifacts": "node scripts/generate-release-artifacts.mjs"
   },
   "bin": {

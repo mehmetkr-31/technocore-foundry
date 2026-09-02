@@ -240,6 +240,9 @@ export function bytesToBase64Url(bytes: Uint8Array) {
 }
 
 export function base64UrlToBytes(value: string) {
+  if (typeof value !== 'string' || value.length < 1 || value.length > 4096 || !/^[A-Za-z0-9_-]+$/.test(value)) {
+    throw new Error('Malformed or oversized base64url value.');
+  }
   const padded = value.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (value.length % 4)) % 4);
   const binary = atob(padded);
   return Uint8Array.from(binary, (character) => character.charCodeAt(0));
@@ -286,7 +289,7 @@ export function didFromPublicKey(publicKey: Uint8Array) {
 }
 
 export function publicKeyFromDid(did: string) {
-  if (!did.startsWith('did:key:z6Mk')) throw new Error('Expected a canonical Ed25519 did:key.');
+  if (!/^did:key:z[1-9A-HJ-NP-Za-km-z]{47}$/.test(did)) throw new Error('Expected a bounded canonical Ed25519 did:key.');
   const decoded = base58Decode(did.slice('did:key:z'.length));
   if (decoded.length !== 34 || decoded[0] !== 0xed || decoded[1] !== 0x01) {
     throw new Error('DID does not contain an Ed25519 public key.');
@@ -350,26 +353,39 @@ export async function createVault(passphrase: string): Promise<FoundryVault> {
 }
 
 export function parseVault(value: unknown): FoundryVault {
-  if (!value || typeof value !== 'object') throw new Error('Vault file must contain a JSON object.');
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Vault file must contain a JSON object.');
   const candidate = value as Partial<FoundryVault>;
+  const exactKeys = (input: object, keys: string[]) => Object.keys(input).length === keys.length && keys.every((key) => Object.hasOwn(input, key));
   if (
+    !exactKeys(value, ['schema', 'did', 'publicKey', 'ciphertext', 'salt', 'iv', 'kdf', 'cipher', 'createdAt']) ||
     candidate.schema !== VAULT_SCHEMA ||
-    typeof candidate.did !== 'string' ||
+    typeof candidate.did !== 'string' || !/^did:key:z[1-9A-HJ-NP-Za-km-z]{47}$/.test(candidate.did) ||
     typeof candidate.publicKey !== 'string' ||
     typeof candidate.ciphertext !== 'string' ||
     typeof candidate.salt !== 'string' ||
     typeof candidate.iv !== 'string' ||
     candidate.cipher !== 'AES-GCM' ||
+    !candidate.kdf || !exactKeys(candidate.kdf, ['name', 'hash', 'iterations']) ||
     candidate.kdf?.name !== 'PBKDF2' ||
     candidate.kdf.hash !== 'SHA-256' ||
-    typeof candidate.kdf.iterations !== 'number'
+    candidate.kdf.iterations !== KDF_ITERATIONS ||
+    typeof candidate.createdAt !== 'string' ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(candidate.createdAt) ||
+    !Number.isFinite(Date.parse(candidate.createdAt))
   ) throw new Error('Unsupported or malformed Foundry vault.');
   const publicKey = base64UrlToBytes(candidate.publicKey);
+  const ciphertext = base64UrlToBytes(candidate.ciphertext);
+  const salt = base64UrlToBytes(candidate.salt);
+  const iv = base64UrlToBytes(candidate.iv);
+  if (publicKey.length !== 32 || ciphertext.length !== 64 || salt.length !== 16 || iv.length !== 12) {
+    throw new Error('Malformed Foundry vault encryption fields.');
+  }
   if (didFromPublicKey(publicKey) !== candidate.did) throw new Error('Vault DID does not match its public key.');
   return candidate as FoundryVault;
 }
 
 export async function unlockVault(vault: FoundryVault, passphrase: string) {
+  vault = parseVault(vault);
   const publicKey = base64UrlToBytes(vault.publicKey);
   const encryptionKey = await deriveVaultKey(passphrase, base64UrlToBytes(vault.salt), vault.kdf.iterations);
   let privateBytes: ArrayBuffer;
@@ -430,12 +446,21 @@ async function signFoundryEvent<T extends FoundryEvent>(vault: FoundryVault, pas
 }
 
 let lastNonce = 0n;
+let lastTechnocoreNonce = 0n;
 
 function nonce() {
   const random = BigInt(crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000);
   const candidate = BigInt(Date.now()) * 1_000_000n + random;
   lastNonce = candidate > lastNonce ? candidate : lastNonce + 1n;
   return lastNonce.toString();
+}
+
+function technocoreNonce() {
+  const random = BigInt(crypto.getRandomValues(new Uint32Array(1))[0] % 1_000);
+  const candidate = BigInt(Date.now()) * 1_000n + random;
+  lastTechnocoreNonce = candidate > lastTechnocoreNonce ? candidate : lastTechnocoreNonce + 1n;
+  if (lastTechnocoreNonce > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('Could not create a JSON-safe Technocore nonce.');
+  return lastTechnocoreNonce.toString();
 }
 
 export async function signMission(
@@ -940,7 +965,7 @@ export function sweepTechnocoreText(text: string) {
 export async function signTechnocoreAnnouncement(vault: FoundryVault, passphrase: string, room: string, text: string) {
   const privateKey = await unlockVault(vault, passphrase);
   const cleanText = sweepTechnocoreText(text);
-  const messageNonce = nonce();
+  const messageNonce = technocoreNonce();
   const bytes = new TextEncoder().encode(`${room}|${messageNonce}|${cleanText}`);
   const signature = await crypto.subtle.sign('Ed25519', privateKey, bytes);
   return { room, did: vault.did, sig: bytesToBase64Url(new Uint8Array(signature)), nonce: messageNonce, text: cleanText } satisfies TechnocoreSignedMessage;

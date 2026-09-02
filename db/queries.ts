@@ -237,8 +237,34 @@ function database() {
   return env.DB;
 }
 
-export async function ensureDatabase() {
+let databaseInitialization: Promise<void> | undefined;
+
+async function initializeDatabase() {
   const db = database();
+  try {
+    const readiness = await db.prepare(`SELECT
+      (SELECT COUNT(*) FROM missions WHERE id IN ('M-042', 'M-039', 'M-031')) AS seedCount,
+      (SELECT COUNT(*) FROM pragma_table_info('technocore_relay_attempts') WHERE name = 'completed_at') AS relaySchema`)
+      .first<{ seedCount: number; relaySchema: number }>();
+    if (Number(readiness?.relaySchema) === 1) {
+      if (Number(readiness?.seedCount) !== 3) {
+        await db.batch(
+          seedMissions.map((mission) =>
+            db.prepare(`INSERT OR IGNORE INTO missions
+              (id, title, lane, summary, requirements_hash, issuer_did, status, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, 'open', ?)`)
+              .bind(mission.id, mission.title, mission.lane, mission.summary, mission.requirementsHash, issuerDid, mission.createdAt),
+          ),
+        );
+      }
+      return;
+    }
+  } catch {
+    // A fresh local database has no schema yet. The bounded local bootstrap below creates it.
+  }
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('D1 schema is not migrated. Apply the committed Drizzle migrations before serving production traffic.');
+  }
   await db.batch([
     db.prepare(`CREATE TABLE IF NOT EXISTS missions (
       id TEXT PRIMARY KEY,
@@ -463,6 +489,21 @@ export async function ensureDatabase() {
       detected_at TEXT NOT NULL
     )`),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_observer_gaps_room_detected ON observer_gaps(room, detected_at)'),
+    db.prepare(`CREATE TABLE IF NOT EXISTS technocore_relay_attempts (
+      envelope_sha256 TEXT PRIMARY KEY,
+      result_id TEXT NOT NULL,
+      room TEXT NOT NULL,
+      actor_did TEXT NOT NULL,
+      nonce_value TEXT NOT NULL,
+      text_sha256 TEXT NOT NULL,
+      state TEXT NOT NULL,
+      upstream_status INTEGER,
+      upstream_detail TEXT,
+      reserved_at TEXT NOT NULL,
+      completed_at TEXT
+    )`),
+    db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_technocore_relay_nonce ON technocore_relay_attempts(room, actor_did, nonce_value)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_technocore_relay_result_state ON technocore_relay_attempts(result_id, state)'),
   ]);
 
   await db.batch(
@@ -474,6 +515,16 @@ export async function ensureDatabase() {
     ),
   );
   await db.prepare('PRAGMA optimize').run();
+}
+
+export function ensureDatabase() {
+  if (!databaseInitialization) {
+    databaseInitialization = initializeDatabase().catch((error) => {
+      databaseInitialization = undefined;
+      throw error;
+    });
+  }
+  return databaseInitialization;
 }
 
 export async function listMissions(): Promise<MissionRecord[]> {
@@ -793,6 +844,21 @@ export async function findLatestResultForClaim(claimId: string) {
   await ensureDatabase();
   const result = await database().prepare(`${resultSelect} WHERE r.claim_id = ? ORDER BY r.revision DESC LIMIT 1`)
     .bind(claimId).first<ResultRecord>();
+  return normalizeResult(result);
+}
+
+export async function findPublishableResult(id: string) {
+  await ensureDatabase();
+  const result = await database().prepare(`${resultSelect}
+    WHERE r.id = ?
+      AND a.decision = 'accepted'
+      AND r.id = (
+        SELECT latest.id FROM result_revisions latest
+        WHERE latest.claim_id = r.claim_id
+        ORDER BY latest.revision DESC
+        LIMIT 1
+      )`)
+    .bind(id).first<ResultRecord>();
   return normalizeResult(result);
 }
 
