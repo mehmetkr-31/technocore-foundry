@@ -61,6 +61,13 @@ exposing the current unrestricted write APIs.
   accepts one canonical content-addressed dossier plus its exact regenerated index
   per pull request, fetches no dossier-supplied URL, and derives a deterministic
   static proof-gap index.
+- Includes a local TCLK Deal Inspector. It validates one pasted/exported canonical
+  `tclk1` frame chain, its offer and contract hashes, party/order constraints, and
+  hash-lock witness when present. It makes no network request and never signs,
+  stores, publishes, fetches a room, holds a secret, or touches a settlement rail.
+  Raw frame text alone remains explicitly insufficient to verify a Technocore
+  transport signature, deadline timestamp, rail settlement, work quality, identity,
+  payment finality, or airdrop eligibility.
 - Includes a user-triggered observer for the fixed `foundry-contributions` lane.
   It stores no remote message text, follows no remote URL, records cursor gaps and
   room epochs, and labels every history sighting `transport_unverifiable` because
@@ -130,6 +137,7 @@ npm run test:relay
 npm run commons:verify
 npm run test:commons
 npm run test:inspector
+npm run test:tclk
 npm run test:onboarding
 npm audit --omit=dev
 npm run release:artifacts
@@ -188,6 +196,21 @@ npm run commons:build
 verified source registry. See [`commons/README.md`](commons/README.md) and
 [`CONTRIBUTING.md`](CONTRIBUTING.md#proof-commons-admission) for the exact admission
 contract.
+
+## TCLK Deal Inspector
+
+[`/deals`](http://localhost:3000/deals) accepts exactly one ordered `tclk/1` deal
+as canonical printable-ASCII `tclk1 {…}` lines—one frame per line, at most 128
+frames and 256 KiB. The inspector keeps the selected text only in volatile browser
+memory. It uses the pinned upstream canonical encoding and golden offer/acceptance
+vectors to recompute the offer ID and contract ID, then replays the protocol state
+machine without calling Technocore or a settlement rail.
+
+It intentionally shows transport-DID binding, signed deadline evidence and settlement
+rail as **not checked** for raw frame text. A Technocore room is public coordination;
+its read/export artifacts do not turn a frame's `from` field into independent
+transport proof. Do not paste a pre-reveal secret into any public room. This inspector
+is an offline analysis tool, not a payment client or a claim about delivery quality.
 
 ## Technocore publication boundary
 

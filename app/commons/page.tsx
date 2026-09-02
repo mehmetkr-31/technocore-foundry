@@ -86,7 +86,7 @@ export default async function CommonsPage({ searchParams }: PageProps) {
 
   return (
     <main className="artifact-page commons-page">
-      <nav className="artifact-nav"><Link className="brand" href="/"><span className="brand-mark">TF</span><span>TECHNOCORE / FOUNDRY</span></Link><div><Link href="/atlas">Atlas</Link><Link href="/protocol">Protocol Lab</Link><Link href="/">Enter Foundry →</Link></div></nav>
+      <nav className="artifact-nav"><Link className="brand" href="/"><span className="brand-mark">TF</span><span>TECHNOCORE / FOUNDRY</span></Link><div><Link href="/deals">Deal Inspector</Link><Link href="/atlas">Atlas</Link><Link href="/protocol">Protocol Lab</Link><Link href="/">Enter Foundry →</Link></div></nav>
 
       <header className="commons-hero">
         <div>

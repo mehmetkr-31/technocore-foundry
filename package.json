@@ -56,6 +56,7 @@
     "commons:check": "node scripts/commons-registry.mjs --check",
     "test:commons": "node scripts/test-commons-registry.mjs && node scripts/test-commons-pr.mjs",
     "test:inspector": "tsx scripts/test-browser-dossier-verifier.mjs",
+    "test:tclk": "tsx scripts/test-browser-tclk-inspector.mjs",
     "test:onboarding": "node scripts/test-onboarding.mjs",
     "release:artifacts": "node scripts/generate-release-artifacts.mjs"
   },
