@@ -1,20 +1,34 @@
 {
-  "schema": "technocore-foundry-release-manifest-v1",
-  "version": "0.9.0-preview.7",
+  "schema": "technocore-foundry-release-manifest-v2",
+  "version": "0.9.0-preview.8",
+  "sourceRepository": "git+https://github.com/mehmetkr-31/technocore-foundry.git",
+  "releaseInputSetSha256": "c5b236288d94c311422649932f29d764a597d87d7a3a11b160a57fdfd9b7db79",
+  "releaseInputCount": 144,
   "access": "owner-only",
   "publicWrite": "disabled-until-explicit-operator-action",
   "technocore": {
     "origin": "https://technocore.chat",
     "room": "foundry-contributions",
     "sourceCommit": "9c7df0e3616cf28d17e7c8ebeb0c05de6adf117c",
+    "relayAcknowledgementSourceCommit": "16a6128bea125c8f131f343c0e8430dfc110f4af",
     "observationTrust": "transport_unverifiable"
   },
   "artifacts": {
     "protocolFixtureSha256": "09182dab214bb4744c4c339470b23793b4586bb9c16ee4c18c24cd61ffebe27d",
-    "sbomSha256": "b48cf9bb08379f20dfd8fca6892f2368f690e11c7b50a7ac4a660c856f89f365",
-    "dependencyLicensesSha256": "a6daeeadc18ac7a045990697c55584c2c645b67dfdfb8374d17a98af3426c5d9",
+    "packageLockSha256": "c46f21c38e47e3504378b413a6c7374a62c271ece1d41c1b7a7ceee59dc31538",
+    "sbomSha256": "0330fcd5f3626cc40dab92d77d7338e00449638ad88074e5a4367d59291bafde",
+    "dependencyLicensesSha256": "b3bd37e17bd643804f08ce72adbf5c23fe929ab940b03f42efa087f7835a7be1",
     "licenseSha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
     "noticeSha256": "1b3221e9ab8ca0ea2ffabd3c36eea2e53e1c4cddb6e0ed4dd52164f1f76e96cd",
+    "localOperationsSha256": "caf549173a814c5be18e962fc8028e01f5a30f39b3fb000e37814cb7fa48a06d",
+    "roadmapSha256": "e1075389cb79dbe9bae374a8d3bd36dc3d32e92fc944f42b0b91b9e07b8121d0",
+    "technocoreRelayPolicySha256": "330d68584b844f1b21ad1ed1ae792e5be964cdb9a55828d2e42d4c9663fa7a4b",
+    "technocoreRelayServiceSha256": "1fe7f0457c0e6d195dbb8f24cface45a7e28cd2d86ab204cbe04e324e50415ea",
+    "technocoreRelayStoreSha256": "4d48e44a5ca9ac9213f3cca95d11691232a4ca75d77ffd134c70b72463eba3a9",
+    "technocoreRelayRouteSha256": "5b661c30003ab6cd437f5f1457bf04d11b50274cb868fb033af8b59bf248b1c6",
+    "browserDossierVerifierSha256": "eed1244f0a101b61a5df45440042e3e99026bb9d4adcc55cbc116c4e347939ab",
+    "commonsRegistrySha256": "e63f0729ceac2a38dbbeadf2ce2ea9ed80230212de0b93272b36ea43aebbaa6c",
+    "commonsIndexSha256": "b11bd942642fb4737ead1af0a5c9228399ec10ea7ea476f92d48ebf7bdef3950",
     "migrationSha256": {
       "0000_thick_ego.sql": "a88554a918ec1bb5833e4b9ac0d6a3d2d2f7a087bb13aa3f1ffca3edce1ebc28",
       "0001_dusty_lizard.sql": "dd06be9e43e84ace19d556d6a97bc212499d955c98ca690fc22af4c7422a01d9",
@@ -22,21 +36,49 @@
       "0003_yielding_speed.sql": "6b49610331b8e307e1ea490c7e1d8571b239899d522a3f767cbbc8eeeb4258d8",
       "0004_woozy_sphinx.sql": "082c6383fee9c649913af807e6f06e8d06215cdbe7d1aa355ab74fe9731cb058",
       "0005_confused_sinister_six.sql": "347b9cb55898904dfbcd9026522c8023adfe2f079b236734addb53fbd6d3741d",
-      "0006_motionless_doctor_spectrum.sql": "e23c8d759c012072a399cdd595bfae7ebd0d4564b3781bd0e5cd8a4beab81b46"
+      "0006_motionless_doctor_spectrum.sql": "e23c8d759c012072a399cdd595bfae7ebd0d4564b3781bd0e5cd8a4beab81b46",
+      "0007_brave_venus.sql": "c8076734554e0f1a33cfdddca1d33211d463e96dfd08649ed702016f1e52249c"
+    },
+    "drizzleMetadataSha256": {
+      "0000_snapshot.json": "dfc603182b331c9c5567272acaee13dd3ca4d6b5949465fa740bcf3396aff1c7",
+      "0001_snapshot.json": "9d9381d070654c40c8d165ec36ba1efd94387e99b753ae1acd0da0f0765272e7",
+      "0002_snapshot.json": "ac6f393e5ee463738a244132ca460f308a068ddcd593d18a222dfa15d29f1946",
+      "0003_snapshot.json": "b48e9fffaac7530d0bc46432f3cdd644fce8da9f42af3cb2ea427321ffee4395",
+      "0004_snapshot.json": "19ede299bcee5001a5205cbfb07345199079f0e72013e0d4d353b5acc87dc002",
+      "0005_snapshot.json": "9a23cea0eb309c780550045ddcff1ed88e3de8f0e3162441daf045767776708c",
+      "0006_snapshot.json": "67a96e999c28a7db9a8361d54e52f10e5449766bf55fa26ab4af5d307cf65dda",
+      "0007_snapshot.json": "7932f61824f09a9f5e78ddcbae668b53a04813616cb45699ba1d498bcff637d4",
+      "_journal.json": "9aa2d89795333cd84b15d72289fdd26be7076df72b2bfd6437173b311101100a"
     }
   },
-  "gates": [
+  "requiredGitHubContexts": [
+    "Lint, typecheck, build",
+    "Cross-language protocol",
+    "Signer, observer, security, Commons",
+    "Local HTTP boundary",
+    "Release artifact drift"
+  ],
+  "expectedVerificationGates": [
     "lint",
     "typescript",
     "build",
+    "migration-generation-drift",
+    "blank-migration-apply",
     "protocol-ts",
     "protocol-python",
     "signer",
     "dossier-offline",
     "commons-offline",
+    "browser-verifier-unit-parity",
+    "local-doctor",
     "observer",
-    "security",
-    "smoke",
-    "production-npm-audit"
+    "durable-technocore-relay-unit",
+    "security-unit",
+    "local-http-boundary",
+    "release-artifact-drift"
+  ],
+  "manualReleaseRehearsal": [
+    "local-full-lifecycle-smoke",
+    "production-dependency-audit"
   ]
 }

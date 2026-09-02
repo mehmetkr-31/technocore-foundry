@@ -1,14 +1,14 @@
 {
   "bomFormat": "CycloneDX",
   "specVersion": "1.5",
-  "serialNumber": "urn:uuid:8df78e92-f843-5f51-91a0-77c0f0a0d006",
+  "serialNumber": "urn:uuid:03eaab36-690f-5566-b441-bcbfe13e8ffb",
   "version": 1,
   "metadata": {
     "component": {
       "type": "application",
-      "bom-ref": "pkg:npm/technocore-foundry@0.9.0-preview.7",
+      "bom-ref": "pkg:npm/technocore-foundry@0.9.0-preview.8",
       "name": "technocore-foundry",
-      "version": "0.9.0-preview.7",
+      "version": "0.9.0-preview.8",
       "licenses": [
         {
           "license": {
@@ -502,58 +502,6 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:npm/%40esbuild/android-arm@0.18.20",
-      "name": "@esbuild/android-arm",
-      "version": "0.18.20",
-      "purl": "pkg:npm/%40esbuild/android-arm@0.18.20",
-      "scope": "optional",
-      "licenses": [
-        {
-          "expression": "MIT"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:npm/%40esbuild/android-arm@0.25.12",
-      "name": "@esbuild/android-arm",
-      "version": "0.25.12",
-      "purl": "pkg:npm/%40esbuild/android-arm@0.25.12",
-      "scope": "optional",
-      "licenses": [
-        {
-          "expression": "MIT"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:npm/%40esbuild/android-arm@0.28.1",
-      "name": "@esbuild/android-arm",
-      "version": "0.28.1",
-      "purl": "pkg:npm/%40esbuild/android-arm@0.28.1",
-      "scope": "optional",
-      "licenses": [
-        {
-          "expression": "MIT"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:npm/%40esbuild/android-arm@0.28.2",
-      "name": "@esbuild/android-arm",
-      "version": "0.28.2",
-      "purl": "pkg:npm/%40esbuild/android-arm@0.28.2",
-      "scope": "optional",
-      "licenses": [
-        {
-          "expression": "MIT"
-        }
-      ]
-    },
-    {
-      "type": "library",
       "bom-ref": "pkg:npm/%40esbuild/android-arm64@0.18.20",
       "name": "@esbuild/android-arm64",
       "version": "0.18.20",
@@ -597,6 +545,58 @@
       "name": "@esbuild/android-arm64",
       "version": "0.28.2",
       "purl": "pkg:npm/%40esbuild/android-arm64@0.28.2",
+      "scope": "optional",
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40esbuild/android-arm@0.18.20",
+      "name": "@esbuild/android-arm",
+      "version": "0.18.20",
+      "purl": "pkg:npm/%40esbuild/android-arm@0.18.20",
+      "scope": "optional",
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40esbuild/android-arm@0.25.12",
+      "name": "@esbuild/android-arm",
+      "version": "0.25.12",
+      "purl": "pkg:npm/%40esbuild/android-arm@0.25.12",
+      "scope": "optional",
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40esbuild/android-arm@0.28.1",
+      "name": "@esbuild/android-arm",
+      "version": "0.28.1",
+      "purl": "pkg:npm/%40esbuild/android-arm@0.28.1",
+      "scope": "optional",
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40esbuild/android-arm@0.28.2",
+      "name": "@esbuild/android-arm",
+      "version": "0.28.2",
+      "purl": "pkg:npm/%40esbuild/android-arm@0.28.2",
       "scope": "optional",
       "licenses": [
         {
@@ -866,58 +866,6 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:npm/%40esbuild/linux-arm@0.18.20",
-      "name": "@esbuild/linux-arm",
-      "version": "0.18.20",
-      "purl": "pkg:npm/%40esbuild/linux-arm@0.18.20",
-      "scope": "optional",
-      "licenses": [
-        {
-          "expression": "MIT"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:npm/%40esbuild/linux-arm@0.25.12",
-      "name": "@esbuild/linux-arm",
-      "version": "0.25.12",
-      "purl": "pkg:npm/%40esbuild/linux-arm@0.25.12",
-      "scope": "optional",
-      "licenses": [
-        {
-          "expression": "MIT"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:npm/%40esbuild/linux-arm@0.28.1",
-      "name": "@esbuild/linux-arm",
-      "version": "0.28.1",
-      "purl": "pkg:npm/%40esbuild/linux-arm@0.28.1",
-      "scope": "optional",
-      "licenses": [
-        {
-          "expression": "MIT"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:npm/%40esbuild/linux-arm@0.28.2",
-      "name": "@esbuild/linux-arm",
-      "version": "0.28.2",
-      "purl": "pkg:npm/%40esbuild/linux-arm@0.28.2",
-      "scope": "optional",
-      "licenses": [
-        {
-          "expression": "MIT"
-        }
-      ]
-    },
-    {
-      "type": "library",
       "bom-ref": "pkg:npm/%40esbuild/linux-arm64@0.18.20",
       "name": "@esbuild/linux-arm64",
       "version": "0.18.20",
@@ -961,6 +909,58 @@
       "name": "@esbuild/linux-arm64",
       "version": "0.28.2",
       "purl": "pkg:npm/%40esbuild/linux-arm64@0.28.2",
+      "scope": "optional",
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40esbuild/linux-arm@0.18.20",
+      "name": "@esbuild/linux-arm",
+      "version": "0.18.20",
+      "purl": "pkg:npm/%40esbuild/linux-arm@0.18.20",
+      "scope": "optional",
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40esbuild/linux-arm@0.25.12",
+      "name": "@esbuild/linux-arm",
+      "version": "0.25.12",
+      "purl": "pkg:npm/%40esbuild/linux-arm@0.25.12",
+      "scope": "optional",
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40esbuild/linux-arm@0.28.1",
+      "name": "@esbuild/linux-arm",
+      "version": "0.28.1",
+      "purl": "pkg:npm/%40esbuild/linux-arm@0.28.1",
+      "scope": "optional",
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40esbuild/linux-arm@0.28.2",
+      "name": "@esbuild/linux-arm",
+      "version": "0.28.2",
+      "purl": "pkg:npm/%40esbuild/linux-arm@0.28.2",
       "scope": "optional",
       "licenses": [
         {
@@ -2101,32 +2101,6 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:npm/%40img/sharp-libvips-linux-arm@1.3.1",
-      "name": "@img/sharp-libvips-linux-arm",
-      "version": "1.3.1",
-      "purl": "pkg:npm/%40img/sharp-libvips-linux-arm@1.3.1",
-      "scope": "optional",
-      "licenses": [
-        {
-          "expression": "LGPL-3.0-or-later"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:npm/%40img/sharp-libvips-linux-arm@1.3.3",
-      "name": "@img/sharp-libvips-linux-arm",
-      "version": "1.3.3",
-      "purl": "pkg:npm/%40img/sharp-libvips-linux-arm@1.3.3",
-      "scope": "optional",
-      "licenses": [
-        {
-          "expression": "LGPL-3.0-or-later"
-        }
-      ]
-    },
-    {
-      "type": "library",
       "bom-ref": "pkg:npm/%40img/sharp-libvips-linux-arm64@1.3.1",
       "name": "@img/sharp-libvips-linux-arm64",
       "version": "1.3.1",
@@ -2144,6 +2118,32 @@
       "name": "@img/sharp-libvips-linux-arm64",
       "version": "1.3.3",
       "purl": "pkg:npm/%40img/sharp-libvips-linux-arm64@1.3.3",
+      "scope": "optional",
+      "licenses": [
+        {
+          "expression": "LGPL-3.0-or-later"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40img/sharp-libvips-linux-arm@1.3.1",
+      "name": "@img/sharp-libvips-linux-arm",
+      "version": "1.3.1",
+      "purl": "pkg:npm/%40img/sharp-libvips-linux-arm@1.3.1",
+      "scope": "optional",
+      "licenses": [
+        {
+          "expression": "LGPL-3.0-or-later"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40img/sharp-libvips-linux-arm@1.3.3",
+      "name": "@img/sharp-libvips-linux-arm",
+      "version": "1.3.3",
+      "purl": "pkg:npm/%40img/sharp-libvips-linux-arm@1.3.3",
       "scope": "optional",
       "licenses": [
         {
@@ -2309,32 +2309,6 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:npm/%40img/sharp-linux-arm@0.35.2",
-      "name": "@img/sharp-linux-arm",
-      "version": "0.35.2",
-      "purl": "pkg:npm/%40img/sharp-linux-arm@0.35.2",
-      "scope": "optional",
-      "licenses": [
-        {
-          "expression": "Apache-2.0"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:npm/%40img/sharp-linux-arm@0.35.4",
-      "name": "@img/sharp-linux-arm",
-      "version": "0.35.4",
-      "purl": "pkg:npm/%40img/sharp-linux-arm@0.35.4",
-      "scope": "optional",
-      "licenses": [
-        {
-          "expression": "Apache-2.0"
-        }
-      ]
-    },
-    {
-      "type": "library",
       "bom-ref": "pkg:npm/%40img/sharp-linux-arm64@0.35.2",
       "name": "@img/sharp-linux-arm64",
       "version": "0.35.2",
@@ -2352,6 +2326,32 @@
       "name": "@img/sharp-linux-arm64",
       "version": "0.35.4",
       "purl": "pkg:npm/%40img/sharp-linux-arm64@0.35.4",
+      "scope": "optional",
+      "licenses": [
+        {
+          "expression": "Apache-2.0"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40img/sharp-linux-arm@0.35.2",
+      "name": "@img/sharp-linux-arm",
+      "version": "0.35.2",
+      "purl": "pkg:npm/%40img/sharp-linux-arm@0.35.2",
+      "scope": "optional",
+      "licenses": [
+        {
+          "expression": "Apache-2.0"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40img/sharp-linux-arm@0.35.4",
+      "name": "@img/sharp-linux-arm",
+      "version": "0.35.4",
+      "purl": "pkg:npm/%40img/sharp-linux-arm@0.35.4",
       "scope": "optional",
       "licenses": [
         {
