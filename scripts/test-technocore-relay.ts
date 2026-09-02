@@ -302,7 +302,16 @@ try {
 }
 
 const sqlite = new DatabaseSync(':memory:');
-const bound = (sql: string, values: Array<string | number | null>) => Number(sqlite.prepare(sql).run(...values).changes);
+const bound = (sql: string, values: Array<string | number | null>) => {
+  const expanded: Array<string | number | null> = [];
+  const anonymousSql = sql.replace(/\?(\d+)/g, (_placeholder, index: string) => {
+    const value = values[Number(index) - 1];
+    if (value === undefined) throw new Error(`Missing numbered SQL parameter ${index}.`);
+    expanded.push(value);
+    return '?';
+  });
+  return Number(sqlite.prepare(anonymousSql).run(...expanded).changes);
+};
 try {
   sqlite.exec(`${TECHNOCORE_RELAY_ATTEMPTS_TABLE_SQL};\n${TECHNOCORE_RELAY_NONCE_INDEX_SQL};\n${TECHNOCORE_RELAY_RESULT_INDEX_SQL};`);
   assert.equal(bound(TECHNOCORE_RELAY_RESERVE_SQL, ['sha256:one', resultId, 'foundry-contributions', did, '100', 'sha256:text-one', '2026-08-28T02:00:00.000Z']), 1);
