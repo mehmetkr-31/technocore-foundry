@@ -58,14 +58,19 @@ Status: implemented for the current preview.
 
 ### Phase B — TCLK Deal Inspector
 
-Next implementation target.
+Status: first local-only raw-frame inspector implemented; evidence-complete exports remain pending.
 
-- Import a user-selected Technocore room export or pasted `tclk1` frames locally.
-- Validate canonical frames, transport-DID binding, contract identifiers, participants,
-  deadlines, frame order, secret opening, terminal receipts, and replay behavior.
+- Import pasted canonical `tclk1` frames locally (one single-deal transcript; 128 frames / 256 KiB).
+- Validate canonical ASCII wire bytes, offer and contract identifiers, participants,
+  frame order, hash-secret opening, terminal receipts, and replay behavior.
+- Treat transport-DID binding, deadlines and rail settlement as `not_checked` when only raw frame
+  text is available. The public read/export format does not supply independently verifiable
+  historical transport signatures or signed timestamps; the inspector must not infer them.
 - Render a proof timeline with independent `valid`, `absent`, `invalid`, and `not checked`
   states. Never collapse payment state into proof of work quality.
-- Pin upstream code/vectors and run an independent conformance suite in CI.
+- Pin upstream code/vectors and run an independent offline conformance suite in CI.
+- Add a bounded adapter only when an official signed room-export or receipt format is available;
+  retain raw-frame analysis as a lower-evidence input rather than guessing transport proof.
 - Perform no room fetch, post, signing, secret storage, or value-bearing settlement in the
   browser inspector.
 
