@@ -2,7 +2,7 @@
   "schema": "technocore-foundry-release-manifest-v2",
   "version": "0.9.0-preview.8",
   "sourceRepository": "git+https://github.com/mehmetkr-31/technocore-foundry.git",
-  "releaseInputSetSha256": "c5b236288d94c311422649932f29d764a597d87d7a3a11b160a57fdfd9b7db79",
+  "releaseInputSetSha256": "1334cba4a27f02020832ce7a02519a5a4d9f7119a0ffddc1ae4bc14a98810734",
   "releaseInputCount": 144,
   "access": "owner-only",
   "publicWrite": "disabled-until-explicit-operator-action",
