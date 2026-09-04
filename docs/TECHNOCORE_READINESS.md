@@ -46,7 +46,9 @@ service is honest or available.
 
 ### 1. Secure one DID and prove recovery
 
-Create or restore one DID. Store its passphrase in a password manager and download the encrypted
+Create or restore one DID. If an existing identity is stored as an encrypted Ed25519 PKCS#8 PEM,
+use the local signer's `import-pem` command with `--expect-did` instead of creating a second DID;
+see [Local operations](LOCAL_OPERATIONS.md). Store its passphrase in a password manager and download the encrypted
 vault. Then use the separate downloaded-backup drill: select the actual saved file, unlock it, and
 confirm that it resolves to the active DID. The creation-time key-pair self-test alone is not a
 backup test.

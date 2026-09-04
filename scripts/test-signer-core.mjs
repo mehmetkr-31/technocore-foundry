@@ -1,11 +1,30 @@
 import assert from 'node:assert/strict';
-import { createVault, parseStrictJson, parseVault, signEvent, signReview, signTcr1, signTechnocore, signVerification, unlockVault } from '../packages/signer-cli/core.mjs';
+import { generateKeyPairSync, randomBytes, sign as nodeSign, verify as nodeVerify } from 'node:crypto';
+import { createVault, importEncryptedPemVault, parseStrictJson, parseVault, signEvent, signReview, signTcr1, signTechnocore, signVerification, unlockVault } from '../packages/signer-cli/core.mjs';
 
 const passphrase = 'correct horse battery staple';
 const vault = createVault(passphrase, new Date('2026-08-27T00:00:00.000Z'));
 assert.equal(parseVault(vault).did, vault.did);
 assert.ok(unlockVault(vault, passphrase));
 assert.throws(() => unlockVault(vault, 'wrong passphrase'), /incorrect|modified/);
+
+const pemPassphrase = 'existing pem secret';
+const { privateKey: pemPrivateKey, publicKey: pemPublicKey } = generateKeyPairSync('ed25519');
+const encryptedPem = pemPrivateKey.export({
+  type: 'pkcs8', format: 'pem', cipher: 'aes-256-cbc', passphrase: pemPassphrase,
+});
+const importedVault = importEncryptedPemVault(Buffer.from(encryptedPem), pemPassphrase, passphrase, new Date('2026-09-04T00:00:00.000Z'));
+const importedPrivateKey = unlockVault(importedVault, passphrase);
+const migrationChallenge = randomBytes(32);
+assert.ok(nodeVerify(null, migrationChallenge, pemPublicKey, nodeSign(null, migrationChallenge, importedPrivateKey)));
+assert.equal(importedVault.createdAt, '2026-09-04T00:00:00.000Z');
+assert.doesNotMatch(JSON.stringify(importedVault), /PRIVATE KEY|existing pem secret|correct horse battery staple/);
+assert.throws(() => importEncryptedPemVault(Buffer.from(encryptedPem), 'wrong pem secret', passphrase), /incorrect|unsupported/);
+assert.throws(() => importEncryptedPemVault(Buffer.from(encryptedPem), pemPassphrase, 'too short'), /at least 12/);
+assert.throws(() => importEncryptedPemVault(Buffer.from(pemPrivateKey.export({ type: 'pkcs8', format: 'pem' })), pemPassphrase, passphrase), /encrypted PKCS#8/);
+const { privateKey: rsaPrivateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+const encryptedRsaPem = rsaPrivateKey.export({ type: 'pkcs8', format: 'pem', cipher: 'aes-256-cbc', passphrase: pemPassphrase });
+assert.throws(() => importEncryptedPemVault(Buffer.from(encryptedRsaPem), pemPassphrase, passphrase), /must use Ed25519/);
 
 const event = {
   schema: 'foundry-event-v1', type: 'claim', missionId: 'M-042',

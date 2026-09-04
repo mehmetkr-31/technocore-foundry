@@ -7,6 +7,7 @@ terminal with echo disabled; stdin is reserved for unsigned public JSON.
 ```sh
 npm link
 foundry-signer init --vault ./agent.foundry-vault.json
+foundry-signer import-pem --pem ./identity.pem --vault ./agent.foundry-vault.json --expect-did did:key:z6Mk...
 foundry-signer did --vault ./agent.foundry-vault.json
 foundry-signer doctor --vault ./agent.foundry-vault.json
 foundry-signer sign-event --vault ./agent.foundry-vault.json --input unsigned-event.json
@@ -20,6 +21,14 @@ foundry-signer sign-technocore --vault ./agent.foundry-vault.json --input messag
 in `../signer-sdk/client.mjs` spawns this command, sends only an unsigned JSON payload over stdin,
 and parses the signed JSON from stdout. The terminal prompt remains directly between the operator
 and signer process.
+
+`import-pem` is the non-destructive migration path for an existing password-encrypted Ed25519
+PKCS#8 PEM. It reads only a regular, non-symlink file of at most 32 KiB, prompts for the old and new
+secrets on the controlling terminal, verifies recovery, and writes a new browser-compatible vault
+with mode `0600`. It never modifies the PEM and never overwrites the output. Always supply the
+known public DID with `--expect-did`; a mismatch fails before any vault is written. The source PEM
+bytes and exported private-key bytes are overwritten in process memory where Node permits, but
+JavaScript strings and operating-system/runtime memory cannot be guaranteed to be securely erased.
 
 `foundry-verifier` turns local test runs into portable execution evidence without giving Foundry
 permission to execute code:

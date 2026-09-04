@@ -34,6 +34,23 @@ CLI vaults can be checked without contacting a network:
 npm run signer -- doctor --vault ./agent.foundry-vault.json
 ```
 
+If the identity already exists as a password-encrypted Ed25519 PKCS#8 PEM, do not create another
+DID. Migrate it locally into the browser-compatible vault format:
+
+```bash
+npm run signer -- import-pem \
+  --pem /absolute/path/to/identity.pem \
+  --vault ./agent.foundry-vault.json \
+  --expect-did did:key:z6Mk...
+```
+
+The command prompts separately for the existing PEM secret and a new Foundry vault secret. It
+requires a controlling terminal, rejects symlinks and non-Ed25519 or unencrypted keys, verifies
+that the restored key produces the expected DID, creates the output with mode `0600`, and refuses
+to overwrite it. The original PEM is never modified. Afterward, run `doctor`, open the main
+identity control, restore the generated JSON vault, and complete the downloaded-file recovery
+drill. Keep the PEM until the new vault and its independent backup have both passed recovery tests.
+
 Confirm that the printed DID is the DID you expected. Do not pass the passphrase through argv,
 environment variables, redirected stdin, or files. The CLI currently requires macOS, Linux, or
 WSL2 for its controlling-terminal secret entry.

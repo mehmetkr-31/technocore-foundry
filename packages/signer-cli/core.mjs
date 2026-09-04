@@ -180,28 +180,67 @@ function domainBytes(domain, value) {
   return Buffer.concat([Buffer.from(`${domain}\0`, 'utf8'), Buffer.from(canonicalJson(value), 'utf8')]);
 }
 
-export function createVault(passphrase, now = new Date()) {
+function vaultFromPrivateKey(privateKey, passphrase, now) {
   if (typeof passphrase !== 'string' || passphrase.length < 12) throw new Error('Use a passphrase with at least 12 characters.');
-  const { privateKey, publicKey } = generateKeyPairSync('ed25519');
+  if (!privateKey || privateKey.type !== 'private' || privateKey.asymmetricKeyType !== 'ed25519') throw new Error('Expected an Ed25519 private key.');
+  const publicKey = createPublicKey(privateKey);
   const rawPublicKey = publicKey.export({ type: 'spki', format: 'der' }).subarray(-32);
   const privateBytes = privateKey.export({ type: 'pkcs8', format: 'der' });
   const salt = randomBytes(16);
   const iv = randomBytes(12);
   const key = pbkdf2Sync(passphrase, salt, KDF_ITERATIONS, 32, 'sha256');
-  const cipher = createCipheriv('aes-256-gcm', key, iv);
-  cipher.setAAD(rawPublicKey);
-  const encrypted = Buffer.concat([cipher.update(privateBytes), cipher.final(), cipher.getAuthTag()]);
-  return {
-    schema: VAULT_SCHEMA,
-    did: didFromPublicKey(rawPublicKey),
-    publicKey: base64url(rawPublicKey),
-    ciphertext: base64url(encrypted),
-    salt: base64url(salt),
-    iv: base64url(iv),
-    kdf: { name: 'PBKDF2', hash: 'SHA-256', iterations: KDF_ITERATIONS },
-    cipher: 'AES-GCM',
-    createdAt: now.toISOString(),
-  };
+  try {
+    const cipher = createCipheriv('aes-256-gcm', key, iv);
+    cipher.setAAD(rawPublicKey);
+    const encrypted = Buffer.concat([cipher.update(privateBytes), cipher.final(), cipher.getAuthTag()]);
+    return {
+      schema: VAULT_SCHEMA,
+      did: didFromPublicKey(rawPublicKey),
+      publicKey: base64url(rawPublicKey),
+      ciphertext: base64url(encrypted),
+      salt: base64url(salt),
+      iv: base64url(iv),
+      kdf: { name: 'PBKDF2', hash: 'SHA-256', iterations: KDF_ITERATIONS },
+      cipher: 'AES-GCM',
+      createdAt: now.toISOString(),
+    };
+  } finally {
+    privateBytes.fill(0);
+    key.fill(0);
+  }
+}
+
+export function createVault(passphrase, now = new Date()) {
+  const { privateKey } = generateKeyPairSync('ed25519');
+  return vaultFromPrivateKey(privateKey, passphrase, now);
+}
+
+export function importEncryptedPemVault(encryptedPemInput, pemPassphrase, vaultPassphrase, now = new Date()) {
+  if (!Buffer.isBuffer(encryptedPemInput) && !(encryptedPemInput instanceof Uint8Array)) throw new Error('Encrypted PEM must be provided as bytes.');
+  if (typeof pemPassphrase !== 'string' || pemPassphrase.length === 0) throw new Error('The existing PEM passphrase is required.');
+  const encryptedPem = Buffer.from(encryptedPemInput);
+  const marker = Buffer.from('-----BEGIN ENCRYPTED PRIVATE KEY-----', 'ascii');
+  if (encryptedPem.length === 0 || encryptedPem.length > 32 * 1024 || encryptedPem.indexOf(marker) < 0) {
+    encryptedPem.fill(0);
+    throw new Error('Input must be a bounded encrypted PKCS#8 PEM private key.');
+  }
+  try {
+    let privateKey;
+    try {
+      privateKey = createPrivateKey({ key: encryptedPem, format: 'pem', passphrase: pemPassphrase });
+    } catch {
+      throw new Error('The PEM passphrase is incorrect or the encrypted PKCS#8 key is unsupported.');
+    }
+    if (privateKey.asymmetricKeyType !== 'ed25519') throw new Error('The PEM private key must use Ed25519.');
+    const vault = vaultFromPrivateKey(privateKey, vaultPassphrase, now);
+    const recovered = unlockVault(vault, vaultPassphrase);
+    if (createPublicKey(recovered).export({ type: 'spki', format: 'der' }).subarray(-32).toString('base64url') !== vault.publicKey) {
+      throw new Error('Imported vault failed its local DID recovery test.');
+    }
+    return vault;
+  } finally {
+    encryptedPem.fill(0);
+  }
 }
 
 export function parseVault(value) {
@@ -230,10 +269,15 @@ export function unlockVault(vaultInput, passphrase) {
   decipher.setAAD(publicKey);
   decipher.setAuthTag(encrypted.subarray(-16));
   let privateKey;
+  let privateBytes;
   try {
-    privateKey = createPrivateKey({ key: Buffer.concat([decipher.update(encrypted.subarray(0, -16)), decipher.final()]), type: 'pkcs8', format: 'der' });
+    privateBytes = Buffer.concat([decipher.update(encrypted.subarray(0, -16)), decipher.final()]);
+    privateKey = createPrivateKey({ key: privateBytes, type: 'pkcs8', format: 'der' });
   } catch {
     throw new Error('Passphrase is incorrect or the vault was modified.');
+  } finally {
+    privateBytes?.fill(0);
+    key.fill(0);
   }
   const challenge = randomBytes(32);
   const signature = sign(null, challenge, privateKey);
