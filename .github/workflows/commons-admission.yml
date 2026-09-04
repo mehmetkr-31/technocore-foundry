@@ -20,7 +20,7 @@ jobs:
       merge_sha: ${{ steps.merge.outputs.merge_sha }}
     steps:
       - name: Check out trusted base tools
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           path: trusted
@@ -56,13 +56,13 @@ jobs:
       contents: read
     steps:
       - name: Check out trusted base verifier
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           path: trusted
           persist-credentials: false
       - name: Check out the exact untrusted test-merge tree as data
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: ${{ github.repository }}
           ref: ${{ needs.prepare.outputs.merge_sha }}
@@ -100,7 +100,7 @@ jobs:
       statuses: write
     steps:
       - name: Check out trusted base reporter
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           path: trusted
