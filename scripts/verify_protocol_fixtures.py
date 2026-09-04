@@ -89,9 +89,12 @@ def public_key_from_did(did: str) -> bytes:
 
 
 def signature_bytes(value: str) -> bytes:
-    if not re.fullmatch(r"[A-Za-z0-9_-]{86}", value):
+    if not re.fullmatch(r"[A-Za-z0-9_-]{85}[AQgw]", value):
         raise ValueError("noncanonical signature")
-    return base64.urlsafe_b64decode(value + "==")
+    decoded = base64.urlsafe_b64decode(value + "==")
+    if base64.urlsafe_b64encode(decoded).decode().rstrip("=") != value:
+        raise ValueError("noncanonical signature")
+    return decoded
 
 
 def verify(public_key: bytes, signature: str, payload: bytes) -> None:
@@ -100,7 +103,14 @@ def verify(public_key: bytes, signature: str, payload: bytes) -> None:
 
 def sweep_technocore(text: str) -> str:
     forbidden = {"Cc", "Cf", "Cs", "Co", "Zl", "Zp"}
-    return "".join(" " if unicodedata.category(character) in forbidden else character for character in text)[:4096]
+    clean = "".join(
+        " " if unicodedata.category(character) in forbidden else character for character in text
+    ).strip()
+    if not clean:
+        raise ValueError("empty after Technocore sweep")
+    if len(clean) > 4096:
+        raise ValueError("Technocore message exceeds 4096 characters")
+    return clean
 
 
 fixture = loads_strict(FIXTURE.read_text(encoding="utf-8"))
@@ -166,7 +176,7 @@ if review_receipt["verificationReceiptSha256"] != f"sha256:{verification_envelop
 
 technocore = fixture["vectors"]["technocore_message"]
 message = technocore["message"]
-if not re.fullmatch(r"\d{1,19}", message["nonce"]):
+if not re.fullmatch(r"(?:0|[1-9]\d{0,18})", message["nonce"]):
     raise SystemExit("Technocore nonce is noncanonical")
 message_payload = f'{message["room"]}|{message["nonce"]}|{message["text"]}'.encode()
 if message_payload.hex() != technocore["signing_payload_hex"]:

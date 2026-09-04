@@ -21,6 +21,11 @@ npm run commons:verify
 npm run commons:check
 npm run test:commons
 npm run test:inspector
+npm run test:tclk
+npm run test:technocore
+npm run test:participation
+npm run upstream:verify
+npm run tclk:upstream:verify
 npm run test:onboarding
 npm audit --omit=dev
 git diff --exit-code -- protocol/fixtures/v1.json public/commons/index.json drizzle
@@ -39,9 +44,15 @@ Generate all source-derived fixtures and migrations before the release artifacts
 deliberately last. `release/manifest.json` content-addresses every release input plus the protocol
 fixture, package lock, Commons index/verifier, relay boundary, every SQL migration and Drizzle
 metadata file, SBOM, dependency-license report, root license and notice, fixed Technocore lane, and
-upstream protocol commit. Its release-input-set digest is derived from canonical path, Git mode, and
+the reviewed operational Technocore lock/commit. The historical fixture source pin remains distinct
+from this live adapter pin. Its release-input-set digest is derived from canonical path, Git mode, and
 SHA-256 records for the committed source index; generation fails when non-release inputs are unstaged
 or untracked.
+
+`npm run upstream:verify` and `npm run tclk:upstream:verify` are deterministic and offline. Do not
+put their `*:check` counterparts in the reproducible recipe: they intentionally read mutable
+official metadata and live Technocore contract documents, so their results are operational drift
+observations rather than reproducible build inputs.
 
 Run this recipe from a clean committed checkout; it never mutates the Git index. When authoring a
 release, review and commit named source paths first, generate the three release files, review them,

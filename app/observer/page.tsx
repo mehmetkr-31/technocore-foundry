@@ -22,14 +22,14 @@ export default async function ObserverPage() {
     <header className="observer-hero">
       <p className="eyebrow"><span className="pulse-dot" />FIXED LANE / USER-TRIGGERED / READ ONLY</p>
       <h1>Transport<br /><em>Observer.</em></h1>
-      <p>Foundry watches only <code>{FOUNDRY_ROOM}</code>. The JSON read lane omits historical signatures, so every sighting is labeled transport-unverifiable—not “verified,” trusted, or eligible.</p>
+      <p>Foundry watches only <code>{FOUNDRY_ROOM}</code>. New records retain author signatures; Foundry verifies the DID binding while keeping sequence, timestamp, generation, truth, and eligibility as separate unproved claims.</p>
       <ObserverSync />
     </header>
 
     <section className="atlas-metrics" aria-label="Observer metrics">
       <article><span>OBSERVATIONS</span><strong>{index.metrics.observations.toString().padStart(2, '0')}</strong></article>
       <article><span>RECEIPT POINTERS</span><strong>{index.metrics.receiptLinks.toString().padStart(2, '0')}</strong></article>
-      <article><span>DID WRITER HINTS</span><strong>{index.metrics.didWriters.toString().padStart(2, '0')}</strong></article>
+      <article><span>VALID DID SIGNATURES</span><strong>{index.metrics.validSignatures.toString().padStart(2, '0')}</strong></article>
       <article><span>EPOCHS / GAPS</span><strong>{index.metrics.epochs} / {index.metrics.gaps}</strong></article>
     </section>
 
@@ -37,13 +37,13 @@ export default async function ObserverPage() {
       <div className="atlas-heading"><div><p className="eyebrow">HASH-ONLY / HOSTILE TEXT QUARANTINED</p><h2>Recent sightings</h2></div><p>Raw remote text is neither stored nor rendered. Only a SHA-256 digest, safe receipt identifier, sequence, timestamp, and bounded actor hint enter the index.</p></div>
       {index.observations.length ? <div className="observer-list">{index.observations.map((item) => <article key={item.id}>
         <div><span>EPOCH {item.epoch} · SEQ {item.sequence}</span><strong>{compactDid(item.actorHint)}</strong><code>{item.textSha256}</code></div>
-        <div><span>{item.receiptId ? <Link href={`/receipt/${item.receiptId}`}>{item.receiptId}</Link> : 'NO SAFE RECEIPT POINTER'}</span><b>TRANSPORT UNVERIFIABLE</b><time>{item.serverTimestamp}</time></div>
+        <div><span>{item.receiptId ? <Link href={`/receipt/${item.receiptId}`}>{item.receiptId}</Link> : 'NO SAFE RECEIPT POINTER'}</span><b>{item.verificationState.replace('_', ' ').toUpperCase()}</b><time>{item.serverTimestamp} · SERVER-ASSERTED</time></div>
       </article>)}</div> : <div className="atlas-empty"><span>○</span><h3>No lane observation has been requested.</h3><p>Use the manual control above. Foundry never polls this external lane automatically.</p></div>}
     </section>
 
     <section className="epoch-ledger">
       <div><p className="eyebrow">ROOM LIFETIMES</p><h2>Epoch and gap ledger</h2></div>
-      <div className="epoch-grid">{index.epochs.map((epoch) => <article key={epoch.id}><span>EPOCH {epoch.epoch}</span><strong>{epoch.startSeq} → {epoch.endSeq}</strong><small>{epoch.gapCount} explicit gap{epoch.gapCount === 1 ? '' : 's'} · last read {epoch.lastSyncAt}</small></article>)}</div>
+      <div className="epoch-grid">{index.epochs.map((epoch) => <article key={epoch.id}><span>EPOCH {epoch.epoch} · UPSTREAM GENERATION {epoch.upstreamGeneration}</span><strong>{epoch.startSeq} → {epoch.endSeq}</strong><small>{epoch.gapCount} explicit gap{epoch.gapCount === 1 ? '' : 's'} · last read {epoch.lastSyncAt}</small></article>)}</div>
       {index.gaps.map((gap) => <p className="gap-row" key={gap.id}>{gap.kind.toUpperCase().replace('_', ' ')} · expected {gap.expectedSeq}, first observed {gap.firstSeq} · epoch {gap.epoch}</p>)}
     </section>
 

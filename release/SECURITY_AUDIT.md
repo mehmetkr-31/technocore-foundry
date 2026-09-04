@@ -1,6 +1,6 @@
 # Technocore Foundry security audit
 
-Audit target: `0.9.0-preview.8`
+Audit target: `0.9.0-preview.9`
 Launch posture: owner-only preview; public Technocore writes require a separate human action.
 
 ## Enforced boundaries
@@ -25,14 +25,27 @@ Launch posture: owner-only preview; public Technocore writes require a separate 
   commit, PR, and Actions-run identifiers. Credentials, ports, queries, fragments, alternate hosts,
   and redirect URLs are rejected before any fetch.
 - The observer has one compiled origin and room. It accepts no URL input, stores no remote message
-  text, fetches no remote message link, records cursor gaps and room epochs, and labels all JSON
-  history as `transport_unverifiable` because the read lane omits signatures.
+  text, fetches no remote message link, and records cursor gaps plus upstream-generation-aware room
+  epochs. Retained records are classified as signature `valid`, `invalid`, legacy
+  `not_reverifiable`, or `unsigned`; only DID, room, nonce, and exact text are signed.
+- The loopback-only Readiness workbench keeps signing in the browser, requires an explicit
+  confirmation for every write, and blocks writes unless live version/config/OpenAPI/agent-card
+  bytes exactly match the reviewed lock. It supports a downloaded-file backup drill, acknowledgement
+  proof, lossless JSONL verification, unsigned profile compare-and-set, signed fresh-`d-` room
+  ownership, an unlisted signed-write-only mailbox, and a DID-signed public participation bundle.
+  Bundle signatures are never treated as eligibility proof. Browser-local TTL reminders never
+  auto-post.
+- The TCLK Inspector can require an exact room and ingest a retained JSONL export. It selects only
+  signature-valid `tclk1` records, binds each record signer to the inner frame's `from` DID, and
+  ignores invalid, unsigned, legacy-not-re-verifiable, and non-TCLK records. JSONL order, sequence,
+  timestamp, generation, server inclusion, deadlines, and settlement remain outside that proof.
 - The Technocore publication relay is disabled by default and accepts only the fixed origin/room,
   an exact public receipt pointer, the latest accepted local result, and its claimant signature.
   It revalidates the stored TCR-1 receipt immediately before atomically reserving the normalized,
-  JSON-safe DID/room nonce and canonical envelope digest in D1. Publication requires an exact HTTP
-  `200` bounded JSON acknowledgement whose `posted` record matches the signed room, DID, signature,
-  nonce, and text. This acknowledgement shape is pinned to upstream commit `16a6128`; an upstream
+  canonical 1–19 digit DID/room nonce and canonical envelope digest in D1. Publication requires an
+  exact HTTP `200` bounded JSON acknowledgement whose `posted` record matches the signed room, DID, signature,
+  nonce, and text. The reviewed operational contract is pinned to official `v0.11.4` commit
+  `317c01f126c6be5a7c3e71ec8719c2cb4ecf09b5`; an upstream
   rollback or schema change fails closed. Confirmed publication is idempotent; known rejection requires
   a fresh higher nonce; malformed or mismatched success, timeout, redirect, unknown status, or uncertain
   completion blocks auto-retry. Remote room content is neither returned nor persisted.
@@ -51,6 +64,10 @@ Launch posture: owner-only preview; public Technocore writes require a separate 
   Proof-layer statuses and counts are derived from the selected latest revision only.
 - Global responses set CSP, clickjacking, MIME-sniffing, referrer, permissions, opener, and resource
   isolation headers.
+- The scheduled Technocore and TCLK watchers read only bounded fixed-origin official data. Drift
+  produces at most a candidate JSON plus generated review Markdown on a draft pull request; fetched
+  upstream code is never executed, the operational lock is not automatically edited, and the
+  proposal cannot auto-merge or change runtime behavior.
 
 ## Regression gates
 
@@ -58,7 +75,14 @@ Launch posture: owner-only preview; public Technocore writes require a separate 
 tampered signatures, fixed-origin observer behavior, receipt-ID boundaries, SSRF URL policy,
 cross-repository binding, forbidden receipt fields, relay default-off policy, exact upstream
 serialization, atomic replay/nonce/result locks, known rejection, and ambiguous-outcome handling.
-The relay regression uses only injected fetches and never writes to Technocore. `npm run test:commons` adds forged-state,
+The relay regression uses only injected fetches and never writes to Technocore.
+`npm run test:technocore` covers clean-text, canonical nonce/signature, lossless JSONL, author-state
+classification, acknowledgement proof, profile/ownership shapes, loopback enforcement, explicit
+confirmation, and live-drift fail-closed behavior with injected network responses.
+`npm run test:tclk` covers signed-JSONL author/frame binding and unsigned server-metadata caveats.
+`npm run upstream:verify` and `npm run tclk:upstream:verify` check both operational locks and
+repository bindings offline.
+`npm run test:commons` adds forged-state,
 canonical-byte, requirements-hash, signed-context, public-URL, filename, resource-limit, UTF-8,
 depth, LFS, symlink, mode, trusted-base PR, append-only, and deterministic-index
 coverage. `npm run test:smoke` additionally checks
@@ -79,8 +103,10 @@ verification, proof pages, Atlas, and artifact byte round-trips.
 - The production relay assumes committed Drizzle migrations have already been applied; it fails
   closed if the newest schema is absent. Request-time schema creation is a local-development fallback,
   not a deployment migration mechanism.
-- Technocore transport observations cannot reconstruct or verify historical signatures from the
-  current JSON read response.
+- A valid retained Technocore record proves only its author-signed `room|nonce|text` tuple. Older
+  records without a signature are explicitly not re-verifiable, and no current acknowledgement or
+  JSONL export cryptographically proves server inclusion, sequence, timestamp, generation, or
+  completeness.
 - D1 reservation prevents Foundry from knowingly replaying an uncertain relay attempt, but cannot
   make an external HTTP service transactional. An ambiguous attempt requires operator reconciliation;
   no authenticated reconciliation endpoint exists yet, and the relay remains disabled by default.
@@ -90,6 +116,13 @@ verification, proof pages, Atlas, and artifact byte round-trips.
   but is not a required branch-protection context until same-repository and fork canaries prove its behavior.
 - Browser verifier primitives have Node/WebCrypto parity tests, but the full Inspector interaction
   and accessibility matrix has not yet been run across supported browsers.
+- Profile notes remain unsigned and world-writable; compare-and-set prevents one blind overwrite,
+  not impersonation or a later overwrite. Room ownership and local reminders remain subject to
+  upstream ephemeral-retention behavior and browser-storage loss.
+- The automated watcher detects drift but cannot decide that a new release is safe. Human review
+  and a separate tested adapter/lock change remain mandatory.
+- Faucet, wallet binding, inference spend, unlock accounting, mining, and validator paths are not
+  implemented. No present feature measures or predicts an airdrop allocation.
 - GitHub object existence does not bind a GitHub account to a claimant DID or establish authorship.
 - Public launch can attract abuse and moderation load. The preview remains owner-only until the
   operator explicitly approves public access and an irreversible announcement.

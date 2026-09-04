@@ -1,4 +1,11 @@
 import { canonicalJson } from './strict-json';
+import {
+  assertTechnocoreRoomName,
+  TECHNOCORE_MESSAGE_LIMIT,
+  TECHNOCORE_NONCE_PATTERN,
+  TECHNOCORE_NOTE_LIMIT,
+  TECHNOCORE_SIGNATURE_PATTERN,
+} from './technocore-contract';
 
 export const VAULT_SCHEMA = 'foundry-vault-v1' as const;
 export const EVENT_SCHEMA = 'foundry-event-v1' as const;
@@ -216,6 +223,15 @@ export type TechnocoreSignedMessage = {
   sig: string;
   nonce: string;
   text: string;
+};
+
+export type TechnocoreSignedNote = {
+  namespace: 'room-owners' | 'room-allow';
+  key: string;
+  did: string;
+  sig: string;
+  nonce: string;
+  value: string;
 };
 
 function concatBytes(...parts: Uint8Array[]) {
@@ -455,11 +471,15 @@ function nonce() {
   return lastNonce.toString();
 }
 
-function technocoreNonce() {
+export function nextTechnocoreNonce(minimum?: string) {
+  if (minimum !== undefined && !TECHNOCORE_NONCE_PATTERN.test(minimum)) {
+    throw new Error('Minimum Technocore nonce must be a canonical 1-19 digit integer.');
+  }
   const random = BigInt(crypto.getRandomValues(new Uint32Array(1))[0] % 1_000);
   const candidate = BigInt(Date.now()) * 1_000n + random;
-  lastTechnocoreNonce = candidate > lastTechnocoreNonce ? candidate : lastTechnocoreNonce + 1n;
-  if (lastTechnocoreNonce > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('Could not create a JSON-safe Technocore nonce.');
+  const floor = minimum && TECHNOCORE_NONCE_PATTERN.test(minimum) ? BigInt(minimum) + 1n : 0n;
+  lastTechnocoreNonce = [candidate, floor, lastTechnocoreNonce + 1n].reduce((greatest, value) => value > greatest ? value : greatest, 0n);
+  if (lastTechnocoreNonce > 9_999_999_999_999_999_999n) throw new Error('Could not create a 19-digit Technocore nonce.');
   return lastTechnocoreNonce.toString();
 }
 
@@ -955,31 +975,110 @@ export function tcr1ClaimantDid(receipt: Pick<Tcr1Receipt, 'claimant'>) {
   return null;
 }
 
-export function sweepTechnocoreText(text: string) {
-  return Array.from(text)
+export function sweepTechnocoreText(text: string, limit = TECHNOCORE_MESSAGE_LIMIT) {
+  if (typeof text !== 'string') throw new Error('Technocore text must be a string.');
+  const clean = Array.from(text)
     .map((character) => /[\p{Cc}\p{Cf}\p{Cs}\p{Co}\p{Zl}\p{Zp}]/u.test(character) ? ' ' : character)
     .join('')
-    .slice(0, 4096);
+    .trim();
+  if (!clean) throw new Error('Technocore text must contain at least one visible character after the protocol sweep.');
+  if (Array.from(clean).length > limit) throw new Error(`Technocore text exceeds the ${limit}-character protocol limit.`);
+  return clean;
+}
+
+export function isCanonicalTechnocoreSignature(value: string) {
+  if (!TECHNOCORE_SIGNATURE_PATTERN.test(value)) return false;
+  try {
+    const bytes = base64UrlToBytes(value);
+    return bytes.length === 64 && bytesToBase64Url(bytes) === value;
+  } catch {
+    return false;
+  }
+}
+
+export async function signTechnocoreMessage(
+  vault: FoundryVault,
+  passphrase: string,
+  room: string,
+  text: string,
+  minimumNonce?: string,
+) {
+  const cleanRoom = assertTechnocoreRoomName(room);
+  const cleanText = sweepTechnocoreText(text);
+  const messageNonce = nextTechnocoreNonce(minimumNonce);
+  const privateKey = await unlockVault(vault, passphrase);
+  const bytes = new TextEncoder().encode(`${cleanRoom}|${messageNonce}|${cleanText}`);
+  const signature = await crypto.subtle.sign('Ed25519', privateKey, bytes);
+  return { room: cleanRoom, did: vault.did, sig: bytesToBase64Url(new Uint8Array(signature)), nonce: messageNonce, text: cleanText } satisfies TechnocoreSignedMessage;
 }
 
 export async function signTechnocoreAnnouncement(vault: FoundryVault, passphrase: string, room: string, text: string) {
-  const privateKey = await unlockVault(vault, passphrase);
-  const cleanText = sweepTechnocoreText(text);
-  const messageNonce = technocoreNonce();
-  const bytes = new TextEncoder().encode(`${room}|${messageNonce}|${cleanText}`);
-  const signature = await crypto.subtle.sign('Ed25519', privateKey, bytes);
-  return { room, did: vault.did, sig: bytesToBase64Url(new Uint8Array(signature)), nonce: messageNonce, text: cleanText } satisfies TechnocoreSignedMessage;
+  return signTechnocoreMessage(vault, passphrase, room, text);
 }
 
 export async function verifyTechnocoreMessage(message: TechnocoreSignedMessage) {
   try {
-    if (message.text !== sweepTechnocoreText(message.text) || !/^\d{1,19}$/.test(message.nonce) || !/^[A-Za-z0-9_-]{86}$/.test(message.sig)) return false;
+    if (
+      assertTechnocoreRoomName(message.room) !== message.room ||
+      message.text !== sweepTechnocoreText(message.text) ||
+      !TECHNOCORE_NONCE_PATTERN.test(message.nonce) ||
+      !isCanonicalTechnocoreSignature(message.sig)
+    ) return false;
     const publicKey = await crypto.subtle.importKey('raw', publicKeyFromDid(message.did), { name: 'Ed25519' }, false, ['verify']);
     return crypto.subtle.verify(
       'Ed25519',
       publicKey,
       base64UrlToBytes(message.sig),
       new TextEncoder().encode(`${message.room}|${message.nonce}|${message.text}`),
+    );
+  } catch {
+    return false;
+  }
+}
+
+export async function signTechnocoreNote(
+  vault: FoundryVault,
+  passphrase: string,
+  namespace: TechnocoreSignedNote['namespace'],
+  key: string,
+  value: string,
+  minimumNonce?: string,
+) {
+  if (!['room-owners', 'room-allow'].includes(namespace)) throw new Error('Technocore signed-note namespace is unsupported.');
+  if (assertTechnocoreRoomName(key) !== key || !key.startsWith('d-') || key === 'd-') throw new Error('Technocore ownership notes require a non-empty d- room key.');
+  const cleanValue = sweepTechnocoreText(value, TECHNOCORE_NOTE_LIMIT);
+  const noteNonce = nextTechnocoreNonce(minimumNonce);
+  const privateKey = await unlockVault(vault, passphrase);
+  const signature = await crypto.subtle.sign(
+    'Ed25519',
+    privateKey,
+    new TextEncoder().encode(`${namespace}|${key}|${noteNonce}|${cleanValue}`),
+  );
+  return {
+    namespace,
+    key,
+    did: vault.did,
+    sig: bytesToBase64Url(new Uint8Array(signature)),
+    nonce: noteNonce,
+    value: cleanValue,
+  } satisfies TechnocoreSignedNote;
+}
+
+export async function verifyTechnocoreNote(note: TechnocoreSignedNote) {
+  try {
+    if (
+      !['room-owners', 'room-allow'].includes(note.namespace) ||
+      assertTechnocoreRoomName(note.key) !== note.key || !note.key.startsWith('d-') || note.key === 'd-' ||
+      note.value !== sweepTechnocoreText(note.value, TECHNOCORE_NOTE_LIMIT) ||
+      !TECHNOCORE_NONCE_PATTERN.test(note.nonce) ||
+      !isCanonicalTechnocoreSignature(note.sig)
+    ) return false;
+    const publicKey = await crypto.subtle.importKey('raw', publicKeyFromDid(note.did), { name: 'Ed25519' }, false, ['verify']);
+    return crypto.subtle.verify(
+      'Ed25519',
+      publicKey,
+      base64UrlToBytes(note.sig),
+      new TextEncoder().encode(`${note.namespace}|${note.key}|${note.nonce}|${note.value}`),
     );
   } catch {
     return false;

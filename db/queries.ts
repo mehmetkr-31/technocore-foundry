@@ -171,6 +171,7 @@ export type ObserverEpochRecord = {
   id: string;
   room: string;
   epoch: number;
+  upstreamGeneration: number;
   startSeq: number;
   endSeq: number;
   gapCount: number;
@@ -189,7 +190,7 @@ export type TransportObservationRecord = {
   actorHint: string;
   textSha256: string;
   receiptId: string | null;
-  verificationState: 'transport_unverifiable';
+  verificationState: 'valid' | 'invalid' | 'not_reverifiable' | 'unsigned';
   observedAt: string;
 };
 
@@ -197,7 +198,7 @@ export type ObserverGapRecord = {
   id: string;
   room: string;
   epoch: number;
-  kind: 'retention_gap' | 'epoch_rewind';
+  kind: 'retention_gap' | 'epoch_rewind' | 'generation_change';
   expectedSeq: number;
   firstSeq: number;
   detectedAt: string;
@@ -1160,6 +1161,7 @@ export async function getCurrentObserverEpoch(room: string) {
   return row ? {
     ...row,
     epoch: Number(row.epoch),
+    upstreamGeneration: Number(/:g(\d+)$/.exec(row.id)?.[1] ?? 0),
     startSeq: Number(row.startSeq),
     endSeq: Number(row.endSeq),
     gapCount: Number(row.gapCount),
@@ -1169,6 +1171,8 @@ export async function getCurrentObserverEpoch(room: string) {
 export async function recordObserverSync(input: {
   room: string;
   epoch: number;
+  epochId: string;
+  upstreamGeneration: number;
   priorEpoch: number | null;
   startSeq: number;
   endSeq: number;
@@ -1180,7 +1184,7 @@ export async function recordObserverSync(input: {
 }) {
   await ensureDatabase();
   const db = database();
-  const epochId = `${input.room}:${input.epoch}`;
+  const epochId = input.epochId;
   const statements = [
     ...(input.priorEpoch !== null && input.priorEpoch !== input.epoch
       ? [db.prepare('UPDATE room_epochs SET ended_at = ? WHERE room = ? AND epoch = ? AND ended_at IS NULL').bind(input.syncedAt, input.room, input.priorEpoch)]
@@ -1275,21 +1279,37 @@ export async function getObserverIndex(room: string) {
     db.prepare(`SELECT
       COUNT(*) AS observations,
       COUNT(DISTINCT receipt_id) AS receiptLinks,
-      COUNT(DISTINCT CASE WHEN actor_hint LIKE 'did:key:%' THEN actor_hint END) AS didWriters
-    FROM transport_observations WHERE room = ?`).bind(room).first<{ observations: number; receiptLinks: number; didWriters: number }>(),
+      COUNT(DISTINCT CASE WHEN actor_hint LIKE 'did:key:%' THEN actor_hint END) AS didWriters,
+      COUNT(CASE WHEN verification_state = 'valid' THEN 1 END) AS validSignatures,
+      COUNT(CASE WHEN verification_state = 'invalid' THEN 1 END) AS invalidSignatures,
+      COUNT(CASE WHEN verification_state = 'not_reverifiable' THEN 1 END) AS legacySignatures
+    FROM transport_observations WHERE room = ?`).bind(room).first<{
+      observations: number; receiptLinks: number; didWriters: number;
+      validSignatures: number; invalidSignatures: number; legacySignatures: number;
+    }>(),
   ]);
   return {
     room,
     source: 'https://technocore.chat',
-    trust: 'transport_unverifiable' as const,
+    trust: 'author_signatures_separate_from_server_metadata' as const,
     metrics: {
       observations: Number(stats?.observations ?? 0),
       receiptLinks: Number(stats?.receiptLinks ?? 0),
       didWriters: Number(stats?.didWriters ?? 0),
+      validSignatures: Number(stats?.validSignatures ?? 0),
+      invalidSignatures: Number(stats?.invalidSignatures ?? 0),
+      legacySignatures: Number(stats?.legacySignatures ?? 0),
       epochs: epochs.results.length,
       gaps: gaps.results.length,
     },
-    epochs: epochs.results.map((row) => ({ ...row, epoch: Number(row.epoch), startSeq: Number(row.startSeq), endSeq: Number(row.endSeq), gapCount: Number(row.gapCount) })),
+    epochs: epochs.results.map((row) => ({
+      ...row,
+      epoch: Number(row.epoch),
+      upstreamGeneration: Number(/:g(\d+)$/.exec(row.id)?.[1] ?? 0),
+      startSeq: Number(row.startSeq),
+      endSeq: Number(row.endSeq),
+      gapCount: Number(row.gapCount),
+    })),
     gaps: gaps.results.map((row) => ({ ...row, epoch: Number(row.epoch), expectedSeq: Number(row.expectedSeq), firstSeq: Number(row.firstSeq) })),
     observations: observations.results.map((row) => ({ ...row, epoch: Number(row.epoch), sequence: Number(row.sequence) })),
   };

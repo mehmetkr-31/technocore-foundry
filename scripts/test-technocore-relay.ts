@@ -12,6 +12,7 @@ import {
   type TechnocoreRelayAttemptState,
 } from '../db/technocore-relay-attempts';
 import { relayConfiguration } from '../lib/technocore-relay-policy';
+import { TECHNOCORE_OPERATIONAL_COMMIT } from '../lib/technocore-contract';
 import {
   FOUNDRY_TECHNOCORE_ACK_SOURCE_COMMIT,
   FOUNDRY_TECHNOCORE_ENDPOINT,
@@ -127,6 +128,7 @@ function acknowledgement(signedMessage: ReturnType<typeof message>, seq = 42, ov
   };
   return new Response(JSON.stringify({
     room: 'foundry-contributions',
+    generation: 7,
     count: 1,
     first_seq: seq,
     last_seq: seq,
@@ -142,7 +144,7 @@ async function payload(response: Response) {
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async () => { throw new Error('Relay tests must use the injected upstream boundary.'); };
 try {
-  assert.equal(FOUNDRY_TECHNOCORE_ACK_SOURCE_COMMIT, '16a6128bea125c8f131f343c0e8430dfc110f4af');
+  assert.equal(FOUNDRY_TECHNOCORE_ACK_SOURCE_COMMIT, TECHNOCORE_OPERATIONAL_COMMIT);
   const disabledStore = new MemoryAttemptStore();
   const disabled = await handleTechnocoreRelayPost(request(message('1')), relayConfiguration({}), dependencies(disabledStore, globalThis.fetch));
   assert.equal(disabled.status, 403);
@@ -159,7 +161,7 @@ try {
   assert.equal((await handleTechnocoreRelayPost(request(message('1')), configuration, dependencies(boundaryStore, neverFetch, { verifyMessage: async () => false }))).status, 400);
   assert.equal((await handleTechnocoreRelayPost(request(message('1')), configuration, dependencies(boundaryStore, neverFetch, { verifyResultReceipt: async () => false }))).status, 400);
   assert.equal((await handleTechnocoreRelayPost(request(message('1')), configuration, dependencies(boundaryStore, neverFetch, { findPublishableResult: async () => null }))).status, 400);
-  assert.equal((await handleTechnocoreRelayPost(request(message('9007199254740992')), configuration, dependencies(boundaryStore, neverFetch))).status, 400);
+  assert.equal((await handleTechnocoreRelayPost(request(message('10000000000000000000')), configuration, dependencies(boundaryStore, neverFetch))).status, 400);
   assert.equal(boundaryFetches, 0);
   assert.equal(boundaryStore.rows.length, 0);
 
@@ -176,13 +178,27 @@ try {
   };
   const published = await handleTechnocoreRelayPost(request(message('10')), configuration, dependencies(successStore, successFetch));
   assert.equal(published.status, 200);
-  assert.equal((await payload(published)).status, 'published');
+  const publishedPayload = await payload(published);
+  assert.equal(publishedPayload.status, 'published');
+  assert.equal(publishedPayload.generation, 7);
+  assert.equal((publishedPayload.proof as Record<string, unknown>).schema, 'foundry-technocore-record-proof-v1');
   const replay = await handleTechnocoreRelayPost(request(message('10')), configuration, dependencies(successStore, successFetch));
   assert.equal(replay.status, 200);
   assert.equal((await payload(replay)).status, 'already_published');
   const sameResultNewNonce = await handleTechnocoreRelayPost(request(message('11')), configuration, dependencies(successStore, successFetch));
   assert.equal(sameResultNewNonce.status, 200);
   assert.equal(successFetches, 1);
+
+  const highNonceStore = new MemoryAttemptStore();
+  const highNonce = '9007199254740992';
+  const highNonceMessage = message(highNonce);
+  const highNoncePublished = await handleTechnocoreRelayPost(
+    request(highNonceMessage),
+    configuration,
+    dependencies(highNonceStore, async () => acknowledgement(highNonceMessage, 44)),
+  );
+  assert.equal(highNoncePublished.status, 200);
+  assert.equal(((await payload(highNoncePublished)).proof as { record: { nonce: string } }).record.nonce, highNonce);
 
   const legacyNonceStore = new MemoryAttemptStore();
   const legacyNonceMessage = message('12');
@@ -247,8 +263,7 @@ try {
     normalizedFetches += 1;
     return new Response('unexpected');
   }));
-  assert.equal(normalizedReplay.status, 409);
-  assert.equal((await payload(normalizedReplay)).code, 'stale_nonce');
+  assert.equal(normalizedReplay.status, 400);
   assert.equal(normalizedFetches, 1);
 
   const badAcknowledgements: Array<() => Promise<Response>> = [
@@ -328,5 +343,5 @@ try {
 
 console.log(JSON.stringify({
   technocoreRelay: 'ok',
-  gates: ['default-off', 'strict-request-boundary', 'fixed-upstream', 'latest-accepted-binding', 'durable-reservation-sql', 'strictly-increasing-safe-nonce', 'exact-replay', 'concurrent-result-lock', 'known-rejection-retry', 'bound-json-acknowledgement', 'ambiguous-fail-closed', 'completion-cas', 'bounded-upstream'],
+  gates: ['default-off', 'strict-request-boundary', 'fixed-upstream', 'latest-accepted-binding', 'durable-reservation-sql', 'canonical-19-digit-nonce', 'exact-replay', 'concurrent-result-lock', 'known-rejection-retry', 'bound-json-acknowledgement', 'ambiguous-fail-closed', 'completion-cas', 'bounded-upstream'],
 }));

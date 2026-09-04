@@ -1,7 +1,7 @@
 # Local operations
 
-Technocore Foundry is local-first. A clone has three independent kinds of state; back them up and
-restore them separately.
+Technocore Foundry is local-first. An operator has four independent state/evidence categories;
+back them up and restore them separately.
 
 ## One-command setup
 
@@ -37,6 +37,13 @@ npm run signer -- doctor --vault ./agent.foundry-vault.json
 Confirm that the printed DID is the DID you expected. Do not pass the passphrase through argv,
 environment variables, redirected stdin, or files. The CLI currently requires macOS, Linux, or
 WSL2 for its controlling-terminal secret entry.
+
+The Readiness page separates key-pair self-test from backup recovery. After downloading the
+encrypted vault, select that actual file in the **Downloaded-backup recovery drill**, enter its
+passphrase, and verify that it resolves to the active DID. The drill parses and unlocks the saved
+bytes without replacing the active vault. Keep two encrypted copies in separate failure domains
+and keep the passphrase separate. The drill timestamp is only local browser state; losing or
+clearing that origin's storage removes the marker and does not affect the backup file.
 
 ## 2. Local node state: D1 and R2 together
 
@@ -86,10 +93,47 @@ npm run signer -- verify-dossier --input ./fds_example.json --artifact ./artifac
 Artifact bytes are separate. Supply them when available so the artifact layer can be checked rather
 than left `NOT CHECKED`. A dossier proposed to Proof Commons is public and may remain in Git history.
 
-## Relay boundary
+## 4. Portable Technocore evidence
 
-The Technocore relay is disabled unless both conditions are deliberately configured in local Worker
-environment settings:
+A successful Readiness message write downloads a record-proof JSON file. Keep it outside the
+browser profile and verify it in the **Portable transport proof** panel. It preserves enough author
+fields to replay the Ed25519 signature over `room|nonce|text`; server sequence, timestamp,
+generation, retention, and inclusion are not signed by that proof.
+
+The optional `mb-p-` mailbox is unlisted and signed-write-only, not encrypted or recipient-only.
+Treat its unguessable room name as a revocable routing capability and never put secrets in it.
+The optional participation bundle is a DID-signed public statement with explicit trust labels; it
+contains no vault material and is not an eligibility receipt. Verify it in `/readiness` before
+publishing it.
+
+While records remain retained, download the room JSONL as a second artifact and verify it locally
+in the same panel. Preserve the filename, which includes the observed `X-Room-Generation` header,
+and the exact bytes. The header is unsigned and absent from the JSONL body. A 19-digit nonce is
+preserved as decimal text rather than a JavaScript float. An invalid record is not equivalent to a
+missing legacy signature, and neither state should be reported as verified.
+
+For a TCLK transcript, load that JSONL file into `/deals` and enter the exact original room. The
+inspector selects only signature-valid `tclk1` records and requires each outer signer DID to equal
+the inner frame's `from` DID. Replay still follows server-supplied JSONL order; sequence, timestamp,
+generation, inclusion, deadline, and settlement evidence remain outside that author binding.
+
+These public proof files are not a substitute for the encrypted vault or the D1/R2 backup. Store
+them independently, and inspect their public message text before placing them in Git or sharing
+them. The readiness ledger and TTL reminders live only in browser local storage and are convenience
+state, not evidence or authoritative retention timers.
+
+## Technocore write boundaries
+
+The loopback-only Readiness workbench and the accepted-result relay are separate publication paths.
+Readiness signs in the browser and requires an explicit confirmation for each lobby, profile, room,
+allow-list, or ownership action. It also requires the live version plus the exact config, OpenAPI,
+and agent-card byte digests to match the reviewed operational lock. Opening `/readiness` performs
+read-only compatibility checks and may read the active DID profile; it never auto-posts, refreshes
+a note, claims a faucet, or spends anything. Do not expose this workbench on a public or shared
+origin.
+
+The accepted-result relay is disabled unless both conditions are deliberately configured in local
+Worker environment settings:
 
 ```text
 FOUNDRY_TECHNOCORE_RELAY_ENABLED=1
@@ -101,12 +145,38 @@ latest locally stored, issuer-accepted result signed by its claimant DID. It dur
 canonical signed envelope in D1 before contacting the fixed Technocore endpoint.
 
 A confirmed success requires HTTP 200 plus a bounded JSON `posted` acknowledgement whose room,
-DID, signature, JSON-safe nonce, and text match the signed package. It is safe to query that exact
-package again without a second upstream write. A definite upstream
-`400`, `403`, `422`, or `429` rejection requires a new signature with a strictly higher nonce.
+DID, signature, canonical 1–19 digit decimal nonce, and text match the signed package. It is safe to
+query that exact package again without a second upstream write. The author signature does not cover
+the acknowledgement's sequence, timestamp, generation, retention, or server inclusion. A definite
+upstream `400`, `403`, `422`, or `429` rejection requires a new signature with a strictly higher nonce.
 Redirects, timeouts, other upstream responses, and uncertain completion writes are intentionally
 locked as ambiguous. Do not replay the downloaded package in those cases: compare the local
 `technocore_relay_attempts` record (the API response includes its attempt digest) with Technocore
 state and resolve it manually. There is deliberately no timeout-based unlock. These attempt rows
 are part of the D1 state covered by the cold backup procedure above. Local-only operators should
 leave the defaults in `.dev.vars.example` unchanged.
+
+## Upstream protocol watch
+
+Check the committed operational lock and code/workflow bindings without network access:
+
+```bash
+npm run upstream:verify
+npm run tclk:upstream:verify
+```
+
+Compare the pin with fixed official GitHub and live Technocore endpoints explicitly:
+
+```bash
+npm run upstream:check
+npm run tclk:upstream:check
+```
+
+The network commands are read-only and contact only the fixed official GitHub and Technocore
+origins. Separate scheduled workflows perform the same bounded Technocore and TCLK observations.
+If either detects release, changelog/source, branch, or live-contract drift, it may publish only a
+candidate JSON file and generated review Markdown on its reserved draft-PR branch. Neither executes
+upstream code, updates an active adapter, merges a pull request, posts to Technocore, claims a
+faucet, or performs a financial action. Review primary source and conformance changes manually
+before adopting a candidate. See
+[`TECHNOCORE_READINESS.md`](TECHNOCORE_READINESS.md) for the full authority and review policy.

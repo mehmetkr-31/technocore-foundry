@@ -1,0 +1,141 @@
+name: TCLK upstream watch
+
+on:
+  schedule:
+    - cron: '43 4 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: tclk-upstream-watch
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  observe:
+    name: Read-only TCLK drift probe
+    if: github.repository == 'mehmetkr-31/technocore-foundry' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      changed: ${{ steps.watch.outputs.changed }}
+    steps:
+      - name: Check out the triggering default-branch commit
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 22.13.0
+      - name: Observe fixed official sources without executing upstream code
+        id: watch
+        run: node scripts/tclk-upstream-watch.mjs --write-candidate
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Validate the bounded candidate paths
+        if: steps.watch.outputs.changed == 'true'
+        run: |
+          set -eu
+          changed="$(git status --porcelain | awk '{print $2}' | sort)"
+          expected="$(printf '%s\n' docs/TCLK_UPSTREAM_REVIEW.md protocol/upstream/tclk.candidate.json | sort)"
+          test "$changed" = "$expected"
+          node scripts/tclk-upstream-watch.mjs --verify-candidate
+      - name: Seal the data-only candidate for the publisher
+        if: steps.watch.outputs.changed == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: tclk-upstream-candidate-${{ github.run_id }}
+          path: |
+            docs/TCLK_UPSTREAM_REVIEW.md
+            protocol/upstream/tclk.candidate.json
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 9
+
+  publish:
+    name: Publish a data-only draft update
+    needs: observe
+    if: needs.observe.result == 'success' && needs.observe.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Check out the same trusted default-branch commit
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 22.13.0
+      - name: Restore the sealed candidate
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: tclk-upstream-candidate-${{ github.run_id }}
+          path: .
+      - name: Revalidate candidate bytes before granting Git write access
+        run: |
+          set -eu
+          changed="$(git status --porcelain | awk '{print $2}' | sort)"
+          expected="$(printf '%s\n' docs/TCLK_UPSTREAM_REVIEW.md protocol/upstream/tclk.candidate.json | sort)"
+          test "$changed" = "$expected"
+          node scripts/tclk-upstream-watch.mjs --verify-candidate
+      - name: Publish or refresh the reserved bot branch and draft pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BOT_BRANCH: automation/tclk-upstream-review
+        run: |
+          set -eu
+          gh auth setup-git
+          pr_count="$(gh pr list --head "$BOT_BRANCH" --base main --state open --json number --jq 'length')"
+          test "$pr_count" -le 1
+          number="$(gh pr list --head "$BOT_BRANCH" --base main --state open --json number --jq '.[0].number // empty')"
+          remote_line="$(git ls-remote --heads origin "refs/heads/$BOT_BRANCH")"
+          if test -n "$remote_line"; then
+            test "$pr_count" -eq 1
+            author="$(gh pr view "$number" --json author --jq '.author.login')"
+            test "$author" = 'app/github-actions' || test "$author" = 'github-actions[bot]'
+            printf '%s\n' "$remote_line" | grep -Eq "^[0-9a-f]{40}[[:space:]]+refs/heads/$BOT_BRANCH$"
+            git fetch --force --no-tags origin "+refs/heads/$BOT_BRANCH:refs/remotes/origin/$BOT_BRANCH"
+            expected_remote="$(git rev-parse "refs/remotes/origin/$BOT_BRANCH^{commit}")"
+            lease="refs/heads/$BOT_BRANCH:$expected_remote"
+          else
+            test "$pr_count" -eq 0
+            lease="refs/heads/$BOT_BRANCH:"
+          fi
+
+          git config user.name 'technocore-foundry-bot'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -C "$BOT_BRANCH" "$GITHUB_SHA"
+          git add -- docs/TCLK_UPSTREAM_REVIEW.md protocol/upstream/tclk.candidate.json
+          test -z "$(git diff --cached --name-only | grep -Ev '^(docs/TCLK_UPSTREAM_REVIEW\.md|protocol/upstream/tclk\.candidate\.json)$' || true)"
+          git commit -m 'chore: stage TCLK upstream review'
+          proposed_sha="$(git rev-parse HEAD)"
+          git push --force-with-lease="$lease" origin "HEAD:refs/heads/$BOT_BRANCH"
+          published_sha="$(git ls-remote --heads origin "refs/heads/$BOT_BRANCH" | awk '{print $1}')"
+          test "$published_sha" = "$proposed_sha"
+
+          if test -z "$number"; then
+            gh pr create --draft --base main --head "$BOT_BRANCH" --title 'chore: review TCLK upstream drift' --body-file docs/TCLK_UPSTREAM_REVIEW.md
+            number="$(gh pr list --head "$BOT_BRANCH" --base main --state open --json number --jq '.[0].number // empty')"
+          else
+            gh pr edit "$number" --title 'chore: review TCLK upstream drift' --body-file docs/TCLK_UPSTREAM_REVIEW.md
+            draft="$(gh pr view "$number" --json isDraft --jq '.isDraft')"
+            if test "$draft" != 'true'; then
+              gh pr ready "$number" --undo
+            fi
+          fi
+          test -n "$number"
+
+          gh api --method POST "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/dispatches" -f ref="$BOT_BRANCH"

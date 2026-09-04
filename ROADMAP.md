@@ -24,14 +24,20 @@ offline transcript analysis and the non-value `MemoryRail`/`PaperRail` rehearsal
 Pinned sources for this decision:
 
 - [Flop Network teaser v0.1](https://flop.finance/teaser/)
-- [Technocore source at `16a6128`](https://github.com/flop-labs/technocore-chat/tree/16a6128bea125c8f131f343c0e8430dfc110f4af)
+- [Technocore `v0.11.4` at `317c01f`](https://github.com/flop-labs/technocore-chat/tree/317c01f126c6be5a7c3e71ec8719c2cb4ecf09b5),
+  recorded in the [operational lock](protocol/upstream/technocore-chat.lock.json)
 - [`tclk/1` source at `81a8346`](https://github.com/flop-labs/tclk/tree/81a83464bd909fb5cd80de647da4e42fbae177dd)
+
+The Technocore `9c7df0e…` commit embedded in `protocol/fixtures/v1.json` remains historical
+provenance for that deterministic vector. It is not the current runtime adapter pin.
 
 ### Evidence discipline for AMA notes
 
 - The public written teaser is the parameter source until Flop Labs publishes an official AMA
   transcript or a newer specification. Listener and model-generated summaries are useful leads,
   not protocol truth.
+- X posts, Spaces/AMA notes, and community guides never authorize a protocol implementation,
+  transaction, reward calculation, or compatibility-pin change on their own.
 - The current teaser says emissions halve for the first **five** halvings. The “six halvings” wording
   in circulating summaries is not encoded here.
 - The room-retention behavior is documented in Technocore source, but “all room slots are full” is
@@ -55,22 +61,42 @@ Status: implemented for the current preview.
 - Export content-addressed dossiers; verify them in the CLI or browser without upload.
 - Admit public dossiers through a strict, offline, Git-moderated Proof Commons process.
 - Keep Technocore publication disabled by default and fail closed on uncertain relay outcomes.
+- Provide a loopback-only readiness workbench with a real downloaded-file recovery drill,
+  explicit lobby publication plus acknowledgement proof, offline JSONL signature verification,
+  unsigned-profile compare-and-set, and signed `d-` room lifecycle operations.
+- Keep TTL reminders local and best-effort; never turn them into scheduled writes or fake activity.
+
+### Continuous Technocore protocol review
+
+Status: change detection implemented; runtime adoption always requires human review.
+
+- Derive runtime constants from the reviewed `v0.11.4` operational lock.
+- Compare the official latest release and tag target, selected release source and changelog files,
+  default-branch head, and live config/OpenAPI/agent-card byte digests.
+- Treat all fetched upstream bytes as untrusted data; never install or execute upstream code.
+- Stage drift only as a bounded data-only draft pull request. Do not update the active lock,
+  adapter, workflow, or fixtures automatically, and never auto-merge.
+- Keep Technocore writes fail-closed until a maintainer reviews the change and all affected
+  clean-text, nonce, signature, acknowledgement, export, ownership, and profile tests pass.
 
 ### Phase B — TCLK Deal Inspector
 
-Status: first local-only raw-frame inspector implemented; evidence-complete exports remain pending.
+Status: local-only raw-frame and signed-JSONL paths implemented for the current scope.
 
 - Import pasted canonical `tclk1` frames locally (one single-deal transcript; 128 frames / 256 KiB).
 - Validate canonical ASCII wire bytes, offer and contract identifiers, participants,
   frame order, hash-secret opening, terminal receipts, and replay behavior.
 - Treat transport-DID binding, deadlines and rail settlement as `not_checked` when only raw frame
-  text is available. The public read/export format does not supply independently verifiable
-  historical transport signatures or signed timestamps; the inspector must not infer them.
+  text is available. The current Technocore JSONL body can retain the author signature and nonce,
+  while room generation arrives as a separate unsigned response header. Readiness verifies author
+  signatures losslessly; it does not make server sequence, timestamp, generation, inclusion, or
+  settlement finality signed facts.
 - Render a proof timeline with independent `valid`, `absent`, `invalid`, and `not checked`
   states. Never collapse payment state into proof of work quality.
 - Pin upstream code/vectors and run an independent offline conformance suite in CI.
-- Add a bounded adapter only when an official signed room-export or receipt format is available;
-  retain raw-frame analysis as a lower-evidence input rather than guessing transport proof.
+- In the signed-JSONL path, require the exact source room, select only signature-valid `tclk1`
+  records, bind each outer signer DID to the inner frame's `from` DID, and replay in JSONL order.
+  Retain raw-frame analysis as a lower-evidence input rather than guessing transport proof.
 - Perform no room fetch, post, signing, secret storage, or value-bearing settlement in the
   browser inspector.
 
@@ -95,6 +121,8 @@ Blocked on the official testnet API, receipt schemas, chain identifiers, and sig
 - Show observed testnet spend and proof gaps; never predict eligibility or guaranteed rewards.
 - Keep faucet, wallet, and spending actions explicit and user-controlled. Foundry will not
   custody funds, scrape private keys, auto-claim, auto-spend, or multiply identities.
+- Do not represent present-day room activity, local reminder state, or a Technocore sequence number
+  as inference spend.
 
 ### Phase E — Operator readiness packs
 

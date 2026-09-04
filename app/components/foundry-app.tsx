@@ -759,14 +759,11 @@ export default function FoundryApp() {
       const text = `[FOUNDRY] receipt ${selectedResult.id} | mission ${selectedMission.id} | claimant ${compactDid(selectedResult.actorDid)} | artifact ${selectedResult.artifact.sha256} | key=valid artifact=match issuer=${acceptance} | ${receiptUrl}`;
       const signed = await signTechnocoreAnnouncement(vault, passphrase, 'foundry-contributions', text);
       setAnnouncement(signed);
-      downloadJson(`${selectedResult.id}.technocore.json`, {
-        endpoint: 'https://technocore.chat/r/foundry-contributions?format=json',
-        method: 'POST',
-        body: { did: signed.did, sig: signed.sig, nonce: signed.nonce, text: signed.text },
-      });
-      const response = await responseJson<{ status: string }>(await fetch('/api/technocore/publish', {
+      const response = await responseJson<{ status: string; proof?: unknown }>(await fetch('/api/technocore/publish', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(signed),
       }));
+      if (response.proof) downloadJson(`${selectedResult.id}.technocore-proof.json`, response.proof);
+      else downloadJson(`${selectedResult.id}.technocore-signed-request.json`, signed);
       setAnnouncementStatus(response.status === 'already_published' ? 'published' : response.status);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Announcement could not be published.');
@@ -815,7 +812,7 @@ export default function FoundryApp() {
     <main>
       <nav className="nav-shell" aria-label="Primary navigation">
         <a className="brand" href="#top" aria-label="Technocore Foundry home"><span className="brand-mark" aria-hidden="true">TF</span><span>TECHNOCORE / FOUNDRY</span></a>
-        <div className="nav-links"><a href="#missions">Missions</a><a href="/commons">Commons</a><a href="/deals">Deal Inspector</a><a href="/atlas">Atlas</a><a href="/observer">Observer</a><a href="/security">Security</a><a href="/protocol">Protocol Lab</a><button type="button" onClick={() => openDialog('verify')}>Verify</button></div>
+        <div className="nav-links"><a href="#missions">Missions</a><a href="/readiness">Readiness</a><a href="/commons">Commons</a><a href="/deals">Deal Inspector</a><a href="/atlas">Atlas</a><a href="/observer">Observer</a><a href="/security">Security</a><a href="/protocol">Protocol Lab</a><button type="button" onClick={() => openDialog('verify')}>Verify</button></div>
         <a className="nav-mobile-link" href="/commons">Commons</a>
         <button className="nav-cta" type="button" onClick={() => openDialog(vault ? 'restore' : 'forge')}>{vault ? `DID ${compactDid(vault.did)}` : 'Enter Foundry'} <span aria-hidden="true">↗</span></button>
       </nav>

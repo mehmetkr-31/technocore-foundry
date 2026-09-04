@@ -61,10 +61,13 @@ function sha256(value) {
 }
 
 function sweepTechnocore(text) {
-  return Array.from(text)
+  const clean = Array.from(text)
     .map((character) => /[\p{Cc}\p{Cf}\p{Cs}\p{Co}\p{Zl}\p{Zp}]/u.test(character) ? ' ' : character)
     .join('')
-    .slice(0, 4096);
+    .trim();
+  if (!clean) throw new Error('Technocore fixture text is empty after sweeping.');
+  if (Array.from(clean).length > 4096) throw new Error('Technocore fixture text exceeds 4096 characters.');
+  return clean;
 }
 
 const privateKey = createPrivateKey({ key: Buffer.concat([PKCS8_PREFIX, TEST_SEED]), format: 'der', type: 'pkcs8' });
@@ -310,6 +313,7 @@ const fixture = {
     { name: 'line-and-format-to-space', input: rawMessage, output: sweptMessage },
     { name: 'nfc-and-nfd-remain-distinct', input: 'Café|Café', output: 'Café|Café' },
     { name: 'line-separators-to-space', input: 'a\u2028b\u2029c', output: 'a b c' },
+    { name: 'outer-protocol-space-is-trimmed', input: '\n  retained  \u200d', output: 'retained' },
   ],
 };
 
