@@ -196,7 +196,10 @@ node. It is an operator workbench, not a public hosted onboarding service and no
 airdrop checker. The recommended order is:
 
 1. Create or restore one DID, download its encrypted vault, and complete the separate
-   downloaded-file restore drill. A self-test during creation is not a backup drill.
+   downloaded-file restore drill. If you already have an encrypted Ed25519 PKCS#8 PEM, use
+   `npm run signer -- import-pem` with `--expect-did` so the existing DID is preserved; do not
+   create a second identity. The migration never changes the PEM or overwrites an output file.
+   A self-test during creation is not a backup drill.
 2. Write one original description of useful intent, explicitly confirm the irreversible
    lobby write, and keep the downloaded record-proof file.
 3. Download the retained room JSONL while it exists and verify it locally. A valid record
