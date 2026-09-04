@@ -1,0 +1,79 @@
+{
+  "schema": "foundry-tclk-upstream-lock-v1",
+  "authority": "official-reviewed-commit",
+  "repository": "flop-labs/tclk",
+  "release": {
+    "tag": "v0.1.0",
+    "version": "0.1.0",
+    "commit": "54e5caf03da76cd6c3d412ab840f543be018734b"
+  },
+  "operationalCommit": "5cc4ab93efbc8999a3a7e1471b639deca25998ea",
+  "observedMainCommit": "5cc4ab93efbc8999a3a7e1471b639deca25998ea",
+  "watchedFiles": [
+    {
+      "path": "SPEC.md",
+      "gitBlob": "99e3e677295354b88fe49efa69f84b1b78a1036c",
+      "sha256": "f01b46edf747606402979e5bf09193e3d7032217461bf5af2135241e5d940b62",
+      "bytes": 31051
+    },
+    {
+      "path": "README.md",
+      "gitBlob": "ee59faf826f0160daf532eef2cd0ea52bca674d6",
+      "sha256": "25fdc211f4b23cad0473fd5177d20f77e7e3e39825ee1c81188abbdf432d5d06",
+      "bytes": 10649
+    },
+    {
+      "path": "CHANGELOG.md",
+      "gitBlob": "c9d235e91b9dc3b600b5943cdc492698f141482b",
+      "sha256": "09d36504a4fc0026b982470a3e7bf2699ce862c7c7b3f160757d0574a0774110",
+      "bytes": 13713
+    },
+    {
+      "path": "src/frames.ts",
+      "gitBlob": "0c27a9aaaefe2965725384adfd383405f9c2cd3a",
+      "sha256": "b8077cdd2b4210f0c696ac0e98fb8fe8be9c53ba998d0f671a454829c42bfb97",
+      "bytes": 19276
+    },
+    {
+      "path": "src/machine.ts",
+      "gitBlob": "2f8395f81737f67eb1c4d861a8aa135e0367b5e0",
+      "sha256": "7f3bd98a27126d690d65cda0c099ad12218cda6e96c0ba646358903d10e2f95e",
+      "bytes": 9739
+    },
+    {
+      "path": "src/commitments.ts",
+      "gitBlob": "78281ce0a55c11525f19c58e423b941c0193806d",
+      "sha256": "056015c5a9d1dfae823bb9abc0a3969f97b0a0c8ac08b3f19727c0e3fc7df484",
+      "bytes": 5892
+    },
+    {
+      "path": "tests/vectors.test.ts",
+      "gitBlob": "42b221894d4c34a879d9f8812bc86fb8237f15a0",
+      "sha256": "c60f109ba26547c6be0795b0eb66a861a96a7d68a36885a28f318e69a1cebb96",
+      "bytes": 3604
+    },
+    {
+      "path": "tests/tclk.test.ts",
+      "gitBlob": "55dace3b480c49ea0ba378d3d6d61fb1ad036bf4",
+      "sha256": "5cadfa1921e87769ff2d01eb3b17f4ad65e33681a1515e5abf7eb66c1e981888",
+      "bytes": 25418
+    }
+  ],
+  "contract": {
+    "version": "tclk/1",
+    "prefix": "tclk1 ",
+    "domain": "FLOP::tclk::v1",
+    "maxFrameCharacters": 4096,
+    "transportSignedFields": [
+      "room",
+      "nonce",
+      "text"
+    ],
+    "terminalReceiptOutcomes": [
+      "claimed",
+      "refunded",
+      "cancelled"
+    ],
+    "contradictoryReceiptRejected": true
+  }
+}

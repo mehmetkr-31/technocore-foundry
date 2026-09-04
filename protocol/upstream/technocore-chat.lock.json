@@ -1,0 +1,88 @@
+{
+  "schema": "foundry-upstream-lock-v1",
+  "authority": "official-github-release",
+  "repository": "flop-labs/technocore-chat",
+  "origin": "https://technocore.chat",
+  "release": {
+    "tag": "v0.11.4",
+    "version": "0.11.4",
+    "commit": "317c01f126c6be5a7c3e71ec8719c2cb4ecf09b5"
+  },
+  "observedMainCommit": "82d942936050f1ab0fb9f34db17893b89f3e064b",
+  "watchedFiles": [
+    {
+      "path": "src/manual.md",
+      "gitBlob": "5a2d3e0d0cebf3ebe8d496a2715bb648db1212b9",
+      "sha256": "254671e7a02b8ae0c246ea381d49e783a29cd7a690c08000ff1cee4c6717e11c",
+      "bytes": 24160
+    },
+    {
+      "path": "src/app.py",
+      "gitBlob": "60f9a459af5cfa554bbc7589e1995100d8c04a69",
+      "sha256": "da7c32ae4e9379cc2438bc88a600da9fbaf602c0967d9cc7e9f07fc1945c3f69",
+      "bytes": 109459
+    },
+    {
+      "path": "src/store.py",
+      "gitBlob": "9a2496bca28e08078b13c447cf82d374c6e6f95c",
+      "sha256": "23c406a658e3e4d354d71dc8e7b3485d81d3fc2a36ba57330608dff3a733ed26",
+      "bytes": 140809
+    },
+    {
+      "path": "src/didkey.py",
+      "gitBlob": "242ad599db58dca9df1be5a1fa6745baff8583fc",
+      "sha256": "651d5585905ef211aacddaf70e2bd26559f14bc46148677af2e4e788aea5ed96",
+      "bytes": 6827
+    },
+    {
+      "path": "README.md",
+      "gitBlob": "cfd31e1d82bf53fd1cd0cc6fd483158ade1c2b8e",
+      "sha256": "cc55d0a7cec5b834dfee8d516f0be59c99cab5a003b4c4d0e409f49b95d34d3b",
+      "bytes": 29420
+    },
+    {
+      "path": "CHANGELOG.md",
+      "gitBlob": "d2d8ba732c7986468c95f3b0079023dccf3c565b",
+      "sha256": "29b1685fc2d249715ba205a6252371cabc2658746efb069d85f19771f28ee6af",
+      "bytes": 70542
+    }
+  ],
+  "liveBaseline": {
+    "serviceVersion": "0.11.4",
+    "configSha256": "a84b31d0000055d14b535238ebd120108167b7431b2774e46b414562868e0a69",
+    "openapiSha256": "298d1e6a0f484a6f919aeb6e0431cb9fb33aede6240e02a19e8f873bec8049d8",
+    "agentSha256": "73fced67d46337c60f60cbbb0e5118a3894e7785130ba4d8d8352fad53911863"
+  },
+  "contract": {
+    "roomNamePattern": "^[a-z0-9][a-z0-9_-]{0,47}$",
+    "noncePattern": "^(?:0|[1-9]\\d{0,18})$",
+    "signaturePattern": "^[A-Za-z0-9_-]{85}[AQgw]$",
+    "messageCharacters": 4096,
+    "noteCharacters": 8192,
+    "idleSeconds": 604800,
+    "stillbornSeconds": 86400,
+    "messageSigningTemplate": "<room>|<nonce>|<text>",
+    "noteSigningTemplate": "<namespace>|<key>|<nonce>|<value>",
+    "signedNoteNamespaces": [
+      "room-owners",
+      "room-allow"
+    ],
+    "roomReadFields": [
+      "room",
+      "count",
+      "first_seq",
+      "last_seq",
+      "generation",
+      "messages"
+    ],
+    "signedRecordFields": [
+      "seq",
+      "ts",
+      "from",
+      "text",
+      "nonce",
+      "sig"
+    ],
+    "exportGenerationHeader": "X-Room-Generation"
+  }
+}

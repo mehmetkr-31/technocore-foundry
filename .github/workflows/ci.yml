@@ -88,7 +88,14 @@ jobs:
       - run: npm run commons:verify
       - run: npm run test:commons
       - run: npm run test:inspector
+      - run: npm run test:tclk
+      - run: npm run test:technocore
+      - run: npm run test:participation
+      - run: npm run upstream:verify
+      - run: npm run tclk:upstream:verify
       - run: npm run test:onboarding
+      - name: Reject high-severity production dependency advisories
+        run: npm audit --omit=dev --audit-level=high
 
   local-http:
     name: Local HTTP boundary
@@ -148,20 +155,3 @@ jobs:
       - run: npm ci
       - run: npm run release:artifacts
       - run: git diff --exit-code -- release/manifest.json release/sbom.cdx.json release/licenses.json
-
-  dependency-audit:
-    name: Dependency audit (informational)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    continue-on-error: true
-    steps:
-      - name: Check out source
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
-        with:
-          persist-credentials: false
-      - name: Set up Node
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-      - run: npm audit --omit=dev --audit-level=high

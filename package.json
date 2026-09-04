@@ -1,6 +1,6 @@
 {
   "name": "technocore-foundry",
-  "version": "0.9.0-preview.8",
+  "version": "0.9.0-preview.9",
   "description": "A local-first contribution and portable-proof layer for the Technocore ecosystem.",
   "private": true,
   "license": "Apache-2.0",
@@ -58,6 +58,12 @@
     "test:inspector": "tsx scripts/test-browser-dossier-verifier.mjs",
     "test:tclk": "tsx scripts/test-browser-tclk-inspector.mjs",
     "test:onboarding": "node scripts/test-onboarding.mjs",
+    "test:technocore": "tsx scripts/test-technocore-contract.ts",
+    "test:participation": "tsx scripts/test-participation-bundle.mjs",
+    "upstream:verify": "node scripts/technocore-upstream-watch.mjs --verify",
+    "upstream:check": "node scripts/technocore-upstream-watch.mjs --check",
+    "tclk:upstream:verify": "node scripts/tclk-upstream-watch.mjs --verify",
+    "tclk:upstream:check": "node scripts/tclk-upstream-watch.mjs --check",
     "release:artifacts": "node scripts/generate-release-artifacts.mjs"
   },
   "bin": {

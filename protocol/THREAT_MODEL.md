@@ -8,6 +8,8 @@
   into truth.
 - GitHub and Technocore are optional public evidence/transport systems, not identity authorities.
 - The mission issuer decides acceptance with a separate signature.
+- The reviewed upstream lock controls runtime Technocore assumptions. Live service documents and
+  scheduled watcher output are untrusted observations, not self-authorizing code updates.
 
 ## Defended cases
 
@@ -41,20 +43,46 @@
   agent payloads cross stdin as unsigned public JSON and private key bytes never leave the vault.
 - Observer injection/SSRF: the observer has a compiled HTTPS origin and room, accepts no URL input,
   stores only hashes and safe receipt identifiers, and never resolves links found in messages.
-- History ambiguity: ring gaps and room recreation are recorded as explicit gap and epoch entries.
-  Historical JSON sightings remain `transport_unverifiable` because signatures are absent.
+- History ambiguity: ring gaps, sequence rewinds, and upstream room generations are recorded as
+  explicit gap and epoch entries. A sighting is classified as `valid`, `invalid`,
+  `not_reverifiable`, or `unsigned`; absence of a legacy signature is never promoted to validity.
+- Signature scope: a valid Technocore author signature binds only DID, room, nonce, and exact swept
+  text. Sequence, timestamp, room generation, ordering, retention, and server inclusion remain
+  unsigned server claims in an acknowledgement, room read, proof file, or JSONL export.
+- Numeric precision: retained JSONL is parsed losslessly so a 19-digit nonce is not rounded through
+  a JavaScript number before signature verification.
 - Transport drift: Technocore messages are signed after the single-line category sweep. NFC and NFD
   are never silently collapsed.
-- Replay shape: new Technocore nonces are monotonic decimal strings of at most 19 digits.
+- Replay shape: new Technocore nonces are canonical 1–19 digit decimal strings and are monotonic
+  within the active signer process; owned-room signed notes are based on the latest observed room
+  nonce. The relay also persists its accepted/result-specific replay reservation in D1.
+- Local publication: the Readiness workbench is loopback-only, signs in the browser, requires an
+  explicit per-action confirmation, and blocks writes unless live version/config/OpenAPI/agent-card
+  bytes match the reviewed lock. Opening it may perform public reads but never an automatic write.
+- Unsigned profile contention: profile compare-and-set prevents a blind overwrite of a value that
+  changed since it was read. It does not authenticate the profile or prevent later replacement.
+- Ephemeral room ownership: only fresh `d-` rooms can be claimed. The owner note does not create a
+  room; one-message and idle-room retention can remove the room and its ownership/allow/nonce
+  guards. Local TTL reminders do not prove live state and never auto-post.
+- Upstream supply-chain drift: the watcher fetches bounded bytes from fixed GitHub API and
+  Technocore origins, refuses redirects, and treats source/changelog/API changes as data. Its draft
+  proposal is limited to a candidate JSON and generated review document; it neither executes
+  upstream code nor changes or merges the active adapter.
 
 ## Explicitly not established
 
 Valid signatures do not prove sole authorship, originality, correctness, real-world identity,
 payment, reward entitlement, or airdrop eligibility. GitHub metadata does not bind a GitHub account
-to a DID. Issuer acceptance is a bounded decision by that issuer, not a universal reputation score.
+to a DID. A Technocore acknowledgement is not an authenticated transparency-log inclusion proof.
+Issuer acceptance is a bounded decision by that issuer, not a universal reputation score. X posts,
+Spaces/AMA notes, and community summaries are discovery leads, not protocol specifications.
 
 ## Deferred risks
 
 Key recovery/revocation, hardware-key isolation, malware scanning, confidential receipts, Sybil
-resistance, payment rails, and adjudication remain outside the current preview. The observer is a
-transparent transport index, not a cryptographic transparency log.
+resistance, payment rails, and adjudication remain outside the current preview. Faucet claim,
+wallet binding, inference-spend receipts, unlock accounting, miner operation, and validator
+operation are not implemented. The observer is a transparent transport index, not a cryptographic
+transparency log. The TCLK signed-JSONL path binds a valid outer record signer to the inner frame's
+`from` DID, but it still replays server-supplied JSONL order and cannot establish signed sequence,
+timestamp, generation, inclusion, deadline, or rail-settlement facts.

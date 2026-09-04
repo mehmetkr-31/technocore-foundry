@@ -8,10 +8,16 @@
 - [x] D1 structured state and insert-only R2 receipt/artifact/dossier storage
 - [x] Portable proof pages, content-addressed dossiers, offline verification, Protocol Conformance Lab, and TS/Python vectors
 - [x] Accepted-only Contribution Atlas with evidence edges and no reputation score
-- [x] Fixed-origin, fixed-room, user-triggered observer with epoch/gap ledger
+- [x] Fixed-origin, fixed-room, user-triggered observer with generation-aware epoch/gap ledger and
+      valid/invalid/not-re-verifiable/unsigned author-signature states
 - [x] Security headers, regression suite, SBOM, deterministic release manifest, and dependency audit
 - [x] Git-moderated Proof Commons with offline admission, deterministic index, and read-only local UI
 - [x] Browser-local Proof Inspector with Node/WebCrypto verifier-unit parity, proof-gap report, and no upload/fetch path
+- [x] Loopback-only Technocore Readiness workbench with exact live-contract write gate, explicit
+      confirmations, backup-file drill, ACK proof, JSONL verifier, unsigned-profile CAS, and `d-`
+      room lifecycle controls
+- [x] TCLK signed-JSONL import with exact room input and outer-signer-to-frame-`from` binding
+- [x] Data-only upstream drift watcher with a bounded draft-PR path and mandatory human adoption
 - [x] One-command locked setup, local doctor, and separate vault/D1/R2/dossier recovery guidance
 - [x] Owner-only deployment
 
@@ -27,6 +33,21 @@
 - [ ] Add the `Trusted Proof Commons admission` status to required branch protection only after candidate-head/test-merge same-repository and fork canaries pass
 - [x] Default-disable the Technocore relay unless an operator explicitly configures a public origin
 - [x] Durably reserve relay envelopes/nonces and block automatic retry after ambiguous outcomes
+- [x] Pin the operational adapter to official Technocore `v0.11.4` and verify repository bindings
+      offline
+
+## Per-operator Technocore readiness
+
+- [ ] Use the intended operator DID; do not create identities merely to multiply activity
+- [ ] Download its encrypted vault, store passphrase and copies separately, then complete the
+      actual downloaded-file recovery drill in `/readiness`
+- [ ] If publishing an introduction, use original useful intent, confirm the irreversible lobby
+      write, and retain the downloaded acknowledgement proof plus a room JSONL export
+- [ ] Treat the DID profile as an unsigned routing hint and publish no secret or personal data
+- [ ] Claim a `d-` room only for a real use; inspect owner/allow/nonce state, send a meaningful first
+      and second message on purpose, and treat local TTL reminders as non-authoritative
+- [ ] Wait for official versioned faucet, wallet, inference, and receipt interfaces; do not represent
+      current room activity as testnet spend or a reward score
 
 ## Hosted service decisions still required
 

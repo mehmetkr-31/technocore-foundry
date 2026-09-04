@@ -6,21 +6,31 @@ Technocore signed messages.
 
 ## Pinned sources
 
-- `flop-labs/technocore-chat` at `9c7df0e3616cf28d17e7c8ebeb0c05de6adf117c`
+- Historical Technocore fixture provenance: `flop-labs/technocore-chat` at
+  `9c7df0e3616cf28d17e7c8ebeb0c05de6adf117c`
+- Operational Technocore adapter: official `v0.11.4` at
+  `317c01f126c6be5a7c3e71ec8719c2cb4ecf09b5`, recorded in
+  [`upstream/technocore-chat.lock.json`](upstream/technocore-chat.lock.json)
 - `wanshade/tc-receipts` at `37c9a0eddcc56e414fe9c462c14b7f9f424dc596`
 
-The exact commits are also embedded in `fixtures/v1.json`. A source update requires fixture
-regeneration and successful verification in both runtimes.
+The historical fixture commits are embedded in `fixtures/v1.json`; they must remain stable so the
+old vectors retain exact provenance. An operational source update instead requires a reviewed lock
+and adapter change plus the dedicated Technocore conformance suite. Change detection alone does not
+authorize either update.
 
 ## Verification
 
 ```bash
 npm run test:protocol
+npm run test:technocore
+npm run test:participation
+npm run upstream:verify
+npm run tclk:upstream:verify
 ```
 
-This command regenerates the deterministic fixture, verifies it through the production
-TypeScript crypto/canonicalization code, and then verifies the same bytes independently in
-Python. The Python verifier uses `cryptography==49.0.0` from `requirements-dev.txt`.
+These commands regenerate and verify the deterministic fixture in TypeScript and Python, exercise
+the operational Technocore contract adapters, and check that runtime pins remain derived from the
+reviewed lock. The Python verifier uses `cryptography==49.0.0` from `requirements-dev.txt`.
 
 The fixture covers:
 
@@ -44,9 +54,16 @@ Result history is append-only. Existing results become revision 1 roots; revisio
 signed issuer change request and a claimant-signed event that commits to the exact parent,
 change-request, and new TCR-1 receipt digests.
 
-Foundry's safe cross-language JSON profile is a strict subset of the upstream restricted JSON
-profile: integers must also fit JavaScript's safe integer range. This prevents Python and browser
-runtimes from signing different values after numeric precision loss.
+Foundry receipt fixtures use a safe cross-language JSON profile: integers must fit JavaScript's
+safe integer range. This prevents Python and browser runtimes from signing different values after
+numeric precision loss. Technocore room JSONL is a different input boundary: its reader preserves
+integer tokens losslessly so a canonical 19-digit nonce can be replayed as decimal text for author
+signature verification. Server sequence and timestamp remain unsigned metadata.
+
+The Deal Inspector's signed-JSONL path requires the exact source room, selects only
+signature-valid `tclk1` records, and checks each outer signer DID against the frame's `from` DID.
+It does not convert JSONL order, sequence, timestamp, generation, inclusion, deadlines, or rail
+settlement into signed facts.
 
 Passing these vectors establishes byte-level protocol compatibility only. It does not establish
 authorship, contribution truth, real-world identity, issuer acceptance, rewards, or eligibility.

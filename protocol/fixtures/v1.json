@@ -287,6 +287,11 @@
       "name": "line-separators-to-space",
       "input": "a b c",
       "output": "a b c"
+    },
+    {
+      "name": "outer-protocol-space-is-trimmed",
+      "input": "\n  retained  ‍",
+      "output": "retained"
     }
   ]
 }

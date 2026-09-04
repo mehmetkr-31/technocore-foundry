@@ -1,18 +1,20 @@
 import type { RelayAttemptStore, TechnocoreRelayAttempt } from '@/db/technocore-relay-attempts';
 import {
   canonicalJson,
+  isCanonicalTechnocoreSignature,
   sha256Hex,
   type TechnocoreSignedMessage,
 } from '@/lib/foundry-crypto';
 import { parseLosslessIntegerJsonBytes, parseStrictJsonBytes } from '@/lib/strict-json';
+import { TECHNOCORE_OPERATIONAL_COMMIT, TECHNOCORE_ORIGIN } from '@/lib/technocore-contract';
 import {
   assertPublicReceiptAnnouncement,
   type RelayConfiguration,
 } from '@/lib/technocore-relay-policy';
 
 export const FOUNDRY_TECHNOCORE_ROOM = 'foundry-contributions' as const;
-export const FOUNDRY_TECHNOCORE_ENDPOINT = `https://technocore.chat/r/${FOUNDRY_TECHNOCORE_ROOM}?format=json` as const;
-export const FOUNDRY_TECHNOCORE_ACK_SOURCE_COMMIT = '16a6128bea125c8f131f343c0e8430dfc110f4af' as const;
+export const FOUNDRY_TECHNOCORE_ENDPOINT = `${TECHNOCORE_ORIGIN}/r/${FOUNDRY_TECHNOCORE_ROOM}?format=json` as const;
+export const FOUNDRY_TECHNOCORE_ACK_SOURCE_COMMIT = TECHNOCORE_OPERATIONAL_COMMIT;
 
 type RelayResult = {
   id: string;
@@ -47,9 +49,8 @@ function looksLikeMessage(value: unknown): value is TechnocoreSignedMessage {
     ['room', 'did', 'sig', 'nonce', 'text'].every((key) => Object.hasOwn(value, key)) &&
     message.room === FOUNDRY_TECHNOCORE_ROOM &&
     typeof message.did === 'string' && message.did.length <= 160 &&
-    typeof message.sig === 'string' && /^[A-Za-z0-9_-]{86}$/.test(message.sig) &&
-    typeof message.nonce === 'string' && /^\d{1,19}$/.test(message.nonce) &&
-    BigInt(message.nonce) <= BigInt(Number.MAX_SAFE_INTEGER) &&
+    typeof message.sig === 'string' && isCanonicalTechnocoreSignature(message.sig) &&
+    typeof message.nonce === 'string' && /^(?:0|[1-9]\d{0,18})$/.test(message.nonce) &&
     typeof message.text === 'string' && message.text.length >= 30 && message.text.length <= 4096
   );
 }
@@ -106,7 +107,11 @@ function assertPublishedAcknowledgement(value: unknown, message: TechnocoreSigne
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('upstream JSON must be an object');
   const response = value as Record<string, unknown>;
   const posted = response.posted;
-  if (response.room !== FOUNDRY_TECHNOCORE_ROOM || !posted || typeof posted !== 'object' || Array.isArray(posted)) {
+  if (
+    response.room !== FOUNDRY_TECHNOCORE_ROOM ||
+    !Number.isSafeInteger(response.generation) || Number(response.generation) < 0 ||
+    !posted || typeof posted !== 'object' || Array.isArray(posted)
+  ) {
     throw new Error('upstream JSON does not identify the fixed room and posted record');
   }
   const record = posted as Record<string, unknown>;
@@ -116,10 +121,24 @@ function assertPublishedAcknowledgement(value: unknown, message: TechnocoreSigne
     !Number.isSafeInteger(record.seq) || Number(record.seq) < 1 ||
     typeof record.ts !== 'string' || record.ts.length > 64 || !Number.isFinite(Date.parse(record.ts)) ||
     record.from !== message.did || record.text !== message.text || record.sig !== message.sig ||
-    !Number.isSafeInteger(record.nonce) || Number(record.nonce) < 0 ||
-    String(record.nonce) !== BigInt(message.nonce).toString()
+    !(
+      (typeof record.nonce === 'bigint' && record.nonce >= 0n) ||
+      (Number.isSafeInteger(record.nonce) && Number(record.nonce) >= 0)
+    ) ||
+    String(record.nonce) !== message.nonce
   ) throw new Error('upstream posted record does not bind the signed announcement');
-  return { seq: Number(record.seq) };
+  return {
+    seq: Number(record.seq),
+    generation: Number(response.generation),
+    record: {
+      seq: Number(record.seq),
+      ts: String(record.ts),
+      from: message.did,
+      text: message.text,
+      nonce: message.nonce,
+      sig: message.sig,
+    },
+  };
 }
 
 function lockedResponse(attempt: TechnocoreRelayAttempt | null, code: string) {
@@ -274,7 +293,7 @@ export async function handleTechnocoreRelayPost(
     return Response.json({ error: 'Technocore publication outcome is not safely retryable.', code: 'outcome_ambiguous', upstreamStatus: upstream.status, detail, attempt: reservation.attempt.envelopeSha256 }, { status: 503 });
   }
 
-  let acknowledgement: { seq: number };
+  let acknowledgement: ReturnType<typeof assertPublishedAcknowledgement>;
   try {
     if (upstream.status !== 200 || upstream.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() !== 'application/json') {
       throw new Error('unexpected upstream success status or content type');
@@ -289,7 +308,7 @@ export async function handleTechnocoreRelayPost(
     return Response.json({ error: 'Technocore success could not be bound to this announcement; automatic retry is blocked.', code: 'outcome_ambiguous', upstreamStatus: upstream.status, attempt: reservation.attempt.envelopeSha256 }, { status: 503 });
   }
   try {
-    await markAttempt(dependencies.attempts, reservation.attempt.envelopeSha256, 'published', 200, `seq:${acknowledgement.seq}`, timestamp());
+    await markAttempt(dependencies.attempts, reservation.attempt.envelopeSha256, 'published', 200, `generation:${acknowledgement.generation};seq:${acknowledgement.seq}`, timestamp());
   } catch {
     return Response.json({ error: 'Technocore acknowledged the request, but the durable completion record failed. Automatic retry is blocked.', code: 'completion_uncertain', attempt: reservation.attempt.envelopeSha256 }, { status: 503 });
   }
@@ -298,6 +317,22 @@ export async function handleTechnocoreRelayPost(
     room: FOUNDRY_TECHNOCORE_ROOM,
     upstreamStatus: 200,
     seq: acknowledgement.seq,
+    generation: acknowledgement.generation,
+    proof: {
+      schema: 'foundry-technocore-record-proof-v1',
+      source: TECHNOCORE_ORIGIN,
+      adapterCommit: FOUNDRY_TECHNOCORE_ACK_SOURCE_COMMIT,
+      room: FOUNDRY_TECHNOCORE_ROOM,
+      generation: acknowledgement.generation,
+      capturedAt: timestamp(),
+      record: acknowledgement.record,
+      verification: {
+        authorSignature: 'valid',
+        signedFields: ['room', 'nonce', 'text'],
+        serverFields: ['seq', 'ts', 'generation'],
+        serverInclusionProof: 'not_cryptographically_established',
+      },
+    },
     attempt: reservation.attempt.envelopeSha256,
   });
 }

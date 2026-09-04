@@ -19,6 +19,11 @@ npm run test:signer
 npm run test:observer
 npm run test:security:unit
 npm run test:commons
+npm run test:tclk
+npm run test:technocore
+npm run test:participation
+npm run upstream:verify
+npm run tclk:upstream:verify
 npm run release:artifacts
 ```
 
@@ -35,6 +40,13 @@ npm run test:smoke
 Protocol changes must include the specification update, deterministic fixture, TypeScript and
 Python verifier coverage, and a compatibility note. Database migrations are append-only. Generated
 protocol fixtures and release artifacts must be regenerated and reviewed with their source change.
+
+Technocore operational compatibility changes must update the reviewed upstream lock and adapter
+together and add affected clean-text, nonce, signature, acknowledgement, export, ownership, and
+profile tests. A watcher-generated `docs/UPSTREAM_REVIEW.md` or candidate JSON is untrusted review
+data, not permission to copy code, execute upstream dependencies, move the active pin, or merge.
+X posts, Spaces/AMA notes, community guides, and model summaries may identify questions but are not
+protocol sources.
 
 Never commit a vault, private key, passphrase, token, `.dev.vars`, `.wrangler` state, unpublished
 receipt, or personal data. Tests must not create a real Technocore DID, send a Technocore message,

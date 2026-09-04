@@ -1,5 +1,6 @@
 import { getCurrentObserverEpoch, getObserverIndex, recordObserverSync } from '@/db/queries';
 import { FOUNDRY_ROOM, parseRoomView, planObserverSync, TECHNOCORE_ORIGIN } from '@/lib/technocore-observer';
+import { parseLosslessIntegerJsonBytes } from '@/lib/strict-json';
 
 export const dynamic = 'force-dynamic';
 const MAX_BODY_BYTES = 512 * 1024;
@@ -25,7 +26,7 @@ async function boundedJson(response: Response) {
   const bytes = new Uint8Array(total);
   let offset = 0;
   for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
-  return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)) as unknown;
+  return parseLosslessIntegerJsonBytes(bytes);
 }
 
 async function readRoom(query: string) {
@@ -43,10 +44,11 @@ export async function POST(request: Request) {
   try {
     const current = await getCurrentObserverEpoch(FOUNDRY_ROOM);
     const tail = await readRoom('limit=1');
+    const generationChanged = Boolean(current && tail.generation !== current.upstreamGeneration);
     const rewound = Boolean(current && tail.last_seq < current.endSeq);
-    const cursor = current && !rewound ? current.endSeq : 0;
+    const cursor = current && !generationChanged && !rewound ? current.endSeq : 0;
     const view = await readRoom(`since=${cursor}&limit=200`);
-    const plan = await planObserverSync({ current, tailSeq: tail.last_seq, view, syncedAt: new Date().toISOString() });
+    const plan = await planObserverSync({ current, tailSeq: tail.last_seq, tailGeneration: tail.generation, view, syncedAt: new Date().toISOString() });
     await recordObserverSync(plan);
     const index = await getObserverIndex(FOUNDRY_ROOM);
     return Response.json({
