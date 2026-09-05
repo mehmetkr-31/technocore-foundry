@@ -1,32 +1,32 @@
 {
   "schema": "foundry-upstream-lock-v1",
-  "authority": "official-github-release",
+  "authority": "official-reviewed-tag",
   "repository": "flop-labs/technocore-chat",
   "origin": "https://technocore.chat",
   "release": {
-    "tag": "v0.11.4",
-    "version": "0.11.4",
-    "commit": "317c01f126c6be5a7c3e71ec8719c2cb4ecf09b5"
+    "tag": "v0.12.0",
+    "version": "0.12.0",
+    "commit": "e88db03c79ae0ae1f6bf9bb2e21e5a1ea42dd0f9"
   },
-  "observedMainCommit": "82d942936050f1ab0fb9f34db17893b89f3e064b",
+  "observedMainCommit": "94e01adf45ee75889d1085e0be5c28806b2b0aac",
   "watchedFiles": [
     {
       "path": "src/manual.md",
-      "gitBlob": "5a2d3e0d0cebf3ebe8d496a2715bb648db1212b9",
-      "sha256": "254671e7a02b8ae0c246ea381d49e783a29cd7a690c08000ff1cee4c6717e11c",
-      "bytes": 24160
+      "gitBlob": "4a3f575ce8ae76f98a855b35ed9e9f15ea0e6b59",
+      "sha256": "1f6906644f21b2b10a2e37f53d65ca6e37f32ca7ec50b6195db4fc21247a49ed",
+      "bytes": 24853
     },
     {
       "path": "src/app.py",
-      "gitBlob": "60f9a459af5cfa554bbc7589e1995100d8c04a69",
-      "sha256": "da7c32ae4e9379cc2438bc88a600da9fbaf602c0967d9cc7e9f07fc1945c3f69",
-      "bytes": 109459
+      "gitBlob": "a3f9f4be193f904b6646c74fd612d8937aa24977",
+      "sha256": "a26be910042ebfbf78f29acb311cf954e35b4ce0072f61883ab12234ad9036b2",
+      "bytes": 112202
     },
     {
       "path": "src/store.py",
-      "gitBlob": "9a2496bca28e08078b13c447cf82d374c6e6f95c",
-      "sha256": "23c406a658e3e4d354d71dc8e7b3485d81d3fc2a36ba57330608dff3a733ed26",
-      "bytes": 140809
+      "gitBlob": "e1bc0608d7ed797f48e0780cd7278c61be63952c",
+      "sha256": "671e39d49b08cbf88d2f58a1ea9721715d987a6b1b06b719f9fdebe61bcf642c",
+      "bytes": 141944
     },
     {
       "path": "src/didkey.py",
@@ -42,16 +42,34 @@
     },
     {
       "path": "CHANGELOG.md",
-      "gitBlob": "d2d8ba732c7986468c95f3b0079023dccf3c565b",
-      "sha256": "29b1685fc2d249715ba205a6252371cabc2658746efb069d85f19771f28ee6af",
-      "bytes": 70542
+      "gitBlob": "262ce4dee8de5a4fb5d079baaa978040e4a96a39",
+      "sha256": "b02a8c1ee02193a6d7c98cefe15d0fdb36170e2d5773779f479c72cf64af2269",
+      "bytes": 72735
+    },
+    {
+      "path": "src/config.py",
+      "gitBlob": "dc1143b3d9bd66c71bebcdf729151c14e4d3ca6c",
+      "sha256": "0927bf331b631db488a542f16542bde0195ac7fc22dca01d1ebf9f070c2181e3",
+      "bytes": 25068
+    },
+    {
+      "path": "src/manifest.py",
+      "gitBlob": "048023d0a9912275ef39f945e84bfa65ef83cf80",
+      "sha256": "1de6be1c36c21a56092c78e5a3bd612fca63aa0797dbdb1330f62d260e1a40b9",
+      "bytes": 120115
+    },
+    {
+      "path": "src/limit.py",
+      "gitBlob": "2e66fabc5f270a5aae183f16592d884cbb013b10",
+      "sha256": "2ff40efec03cd30946369175df417bab49ddf7ae78c2063a70a9b7dca370ec37",
+      "bytes": 24841
     }
   ],
   "liveBaseline": {
-    "serviceVersion": "0.11.4",
-    "configSha256": "a84b31d0000055d14b535238ebd120108167b7431b2774e46b414562868e0a69",
-    "openapiSha256": "298d1e6a0f484a6f919aeb6e0431cb9fb33aede6240e02a19e8f873bec8049d8",
-    "agentSha256": "73fced67d46337c60f60cbbb0e5118a3894e7785130ba4d8d8352fad53911863"
+    "serviceVersion": "0.12.0",
+    "configSha256": "a5c78775b66ad8fcac131f95cf3a6bcba39b297fa7504aa88b6399ae08bce1cb",
+    "openapiSha256": "cfcdba989524a0e0bc961bb0865d7a38a00b995fc2a16977a1845935e181f36b",
+    "agentSha256": "ad8d10f8760f09a5e25b92c8d6779874b98ac1707abe70aba7d7d564956a6435"
   },
   "contract": {
     "roomNamePattern": "^[a-z0-9][a-z0-9_-]{0,47}$",
@@ -60,7 +78,7 @@
     "messageCharacters": 4096,
     "noteCharacters": 8192,
     "idleSeconds": 604800,
-    "stillbornSeconds": 86400,
+    "stillbornSeconds": 43200,
     "messageSigningTemplate": "<room>|<nonce>|<text>",
     "noteSigningTemplate": "<namespace>|<key>|<nonce>|<value>",
     "signedNoteNamespaces": [

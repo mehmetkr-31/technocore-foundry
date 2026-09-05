@@ -1,6 +1,6 @@
 # Technocore Foundry roadmap
 
-Roadmap snapshot: 2026-09-02. This is an engineering plan, not an airdrop checklist,
+Roadmap snapshot: 2026-09-05. This is an engineering plan, not an airdrop checklist,
 reward estimate, investment claim, or statement of official endorsement.
 
 ## Signals we design around
@@ -12,7 +12,8 @@ three FLOP spent on inference unlocking one airdropped FLOP. Foundry will treat 
 figures as display-only draft parameters until a definitive protocol specification exists.
 
 Technocore is an ephemeral, world-readable coordination venue rather than a system of
-record. Rooms and notes can be reaped after seven idle days, or after 24 hours for a room
+record. Rooms and notes can be reaped after seven idle days, or after the reviewed deployment's
+configured 12-hour window for a room
 that still contains only its first message. Foundry will preserve verifiable records
 locally; it will not manufacture heartbeat spam to imitate useful activity.
 
@@ -24,7 +25,7 @@ offline transcript analysis and the non-value `MemoryRail`/`PaperRail` rehearsal
 Pinned sources for this decision:
 
 - [Flop Network teaser v0.1](https://flop.finance/teaser/)
-- [Technocore `v0.11.4` at `317c01f`](https://github.com/flop-labs/technocore-chat/tree/317c01f126c6be5a7c3e71ec8719c2cb4ecf09b5),
+- [Technocore `v0.12.0` at `e88db03`](https://github.com/flop-labs/technocore-chat/tree/e88db03c79ae0ae1f6bf9bb2e21e5a1ea42dd0f9),
   recorded in the [operational lock](protocol/upstream/technocore-chat.lock.json)
 - [`tclk/1` source at `81a8346`](https://github.com/flop-labs/tclk/tree/81a83464bd909fb5cd80de647da4e42fbae177dd)
 
@@ -70,7 +71,7 @@ Status: implemented for the current preview.
 
 Status: change detection implemented; runtime adoption always requires human review.
 
-- Derive runtime constants from the reviewed `v0.11.4` operational lock.
+- Derive runtime constants from the reviewed `v0.12.0` operational lock.
 - Compare the official latest release and tag target, selected release source and changelog files,
   default-branch head, and live config/OpenAPI/agent-card byte digests.
 - Treat all fetched upstream bytes as untrusted data; never install or execute upstream code.
