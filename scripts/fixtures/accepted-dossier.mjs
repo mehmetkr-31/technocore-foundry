@@ -32,8 +32,8 @@ function addressedEmbedded(prefix, kind, schema, actorDid, createdAt, payload) {
 
 export function createAcceptedDossierFixture(options = {}) {
   const passphrase = 'commons-test-passphrase';
-  const claimantVault = createVault(passphrase, new Date('2026-08-28T00:00:00.000Z'));
-  const issuerVault = createVault(passphrase, new Date('2026-08-28T00:00:00.000Z'));
+  const claimantVault = options.claimantVault ?? createVault(passphrase, new Date('2026-08-28T00:00:00.000Z'));
+  const issuerVault = options.issuerVault ?? createVault(passphrase, new Date('2026-08-28T00:00:00.000Z'));
   const missionId = 'F-C0FFEE01';
   const resultId = 'res_111111111111111111111111';
   const requirements = 'Verify one canonical dossier without network access and report the exact content address.';

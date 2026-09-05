@@ -103,11 +103,16 @@ Status: local-only raw-frame and signed-JSONL paths implemented for the current 
 
 ### Phase C — Foundry-to-TCLK binding
 
+Implemented for local proof packaging at `/deals/bundle`; see
+[format and trust boundaries](docs/WORK_DEAL_BUNDLE.md). Synthetic paper demo and
+offline CLI verification are included. No settlement execution is implemented.
+
 - Define a versioned binding without inventing fields outside `tclk/1`: a deal's existing
   job reference points to a Foundry mission, while Foundry records the exact contract and
   terminal-frame digests.
-- Attach a dossier digest to the local deal record so either party can verify the delivered
-  artifact, execution checks, review, and issuer outcome independently of the payment rail.
+- Attach a dossier digest to the local deal record so either party can verify signed
+  artifact-hash claims, execution evidence, review, and issuer outcome independently of
+  the payment rail. Artifact bytes are not embedded or rechecked by this package.
 - Export one portable proof package containing the Foundry chain and TCLK transcript, while
   preserving their separate trust statements.
 - Rehearse only with non-value rails until a value-bearing rail and its security assumptions

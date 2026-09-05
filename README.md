@@ -16,6 +16,10 @@ exposing the current unrestricted write APIs.
 
 Türkçe adım adım kullanım: [Kimlik ve katkı hazırlığı](docs/READINESS_TR.md).
 
+İş ve anlaşma kanıtlarını birlikte doğrulama: `/deals/bundle` → **Örnek paketi doğrula · DEMO**.
+Bu yerel araç para göndermez ve airdrop uygunluğu göstermez. Ayrıntılar:
+[Foundry–TCLK proof bundle](docs/WORK_DEAL_BUNDLE.md).
+
 The maintainer's [signed contribution statement](docs/participation/technocore-participation-a022410137e3f233.json)
 binds this repository and its contribution description to
 `did:key:z6MkgputwyYsihYJpxsd3Wc6so1sxuJUoJR3oEiNPU4tCyYo`.
@@ -75,6 +79,10 @@ Its room, nonce and message text are covered by the signature; the recorded sequ
   accepts one canonical content-addressed dossier plus its exact regenerated index
   per pull request, fetches no dossier-supplied URL, and derives a deterministic
   static proof-gap index.
+- Exports and verifies a local `foundry-work-deal-v1` bundle that binds a verified
+  dossier to a TCLK job, matching party DIDs and exact contract/terminal frame digests.
+  Work evidence and settlement remain independent. Verify a downloaded bundle with
+  `npm run deal:verify -- /absolute/path/to/fwd_bundle.json`.
 - Includes a local TCLK Deal Inspector. It validates one pasted/exported canonical
   `tclk1` frame chain, its offer and contract hashes, party/order constraints, and
   hash-lock witness when present. It makes no network request and never signs,
