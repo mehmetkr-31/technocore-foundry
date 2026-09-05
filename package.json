@@ -57,6 +57,8 @@
     "test:commons": "node scripts/test-commons-registry.mjs && node scripts/test-commons-pr.mjs",
     "test:inspector": "tsx scripts/test-browser-dossier-verifier.mjs",
     "test:tclk": "tsx scripts/test-browser-tclk-inspector.mjs",
+    "test:work-deal": "node --import tsx scripts/test-work-deal-bundle.ts",
+    "deal:verify": "node --import tsx scripts/verify-work-deal.ts",
     "test:onboarding": "node scripts/test-onboarding.mjs",
     "test:technocore": "tsx scripts/test-technocore-contract.ts",
     "test:participation": "tsx scripts/test-participation-bundle.mjs",

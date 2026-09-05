@@ -89,6 +89,7 @@ jobs:
       - run: npm run test:commons
       - run: npm run test:inspector
       - run: npm run test:tclk
+      - run: npm run test:work-deal
       - run: npm run test:technocore
       - run: npm run test:participation
       - run: node --import tsx scripts/test-readiness-identity.ts
