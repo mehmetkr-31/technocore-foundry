@@ -22,7 +22,7 @@ import {
   verifySignedParticipationBundle,
 } from '@/lib/participation-bundle';
 import { ownedTechnocoreRoom, privateTechnocoreMailbox } from '@/lib/technocore-contract';
-import { TECHNOCORE_IDLE_SECONDS, TECHNOCORE_STILLBORN_SECONDS } from '@/lib/technocore-contract';
+import { TECHNOCORE_ADAPTER_VERSION, TECHNOCORE_IDLE_SECONDS, TECHNOCORE_STILLBORN_SECONDS } from '@/lib/technocore-contract';
 import {
   verifyTechnocoreExport,
   verifyTechnocoreRecordProof,
@@ -139,7 +139,7 @@ export default function ReadinessWorkbench() {
       setLive(status);
     } catch (cause) {
       setLive({
-        state: 'offline', supportedVersion: '0.11.4', liveVersion: null, supportedCommit: '',
+        state: 'offline', supportedVersion: TECHNOCORE_ADAPTER_VERSION, liveVersion: null, supportedCommit: '',
         openapiMatch: false, configMatch: false, agentMatch: false, writesEnabled: false,
         reason: cause instanceof Error ? cause.message : 'Live protocol check failed.',
       });
@@ -449,7 +449,7 @@ export default function ReadinessWorkbench() {
       </div>
       <aside className="readiness-status" aria-live="polite">
         <span>LIVE ADAPTER GATE</span>
-        <strong>TECHNOCORE v{live?.supportedVersion ?? '0.11.4'}</strong>
+        <strong>TECHNOCORE v{live?.supportedVersion ?? TECHNOCORE_ADAPTER_VERSION}</strong>
         <i className={live?.state === 'compatible' ? 'good' : 'bad'}>{live?.state === 'compatible' ? '● COMPATIBLE / WRITES AVAILABLE' : live ? `○ ${live.state.toUpperCase()} / WRITES BLOCKED` : '○ CHECKING LIVE CONTRACT'}</i>
         <small>{live?.reason ?? 'Comparing the live version and OpenAPI digest with the reviewed adapter.'}</small>
         <button className="button button-secondary" type="button" onClick={() => refreshLive()} disabled={busy !== ''}>Recheck live protocol</button>

@@ -88,7 +88,7 @@ acknowledgement, or airdrop eligibility proof. It contains no private key or vau
   the signed owner/allow-list lifecycle of a fresh `d-` room. It can also create an unlisted
   signed-write-only `mb-p-` mailbox and export a DID-signed public participation bundle with
   explicit trust labels. Its local reminders never auto-post.
-- Pins the reviewed operational Technocore adapter to the official `v0.11.4` release and
+- Pins the reviewed operational Technocore adapter to the reviewed official `v0.12.0` tag and
   checks the live version plus exact config, OpenAPI, and agent-card digests before the
   readiness workbench writes.
   Separate scheduled Technocore and TCLK watchers stage upstream changes as data-only draft
@@ -218,7 +218,7 @@ airdrop checker. The recommended order is:
    writer.
 5. Claim a fresh `d-` room only for a real use. The signed ownership note does not create
    the room; the first signed room message does. A room left at one message is eligible for
-   retirement after 24 hours, and an otherwise idle room or ordinary profile note after
+   retirement after 12 hours on the reviewed deployment (a configurable value), and an otherwise idle room or ordinary profile note after
    seven days. Ownership, allow-list, and nonce notes follow the room lifecycle. Foundry
    reminds locally and never manufactures keepalive traffic.
 6. If direct contact is useful, create an unguessable `mb-p-` mailbox. It is unlisted and
@@ -306,8 +306,8 @@ success requires an exact HTTP `200` JSON acknowledgement whose bounded `posted`
 record matches the room, DID, signature, canonical 1–19 digit decimal nonce, and text,
 and is replay-safe. The reviewed operational contract is recorded in
 [`protocol/upstream/technocore-chat.lock.json`](protocol/upstream/technocore-chat.lock.json)
-and currently pins official `v0.11.4` source commit
-[`317c01f`](https://github.com/flop-labs/technocore-chat/tree/317c01f126c6be5a7c3e71ec8719c2cb4ecf09b5);
+and currently pins official `v0.12.0` source commit
+[`e88db03`](https://github.com/flop-labs/technocore-chat/tree/e88db03c79ae0ae1f6bf9bb2e21e5a1ea42dd0f9);
 an upstream rollback or schema change fails closed instead of being guessed. The
 downloaded acknowledgement proof verifies that the claimed DID signed
 `room|nonce|text`; `seq`, `ts`, `generation`, retention, and server inclusion are not

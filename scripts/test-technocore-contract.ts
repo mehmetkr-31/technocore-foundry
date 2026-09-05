@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { selectObservedTag } from './lib/technocore-watch-policy.mjs';
 import {
   createVault,
   isCanonicalTechnocoreSignature,
@@ -53,7 +55,7 @@ function readinessRequest(body: unknown, origin = localOrigin) {
 assert.equal(TECHNOCORE_RELEASE_TAG, `v${TECHNOCORE_ADAPTER_VERSION}`);
 assert.match(TECHNOCORE_OPERATIONAL_COMMIT, /^[a-f0-9]{40}$/);
 assert.equal(TECHNOCORE_IDLE_SECONDS, 7 * 24 * 60 * 60);
-assert.equal(TECHNOCORE_STILLBORN_SECONDS, 24 * 60 * 60);
+assert.equal(TECHNOCORE_STILLBORN_SECONDS, 12 * 60 * 60);
 assert.equal(assertTechnocoreRoomName(room), room);
 assert.equal(ownedTechnocoreRoom('foundry-contract'), room);
 assert.equal(ownedTechnocoreRoom(room), room);
@@ -243,7 +245,7 @@ let statusReads = 0;
 const status = await handleTechnocoreReadinessGet(new Request(`${localOrigin}/api/technocore/readiness?kind=status`), {
   upstreamFetch: async (url) => {
     statusReads += 1;
-    const body = String(url).endsWith('/config') ? '{"version":"0.11.4"}\n' : '{}\n';
+    const body = String(url).endsWith('/config') ? JSON.stringify({ version: TECHNOCORE_ADAPTER_VERSION }) : '{}\n';
     return new Response(body, { status: 200, headers: { 'Content-Type': 'application/json' } });
   },
 });
@@ -251,6 +253,31 @@ const statusBody = await status.json() as LiveTechnocoreStatus;
 assert.equal(statusBody.state, 'incompatible');
 assert.equal(statusBody.writesEnabled, false);
 assert.equal(statusReads, 3);
+
+// Replay exact reviewed live documents, then alter one document at a time.
+const snapshots = Object.fromEntries(['config', 'openapi', 'agent'].map((name) => [
+  name, readFileSync(new URL(`../protocol/upstream/technocore-live/${name}.json`, import.meta.url), 'utf8'),
+]));
+assert.equal(JSON.parse(snapshots.config).settings.stillborn_seconds, TECHNOCORE_STILLBORN_SECONDS);
+for (const changed of [null, 'config', 'openapi', 'agent']) {
+  const response = await handleTechnocoreReadinessGet(new Request(`${localOrigin}/api/technocore/readiness?kind=status`), {
+    upstreamFetch: async (url) => {
+      const name = String(url).endsWith('/config') ? 'config' : String(url).endsWith('/openapi.json') ? 'openapi' : 'agent';
+      return new Response(snapshots[name] + (changed === name ? ' ' : ''), { headers: { 'Content-Type': 'application/json' } });
+    },
+  });
+  const result = await response.json() as LiveTechnocoreStatus;
+  assert.equal(result.state, changed ? 'incompatible' : 'compatible');
+  assert.equal(result.writesEnabled, changed === null);
+}
+assert.equal(selectObservedTag('v0.11.4', '0.12.0'), 'v0.12.0');
+assert.equal(selectObservedTag('v0.12.0', '0.11.4'), 'v0.12.0');
+assert.equal(selectObservedTag('v0.9.0', '0.10.0'), 'v0.10.0');
+assert.equal(selectObservedTag('v0.12.0', null), 'v0.12.0');
+assert.equal(selectObservedTag('v0.12.0', '0.12.0'), 'v0.12.0');
+for (const bad of ['../../main', '0.12.0-rc1', '00.12.0', '0.12.0\n']) {
+  assert.throws(() => selectObservedTag('v0.11.4', bad));
+}
 
 console.log(JSON.stringify({
   technocoreContract: 'ok',

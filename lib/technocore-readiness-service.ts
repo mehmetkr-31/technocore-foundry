@@ -170,7 +170,11 @@ async function liveStatus(fetcher: typeof fetch): Promise<LiveTechnocoreStatus> 
       boundedResponse(openapiResponse),
       boundedResponse(agentResponse),
     ]);
-    const config = parseStrictJsonBytes(configBytes);
+    // Operational config contains fractional values (for example wait_poll: 0.5).
+    // It is not a signed protocol payload. Decode it for display only; compatibility
+    // still requires the SHA-256 of all three exact documents to match reviewed bytes.
+    // Signed messages, notes and receipt parsing keep their integer-only rules.
+    const config: unknown = JSON.parse(decodeStrictUtf8(configBytes));
     if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('Technocore config is malformed.');
     const liveVersion = typeof (config as Record<string, unknown>).version === 'string' ? String((config as Record<string, unknown>).version) : null;
     const [configDigest, openapiDigest, agentDigest] = await Promise.all([

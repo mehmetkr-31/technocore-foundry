@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { selectObservedTag } from './lib/technocore-watch-policy.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const lockPath = join(root, 'protocol', 'upstream', 'technocore-chat.lock.json');
@@ -13,7 +14,7 @@ const writeCandidate = args.has('--write-candidate');
 const verifyCandidateMode = args.has('--verify-candidate');
 const networkCheck = writeCandidate || args.has('--check');
 const githubToken = process.env.GITHUB_TOKEN || '';
-const watchedPaths = ['src/manual.md', 'src/app.py', 'src/store.py', 'src/didkey.py', 'README.md', 'CHANGELOG.md'];
+const watchedPaths = ['src/manual.md', 'src/app.py', 'src/store.py', 'src/didkey.py', 'README.md', 'CHANGELOG.md', 'src/config.py', 'src/manifest.py', 'src/limit.py'];
 
 function fail(message) {
   throw new Error(`Technocore upstream watch: ${message}`);
@@ -60,7 +61,7 @@ function validateLive(value, label) {
 
 function validateLock(lock) {
   exactKeys(lock, ['schema', 'authority', 'repository', 'origin', 'release', 'observedMainCommit', 'watchedFiles', 'liveBaseline', 'contract'], 'lock');
-  if (lock.schema !== 'foundry-upstream-lock-v1' || lock.authority !== 'official-github-release') fail('unsupported lock schema or authority');
+  if (lock.schema !== 'foundry-upstream-lock-v1' || !['official-github-release', 'official-reviewed-tag'].includes(lock.authority)) fail('unsupported lock schema or authority');
   if (lock.repository !== 'flop-labs/technocore-chat' || lock.origin !== 'https://technocore.chat') fail('authority target is not allow-listed');
   validateRelease(lock.release, 'release');
   if (!/^[a-f0-9]{40}$/.test(lock.observedMainCommit)) fail('observed main commit is malformed');
@@ -82,7 +83,7 @@ function validateLock(lock) {
   ) fail('reviewed lexical/signing contract drifted');
   if (
     lock.contract.messageCharacters !== 4096 || lock.contract.noteCharacters !== 8192 ||
-    lock.contract.idleSeconds !== 604800 || lock.contract.stillbornSeconds !== 86400 ||
+    lock.contract.idleSeconds !== 604800 || !Number.isSafeInteger(lock.contract.stillbornSeconds) || lock.contract.stillbornSeconds < 3600 ||
     lock.contract.exportGenerationHeader !== 'X-Room-Generation' ||
     JSON.stringify(lock.contract.signedNoteNamespaces) !== JSON.stringify(['room-owners', 'room-allow']) ||
     JSON.stringify(lock.contract.roomReadFields) !== JSON.stringify(['room', 'count', 'first_seq', 'last_seq', 'generation', 'messages']) ||
@@ -185,22 +186,24 @@ async function githubFile(repository, commit, path) {
 async function collectSnapshot(lock) {
   const release = await githubJson(`/repos/${lock.repository}/releases/latest`);
   if (!release || release.draft || release.prerelease || !/^v\d+\.\d+\.\d+$/.test(release.tag_name)) fail('latest official release metadata is malformed');
-  const releaseCommit = await resolveTagCommit(lock.repository, release.tag_name);
+  // A deployment may precede its GitHub release object. Require an exact official tag.
+  const configBytes = await boundedFetch(`${lock.origin}/config`, 128 * 1024, 'application/json');
+  const config = JSON.parse(configBytes.toString('utf8'));
+  const liveVersion = typeof config?.version === 'string' ? config.version : null;
+  const tag = selectObservedTag(release.tag_name, liveVersion);
+  const releaseCommit = await resolveTagCommit(lock.repository, tag);
   const repository = await githubJson(`/repos/${lock.repository}`);
   if (!repository || typeof repository.default_branch !== 'string') fail('repository metadata omitted default branch');
   const head = await githubJson(`/repos/${lock.repository}/commits/${encodeURIComponent(repository.default_branch)}`);
   if (!head || !/^[a-f0-9]{40}$/.test(head.sha)) fail('default branch head is malformed');
   const watchedFiles = [];
   for (const item of lock.watchedFiles) watchedFiles.push(await githubFile(lock.repository, releaseCommit, item.path));
-  const [configBytes, openapiBytes, agentBytes] = await Promise.all([
-    boundedFetch(`${lock.origin}/config`, 128 * 1024, 'application/json'),
+  const [openapiBytes, agentBytes] = await Promise.all([
     boundedFetch(`${lock.origin}/openapi.json`, 512 * 1024, 'application/json'),
     boundedFetch(`${lock.origin}/.well-known/agent.json`, 128 * 1024, 'application/json'),
   ]);
-  const config = JSON.parse(configBytes.toString('utf8'));
-  const liveVersion = typeof config?.version === 'string' ? config.version : null;
   return {
-    release: { tag: release.tag_name, version: release.tag_name.slice(1), commit: releaseCommit },
+    release: { tag, version: tag.slice(1), commit: releaseCommit },
     observedMainCommit: head.sha,
     watchedFiles,
     live: {

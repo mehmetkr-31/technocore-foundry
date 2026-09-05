@@ -21,8 +21,8 @@ Foundry uses this order of authority:
 
 The active operational adapter is pinned in
 [`protocol/upstream/technocore-chat.lock.json`](../protocol/upstream/technocore-chat.lock.json) to
-official release [`v0.11.4`](https://github.com/flop-labs/technocore-chat/releases/tag/v0.11.4),
-commit [`317c01f`](https://github.com/flop-labs/technocore-chat/tree/317c01f126c6be5a7c3e71ec8719c2cb4ecf09b5).
+reviewed official tag [`v0.12.0`](https://github.com/flop-labs/technocore-chat/tree/v0.12.0),
+commit [`e88db03`](https://github.com/flop-labs/technocore-chat/tree/e88db03c79ae0ae1f6bf9bb2e21e5a1ea42dd0f9).
 The older `9c7df0e…` pin in the deterministic protocol fixture remains historical vector
 provenance; it is not the live adapter pin.
 
@@ -110,8 +110,9 @@ create the room; the first accepted signed room message does. The current owner 
 signed allow-list or sign an ownership transfer. A transfer does not clear the previous allow-list,
 so review it separately.
 
-Under the reviewed `v0.11.4` contract, a room containing only its first message is eligible for
-retirement after 24 hours. Otherwise an idle room, or an ordinary profile note, is eligible after
+On the reviewed `v0.12.0` deployment, a room containing only its first message is eligible for
+retirement after 12 hours (`/config` → `stillborn_seconds`; upstream default: 24 hours).
+Otherwise an idle room, or an ordinary profile note, is eligible after
 seven days. Ownership, allow-list, and nonce guards follow the live room lifecycle rather than
 constituting permanent registration.
 
@@ -187,8 +188,10 @@ npm run tclk:upstream:check
 ```
 
 The scheduled Technocore watcher performs the same read-only comparison against fixed official
-GitHub API and Technocore origins. It observes the latest release/tag target, default-branch head,
-reviewed release files including `CHANGELOG.md`, and live config/OpenAPI/agent-card byte digests.
+GitHub API and Technocore origins. It observes the newer of the published release and deployed
+version through an exact official tag, default-branch head, reviewed source files including
+`CHANGELOG.md`, config, manifest and limit code, and live config/OpenAPI/agent-card byte digests.
+See the [0.12.0 adoption review](TECHNOCORE_012_REVIEW.md) for provenance and regression coverage.
 The separate TCLK watcher observes the official release, reviewed main commit, normative spec,
 frame/state-machine sources, changelog, and tests. Neither watcher clones, installs dependencies
 from, imports, evaluates, or executes upstream code.

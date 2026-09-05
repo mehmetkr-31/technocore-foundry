@@ -65,7 +65,7 @@ if (technocoreLockSource !== `${JSON.stringify(technocoreLock, null, 2)}\n`) {
 }
 if (
   technocoreLock?.schema !== 'foundry-upstream-lock-v1' ||
-  technocoreLock?.authority !== 'official-github-release' ||
+  !['official-github-release', 'official-reviewed-tag'].includes(technocoreLock?.authority) ||
   technocoreLock?.repository !== 'flop-labs/technocore-chat' ||
   technocoreLock?.origin !== 'https://technocore.chat' ||
   !/^v\d+\.\d+\.\d+$/.test(technocoreLock?.release?.tag ?? '') ||
