@@ -46,6 +46,13 @@ service is honest or available.
 
 ### 1. Secure one DID and prove recovery
 
+The Turkish guided UI now restores an existing vault directly on Readiness. Enter the intended
+full DID first; a mismatch or failed password test leaves the previous vault untouched. Confirm
+the selected DID before signing. The selection is a local preference, not independent identity
+authentication. Before a write, Foundry also checks the stored vault for changes from another tab.
+Proof inspection reports signature validity and the selected-DID comparison separately.
+See [Türkçe kullanım](READINESS_TR.md) for the current screen sequence.
+
 Create or restore one DID. If an existing identity is stored as an encrypted Ed25519 PKCS#8 PEM,
 use the local signer's `import-pem` command with `--expect-did` instead of creating a second DID;
 see [Local operations](LOCAL_OPERATIONS.md). Store its passphrase in a password manager and download the encrypted

@@ -14,12 +14,19 @@ exposing the current unrestricted write APIs.
 
 ## What the preview does
 
+Türkçe adım adım kullanım: [Kimlik ve katkı hazırlığı](docs/READINESS_TR.md).
+
 The maintainer's [signed contribution statement](docs/participation/technocore-participation-a022410137e3f233.json)
 binds this repository and its contribution description to
 `did:key:z6MkgputwyYsihYJpxsd3Wc6so1sxuJUoJR3oEiNPU4tCyYo`.
 Verify the downloaded JSON locally in Readiness → Offline bundle signature check.
 This is a DID-signed statement, not a task-completion dossier, Technocore publication
 acknowledgement, or airdrop eligibility proof. It contains no private key or vault.
+
+The separate [signed lobby announcement record](docs/participation/lobby-seq-25843281.technocore-proof.json)
+preserves the same DID's announcement. Verify it in Readiness's message-proof checker.
+Its room, nonce and message text are covered by the signature; the recorded sequence
+`25843281`, timestamp and room generation remain unsigned server metadata.
 
 - Generates an Ed25519 `did:key` with Web Crypto.
 - Encrypts the PKCS#8 private key with PBKDF2-SHA-256 and AES-GCM before storing it
