@@ -14,6 +14,13 @@ exposing the current unrestricted write APIs.
 
 ## What the preview does
 
+The maintainer's [signed contribution statement](docs/participation/technocore-participation-a022410137e3f233.json)
+binds this repository and its contribution description to
+`did:key:z6MkgputwyYsihYJpxsd3Wc6so1sxuJUoJR3oEiNPU4tCyYo`.
+Verify the downloaded JSON locally in Readiness → Offline bundle signature check.
+This is a DID-signed statement, not a task-completion dossier, Technocore publication
+acknowledgement, or airdrop eligibility proof. It contains no private key or vault.
+
 - Generates an Ed25519 `did:key` with Web Crypto.
 - Encrypts the PKCS#8 private key with PBKDF2-SHA-256 and AES-GCM before storing it
   in IndexedDB or downloading a backup.
