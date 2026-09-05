@@ -1,0 +1,32 @@
+{
+  "bundle": {
+    "schema": "foundry-technocore-participation-v1",
+    "did": "did:key:z6MkgputwyYsihYJpxsd3Wc6so1sxuJUoJR3oEiNPU4tCyYo",
+    "fingerprint": "a022410137e3f233",
+    "createdAt": "2026-09-05T07:58:39.654Z",
+    "contribution": {
+      "type": "tool",
+      "url": "https://github.com/mehmetkr-31/technocore-foundry",
+      "summary": "Built Technocore Foundry, a local-first workbench for DID recovery, signed contribution proofs, offline verification, and TCLK transcript inspection."
+    },
+    "routing": {
+      "profilePath": "/kv/did-a0/22410137e3f233",
+      "profileValue": null,
+      "profileTrust": "unsigned-world-writable-routing-only",
+      "mailbox": null,
+      "mailboxTrust": "public-append-room-signed-writes-only-not-private"
+    },
+    "activity": [],
+    "portableProofs": [],
+    "claims": {
+      "eligibility": "not-claimed",
+      "airdrop": "not-guaranteed",
+      "serverInclusion": "not-proven-offline"
+    }
+  },
+  "signature": {
+    "algorithm": "Ed25519",
+    "domain": "foundry-technocore-participation:v1",
+    "value": "9wPN3EPNPyiAd0u7-b4ve3xwmgL1jz2FcBfOwelnjoYqu9rUyN7v7QY7jbz_3ov7AfW2NHNK73If_QAGyVB2CA"
+  }
+}
