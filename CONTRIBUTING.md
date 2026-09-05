@@ -55,6 +55,20 @@ text, fixtures, and assets.
 
 Security vulnerabilities belong in a [private report](SECURITY.md), not a public issue.
 
+## Dependency maintenance
+
+Dependabot checks npm and GitHub Actions weekly on Monday (Europe/Istanbul). Minor and
+patch version updates are grouped, with at most one open version-update pull request per
+ecosystem (two total). Major version updates require a deliberate maintainer review.
+Security alerts should still be reviewed independently; these version-update limits are
+not a promise that security-update pull requests will be quiet.
+
+For a dependency pull request, review the lockfile and run the affected checks. Stage the
+reviewed changes before running `npm run release:artifacts`, then commit the generated
+release files with the update. The release drift gate also covers workflow and documentation
+changes; a red drift check alone does not demonstrate a runtime incompatibility. Do not
+disable the gate or merge a dependency change with failing functional checks.
+
 ## Proof Commons admission
 
 Proof Commons is deliberately narrower than a general code pull request. An admission pull request
