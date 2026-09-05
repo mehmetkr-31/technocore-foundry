@@ -300,17 +300,34 @@ button { font: inherit; }
 .protocol-section { border-top: 1px solid var(--line); background: var(--paper); color: var(--ink); }
 
 .readiness-page { min-height: 100vh; }
+.readiness-next { padding: 24px 5vw; border-bottom: 1px solid var(--line); background: var(--ink-soft); }
+.readiness-next strong { font-size: 22px; color: var(--acid); }
+.readiness-next p, .readiness-help { font-size: 16px; line-height: 1.6; color: var(--paper-dim); }
+.readiness-next a { padding: 10px 0; color: var(--cyan); text-decoration: underline; }
+.readiness-page code { overflow-wrap: anywhere; }
+.readiness-restore { margin: 24px 0; border: 1px solid var(--line); padding: 20px; }
+.readiness-restore summary, .readiness-optional > summary { cursor: pointer; font-size: 18px; color: var(--cyan); }
+.readiness-optional { grid-column: 1 / -1; background: var(--ink); }
+.readiness-optional > summary { padding: 28px 5vw; }
+.readiness-optional-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr)); }
+.identity-evidence { display: grid; gap: 12px; padding: 20px; border: 1px solid var(--cyan); font-size: 16px; }
+.identity-evidence.mismatch { border-color: #ff905c; }
+.identity-evidence.mismatch strong { color: #ffb28d; }
+.readiness-panel[id] { scroll-margin-top: 24px; }
+.readiness-page .panel-heading p { font-size: 16px; line-height: 1.6; }
+.readiness-page .identity-ready code, .readiness-page .readiness-status small,
+.readiness-page .verify-banner small { font-size: 14px; line-height: 1.5; }
 .readiness-hero {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
   gap: 7vw;
   align-items: end;
-  padding: 92px 7vw 72px;
+  padding: 36px 5vw;
   border-bottom: 1px solid var(--line);
   background-image: linear-gradient(rgba(86, 217, 232, 0.055) 1px, transparent 1px), linear-gradient(90deg, rgba(86, 217, 232, 0.055) 1px, transparent 1px);
   background-size: 64px 64px;
 }
-.readiness-hero h1 { margin: 0; font-size: clamp(48px, 6.5vw, 92px); font-weight: 500; letter-spacing: -0.06em; line-height: 0.94; }
+.readiness-hero h1 { margin: 0; font-size: clamp(32px, 4vw, 52px); font-weight: 500; letter-spacing: -0.04em; line-height: 1.1; }
 .readiness-hero h1 em { color: var(--acid); font-family: Georgia, 'Times New Roman', serif; font-weight: 400; }
 .readiness-hero > div > p:last-child { max-width: 720px; margin: 32px 0 0; color: var(--paper-dim); font-size: 18px; line-height: 1.6; }
 .readiness-status { display: grid; gap: 14px; border: 1px solid rgba(86, 217, 232, 0.42); padding: 28px; background: rgba(16, 21, 27, 0.94); box-shadow: 18px 18px 0 rgba(86, 217, 232, 0.06); }
@@ -334,26 +351,29 @@ button { font: inherit; }
 .readiness-banner.valid { background: rgba(184, 242, 56, 0.08); color: var(--acid); }
 .readiness-banner.invalid { background: rgba(255, 104, 77, 0.09); color: #ff9c89; }
 .readiness-banner button { border: 0; background: transparent; color: inherit; cursor: pointer; }
-.readiness-progress { display: grid; grid-template-columns: repeat(5, 1fr); border-bottom: 1px solid var(--line); }
+.readiness-progress { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--line); }
 .readiness-progress article { display: grid; min-height: 108px; align-content: center; gap: 12px; padding: 22px 2.2vw; border-right: 1px solid var(--line); }
 .readiness-progress article:last-child { border-right: 0; }
-.readiness-progress span, .readiness-progress strong { font-family: var(--font-geist-mono), monospace; font-size: 9px; letter-spacing: 0.08em; }
+.readiness-progress span, .readiness-progress strong { font-family: var(--font-geist-mono), monospace; font-size: 14px; letter-spacing: 0.04em; }
 .readiness-progress span { color: #78838b; }
 .readiness-progress strong { color: var(--acid); }
-.readiness-workflow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; padding: 1px; background: var(--line); }
+.readiness-workflow { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; padding: 1px; background: var(--line); }
 .readiness-panel { min-width: 0; padding: 58px 5vw 64px; background: var(--ink); }
+.readiness-workflow > .readiness-panel > .readiness-form,
+.readiness-workflow > .readiness-panel > .readiness-restore,
+.readiness-workflow > .readiness-panel > .identity-ready { max-width: 960px; }
 .readiness-panel.wide-panel { grid-column: 1 / -1; }
 .panel-heading > span { color: var(--cyan); font-family: var(--font-geist-mono), monospace; font-size: 10px; letter-spacing: 0.09em; }
 .panel-heading h2 { max-width: 660px; margin: 18px 0 14px; font-size: clamp(30px, 3.5vw, 54px); font-weight: 500; letter-spacing: -0.05em; line-height: 1; }
 .panel-heading > p { max-width: 720px; margin: 0; color: #8d969d; line-height: 1.6; }
 .readiness-form { display: grid; gap: 18px; margin-top: 34px; }
 .readiness-form h3 { margin: 0; font-size: 18px; font-weight: 500; }
-.readiness-form label { display: grid; gap: 9px; color: #a8afb4; font-size: 12px; }
-.readiness-form input:not([type='checkbox']), .readiness-form textarea { width: 100%; border: 1px solid var(--line); border-radius: 0; outline: 0; background: var(--ink-soft); color: var(--paper); padding: 13px 14px; font: 12px/1.5 var(--font-geist-mono), monospace; resize: vertical; }
+.readiness-form label { display: grid; gap: 9px; color: #c4cbd0; font-size: 16px; }
+.readiness-form input:not([type='checkbox']), .readiness-form textarea { width: 100%; border: 1px solid var(--line); border-radius: 0; outline: 0; background: var(--ink-soft); color: var(--paper); padding: 13px 14px; font: 16px/1.5 var(--font-geist-mono), monospace; resize: vertical; }
 .readiness-form input:focus, .readiness-form textarea:focus { border-color: var(--cyan); }
 .readiness-form input[type='file'] { padding: 10px; }
 .readiness-form > .button, .readiness-actions .button { width: max-content; max-width: 100%; }
-.readiness-form > p, .readiness-form small { margin: 0; color: #737e86; font-size: 10px; line-height: 1.55; }
+.readiness-form > p, .readiness-form small { margin: 0; color: #a8afb4; font-size: 14px; line-height: 1.55; }
 .readiness-form > code { overflow-wrap: anywhere; color: var(--cyan); font-size: 10px; }
 .check-row { grid-template-columns: 18px minmax(0, 1fr); align-items: start; line-height: 1.45; }
 .check-row input { width: 16px; height: 16px; margin: 0; accent-color: var(--acid); }

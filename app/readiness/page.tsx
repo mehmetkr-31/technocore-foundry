@@ -3,8 +3,8 @@ import Link from 'next/link';
 import ReadinessWorkbench from './readiness-workbench';
 
 export const metadata: Metadata = {
-  title: 'Technocore Readiness — Technocore Foundry',
-  description: 'Prepare one recoverable DID, preserve signed Technocore evidence, and track protocol drift without farming activity.',
+  title: 'Kimlik ve katkı hazırlığı — Technocore Foundry',
+  description: 'Mevcut DID kasanı yükle, yedeğini test et ve katkı kanıtını doğru kimlikle imzala.',
 };
 
 export default function ReadinessPage() {

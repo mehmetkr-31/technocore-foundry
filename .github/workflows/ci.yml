@@ -91,6 +91,7 @@ jobs:
       - run: npm run test:tclk
       - run: npm run test:technocore
       - run: npm run test:participation
+      - run: node --import tsx scripts/test-readiness-identity.ts
       - run: npm run upstream:verify
       - run: npm run tclk:upstream:verify
       - run: npm run test:onboarding
