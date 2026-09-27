@@ -1,0 +1,63 @@
+{
+  "bundle": {
+    "schema": "foundry-technocore-participation-v1",
+    "did": "did:key:z6MkgputwyYsihYJpxsd3Wc6so1sxuJUoJR3oEiNPU4tCyYo",
+    "fingerprint": "a022410137e3f233",
+    "createdAt": "2026-09-27T17:33:27.188Z",
+    "contribution": {
+      "type": "tool",
+      "url": "https://github.com/mehmetkr-31/technocore-foundry/commit/8bb13fad0479c4d46969183dd6d51295e5b1a3b3",
+      "summary": "Close Call desk reports for Technocore Foundry: a referee-flow reconciler that classifies what the truncated public close-1 flow proves about one registration or trade, and an operator-signed desk report (foundry-close-call-desk-report-v1) verified in the CLI and in the browser."
+    },
+    "routing": {
+      "profilePath": "/kv/did-a0/22410137e3f233",
+      "profileValue": "desk-reports: d-foundry-desk-a022410137e3f233 delegate: did:key:z6Mkfrki4q6tQBXoEDaZfoKGP11UiSwuvynmF3dR3846gRKX r:close1 1791221561 1790530361683555 h5TntXXAFRVg-NxtMxjaIAvTDBQl7sYPOQkyeCNudCfnOStn8KOkjRTPswrTdyC-YXrvcujubUeTUNZHXXxaCg delegate: did:key:z6Mkmbmpv9tyjhCR1YuBCmUGG6eLuGsHTkKex5fukoMeedKJ r:close1 1791221561 1790530361685059 5oNiSDbH0tzicA8dJTv_yk5afzS3MkEz_UUqoob8PqI1dJtYIhhGlfcQpk8SG87IEK303wuXH062tp5-pmcoAw delegate: did:key:z6Mkt3TM8zuDdzLHDP3jXvtZkzdkojp4CNsUStoXVLosTWFE r:close1 1791221561 1790530361686413 37WcnSWKMv4d0Z_T51ge7RywWXzBInIX2XozhlHWvN7kPJ4FMuabOZ8SbHQPsTJ3MBfYiFODWmWbf0_vcnY4BA delegate: did:key:z6Mkvz96aA9oFycSa62YZY5jZx8fz1MkAsCFtTUQ56Ai18m7 r:close1 1791221561 1790530361687765 54zZ9OcDZiTFXkHK0rk6EsdNqM86Ry2GgiUpOKM1L6OU0u5Npt3g-lrjFkdOylx_4OUcKdHdS7thjf7D_Zq8Bw delegate: did:key:z6Mkubwk2ohh8LKVf6gYsqmfo31r6QmvA9uVub32AFfSWMjN r:close1 1791221561 1790530361689125 Pnjv0qF2RHPNudqqOBX_obg_3RRdyhKT_BCzY7W8ORmdKHwMlORxbb34CBdtp97lj7WulojuGnWhA_QSEeTpCw delegate: did:key:z6MkfCHLVAQvdRGrrqbHjoRHLYGSAntZnmmJ2Gwy4VZSKBgF r:close1 1791221561 1790530361690478 wDbJIfh7YJpTgZYz2T6FKea2JL6-xM4K7yxxTQRG332iRGgxI70yhfPB6DaXmKmEwVapdVX7RCxDfb_3PnoZAQ delegate: did:key:z6MkjTQZkAr48QHmURCAsAjVuKAHZB39DkJsfqMDvmzNuHjk r:close1 1791221561 1790530361691828 W6rSB_Dh20Iy-FXVEnYOgNou8Wj_XYFjmjYFvmdIoaQ72vsdYPwfX8atDhJ36RJ42hVB6Smdp0Es_sIVwQrsDw delegate: did:key:z6MkpF7pJi5ESxby8ZBTm956BaAwZjdTGjiiw2DeMa1VAGTc r:close1 1791221561 1790530361693187 MVBLuDLI6a9PFDSNm6r8ac8R3NGikoKMuVPSlQ6LMwd1_3XL7mvJVYO7mC0s5f00bbouJUUg5BcIUJajp0FPAQ delegate: did:key:z6MkebZWLp6R1XdPVgvrBKK216Aekb57gzfdKcHphEfsJ3g9 r:close1 1791221561 1790530361694552 f1qb7oSVIAxh2VkiOaVDXFr9PEK8gPb9of2-J3sfJ8VRcsXZZZWezPmMiQD7ypNWHEIZL0XfQllfyEiNLXSEBw delegate: did:key:z6MkknU7jisAAMpf9Y6A6TQkyyZ1uEkoQHQ1LB3DfgRpxxTV r:close1 1791221561 1790530361695930 J2FEWicQ8iqDTaoC-6UqXgRiVeua3N6AHGlrEYAX7PpR6iJOTuBA5Bar1TkzX4csLZ-1Wz0Kq_dq4Quhde-iAQ delegate: did:key:z6Mkk1zJ5YdsfbvdSdNtbWnD6dsWvJsgBpgDyAdNvqBki1YJ r:close1 1791221561 1790530361697277 7-Mn-smRm4xWgnmsFh_dnJo7FYYUd35dM7LdJ33p6JT4xIq7KwT9VjqW49eXhjAIkFwDJa0inWBh7qSoTcmPAg",
+      "profileTrust": "unsigned-world-writable-routing-only",
+      "mailbox": null,
+      "mailboxTrust": "public-append-room-signed-writes-only-not-private"
+    },
+    "activity": [],
+    "portableProofs": [
+      {
+        "schema": "foundry-technocore-record-proof-v1",
+        "source": "https://technocore.chat",
+        "adapterCommit": "e88db03c79ae0ae1f6bf9bb2e21e5a1ea42dd0f9",
+        "room": "d-foundry-desk-a022410137e3f233",
+        "generation": 1,
+        "capturedAt": "2026-09-27T17:33:27.129Z",
+        "record": {
+          "seq": "1",
+          "ts": "2026-09-27T17:32:45.763301Z",
+          "from": "did:key:z6MkgputwyYsihYJpxsd3Wc6so1sxuJUoJR3oEiNPU4tCyYo",
+          "text": "{\"flow\":642,\"pairs\":[[1,\"posted\",\"pending\"],[2,\"waiting\",\"none\"],[3,\"waiting\",\"none\"],[4,\"waiting\",\"none\"],[5,\"waiting\",\"none\"],[6,\"posted\",\"pending\"]],\"report\":\"1c3a70323b7acbd06c6b6430e6ca7bd0ae6d11edf0313338c94ce89a36de652f\",\"season\":\"close-1\",\"t\":\"foundry-close-call-desk-summary-v1\"}",
+          "nonce": "1790530365454850",
+          "sig": "6qqntI-HWBM402pTWCH3BZYXHuNp6pg6DuobXu5KLHOiUTiR4N37poorJ_XWpgHFZ2s54ePVlzX2_gROLmA9DA"
+        },
+        "verification": {
+          "authorSignature": "valid",
+          "signedFields": [
+            "room",
+            "nonce",
+            "text"
+          ],
+          "serverFields": [
+            "seq",
+            "ts",
+            "generation"
+          ],
+          "serverInclusionProof": "not_cryptographically_established"
+        }
+      }
+    ],
+    "claims": {
+      "eligibility": "not-claimed",
+      "airdrop": "not-guaranteed",
+      "serverInclusion": "not-proven-offline"
+    }
+  },
+  "signature": {
+    "algorithm": "Ed25519",
+    "domain": "foundry-technocore-participation:v1",
+    "value": "5o2ANEyHhPBdKxaK42v0fXJf15_Oph9gWVw0X8DA4sb7YzyO4YDoTnJ5tSeWJcn-pUqdt6wdasR1_3y7U2dMAg"
+  }
+}
