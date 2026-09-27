@@ -33,7 +33,8 @@ assert.equal(trade('c', '350', 0, 12).status, 'hidden', 'a missed range in anoth
 assert.deepEqual(trade('d', '999', 6, 11), { status: 'hidden', reason: trade('d', '999', 6, 11).reason, sweep: null, hidden: 5 });
 assert.equal(trade('e', '999', 11, 13).status, 'absent', 'complete lists after posting: the referee never listed it');
 assert.equal(trade('f', '999', 21, 13).status, 'absent', 'no sweep between posting and expiry');
-assert.equal(trade('g', '999', 11, 14).status, 'pending');
+assert.equal(trade('g', '999', 11, 15).status, 'pending');
+assert.equal(trade('g', '999', 11, 14).status, 'absent', 'the until sweep is published: decided, not pending');
 assert.equal(trade('h', '999', 0, 11).hidden, 5);
 assert.throws(() => trade('i', '1', Number.NaN, 12));
 
