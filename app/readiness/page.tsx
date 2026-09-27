@@ -12,7 +12,7 @@ export default function ReadinessPage() {
     <main className="artifact-page readiness-page">
       <nav className="artifact-nav">
         <Link className="brand" href="/"><span className="brand-mark">TF</span><span>TECHNOCORE / FOUNDRY</span></Link>
-        <div><Link href="/commons">Commons</Link><Link href="/deals">Deal Inspector</Link><Link href="/protocol">Protocol Lab</Link><Link href="/">Foundry →</Link></div>
+        <div><Link href="/close-call">Close Call</Link><Link href="/commons">Commons</Link><Link href="/deals">Deal Inspector</Link><Link href="/protocol">Protocol Lab</Link><Link href="/">Foundry →</Link></div>
       </nav>
 
       <ReadinessWorkbench />

@@ -266,7 +266,7 @@ async function validateCandidate(lock, candidate) {
   if (JSON.stringify(candidate.reasons) !== JSON.stringify(expectedReasons)) fail('candidate reasons do not match the observed snapshot');
   for (const reason of candidate.reasons) {
     exactKeys(reason, ['severity', 'code', 'expected', 'observed'], `candidate reason ${reason?.code ?? '?'}`);
-    if (!['critical', 'operational', 'review'].includes(reason.severity) || typeof reason.code !== 'string' || !/^[a-z0-9_./:-]{1,96}$/.test(reason.code)) {
+    if (!['critical', 'operational', 'review'].includes(reason.severity) || typeof reason.code !== 'string' || !/^[A-Za-z0-9_./:-]{1,96}$/.test(reason.code)) {
       fail('candidate reason is malformed');
     }
     for (const field of ['expected', 'observed']) {
