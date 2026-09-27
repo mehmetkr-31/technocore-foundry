@@ -40,6 +40,8 @@ dosyada, kendi DID’iyle imzalayarak yayımlayabilir: `foundry-close-call-desk-
 - `report` alt komutu imzasız raporu stdout’a yazar. Girdi, operatörün yerel masa durumudur:
   `state.json` (`registered`, `pairs[].attempts[]`: `id`, `px`, `qty`, `until`, `seq`, `posted_at`)
   ve herkese açık `keys.json` (`k01`…: DID). Özel anahtar okunmaz.
+- Bir masa kilide kadar yeniden deneyebilir. Rapor her çift için en fazla 16 deneme taşır: hakemin
+  listelediği her sonuç (`settled`/`void`) korunur, kalan yer en yeni denemelere ayrılır.
 - Operatör, `foundry-close-call-desk-report:v1\0` + kanonik JSON baytlarını Ed25519 ile imzalar.
   Kanonik JSON: anahtarlar Unicode sırasında, boşluksuz, yalnızca güvenli tam sayılar
   (Python’da `json.dumps(sort_keys=True, separators=(',', ':'), ensure_ascii=False)`).
