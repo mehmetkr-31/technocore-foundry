@@ -118,6 +118,22 @@ offline CLI verification are included. No settlement execution is implemented.
 - Rehearse only with non-value rails until a value-bearing rail and its security assumptions
   are officially specified and independently reviewed.
 
+### Interoperability prerequisite — multi-room audit
+
+The initial offline hash-lock profile is implemented as `npm run deal:audit`:
+two exact JSONL exports, selected contract, signed authors, protocol rooms and
+separate unsigned-export-time checks. See [usage](docs/TCLK_MULTIROOM_TR.md).
+This does not change v1 bundle semantics or claim general upstream auditor parity.
+
+Remaining, in order:
+
+1. Implemented: optional `deal:audit --paper` observations distinguish missing records
+   from request errors, malformed values and mismatches; no payment or historical funding claim.
+2. Implemented: `deal:bundle` creates/verifies multi-room v2 packages, preserves exact
+   sources, recomputes saved-note consistency and keeps collector provenance untrusted.
+3. Turkish browser workflow over the same offline core.
+4. Explicitly approved non-value interoperability trial with a real counterparty.
+
 ### Phase D — Testnet usage adapter
 
 Blocked on the official testnet API, receipt schemas, chain identifiers, and signing rules.

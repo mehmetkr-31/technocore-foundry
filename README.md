@@ -14,11 +14,20 @@ exposing the current unrestricted write APIs.
 
 ## What the preview does
 
+The local [Close Call desk](docs/CLOSE_CALL_TR.md) (`/close-call`) verifies contest data and supports registration, offers, and acceptance using the existing encrypted vault. Publishing real contest messages requires explicit approval; the desk does not infer missing balances, settle trades, or retry failed writes.
+
 Türkçe adım adım kullanım: [Kimlik ve katkı hazırlığı](docs/READINESS_TR.md).
 
 İş ve anlaşma kanıtlarını birlikte doğrulama: `/deals/bundle` → **Örnek paketi doğrula · DEMO**.
 Bu yerel araç para göndermez ve airdrop uygunluğu göstermez. Ayrıntılar:
 [Foundry–TCLK proof bundle](docs/WORK_DEAL_BUNDLE.md).
+
+İki ayrı oda kaydını çevrimdışı denetleme (hash-lock, CLI):
+`npm run deal:audit -- offers.jsonl deal.jsonl 0x<contract-id>`.
+[Türkçe kullanım ve güven sınırları](docs/TCLK_MULTIROOM_TR.md).
+
+Çok-odalı paket v2: `npm run deal:bundle -- --help`.
+[Paketleme ve çevrimdışı doğrulama](docs/WORK_DEAL_V2_TR.md).
 
 The maintainer's [signed contribution statement](docs/participation/technocore-participation-a022410137e3f233.json)
 binds this repository and its contribution description to
