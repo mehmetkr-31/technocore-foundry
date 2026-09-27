@@ -92,6 +92,14 @@ export function classifyRegistration(flows: FlowRecord[], owner: DeskMessage & {
   return evidence('absent', null, 'Kayıttan sonraki tahsis listeleri eksiksizdi ve DID yok.');
 }
 
+/** A desk may retry until the lock; the report keeps every listed outcome and fills the rest with the newest. */
+function attemptWindow(attempts: DeskAttempt[]) {
+  const listed = attempts.filter((a) => a.evidence.status === 'settled' || a.evidence.status === 'void').slice(-MAX_ATTEMPTS);
+  const room = MAX_ATTEMPTS - listed.length;
+  const recent = room > 0 ? attempts.filter((a) => !listed.includes(a)).slice(-room) : [];
+  return attempts.filter((a) => listed.includes(a) || recent.includes(a));
+}
+
 type DeskState = {
   registered: Record<string, { seq: number | string; ts: string }>;
   pairs: { pair: number; long: string; short: string; status: string;
@@ -120,12 +128,12 @@ export function buildDeskReport(input: ReportInput): DeskReport {
   });
   const pairs: DeskPair[] = input.state.pairs.map((p) => {
     if (!(p.long in names) || !(p.short in names)) throw new Error(`Çift ${p.pair}: bilinmeyen anahtar.`);
-    return { pair: p.pair, long: p.long, short: p.short, status: p.status,
-      attempts: p.attempts.filter((a) => a.seq !== undefined).map((a) => {
-        const message = { seq: String(a.seq), postedAt: new Date(Math.round(a.posted_at * 1000)).toISOString() };
-        return { id: a.id, px: a.px, qty: a.qty, until: a.until, ...message,
-          evidence: classifyTrade(flows, { ...message, id: a.id, until: a.until }) };
-      }) };
+    const posted = p.attempts.filter((a) => a.seq !== undefined).map((a) => {
+      const message = { seq: String(a.seq), postedAt: new Date(Math.round(a.posted_at * 1000)).toISOString() };
+      return { id: a.id, px: a.px, qty: a.qty, until: a.until, ...message,
+        evidence: classifyTrade(flows, { ...message, id: a.id, until: a.until }) };
+    });
+    return { pair: p.pair, long: p.long, short: p.short, status: p.status, attempts: attemptWindow(posted) };
   });
   const report: DeskReport = {
     schema: DESK_REPORT_SCHEMA, season: 'close-1', operator: input.operator, createdAt: input.createdAt,

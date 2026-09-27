@@ -64,6 +64,13 @@ assert.throws(() => buildDeskReport({ ...input, keys: { x1: k01.did } }));
 assert.throws(() => buildDeskReport({ ...input, state: { ...state, pairs: [{ ...state.pairs[1], short: 'k09' }] } }));
 assert.throws(() => buildDeskReport({ ...input, flows: [] }));
 
+// A desk retrying until the lock: the report keeps the listed outcome and the newest attempts, in order.
+const many = Array.from({ length: 40 }, (_, i) => ({ id: i === 3 ? 'a' : `r${i}`, px: '225.17', qty: '43.31', until: 12, seq: 100 + i, posted_at: (T + 60_000) / 1000 }));
+const windowed = buildDeskReport({ ...input, state: { ...state, pairs: [{ ...state.pairs[0], attempts: many }] } }).pairs[0].attempts;
+assert.equal(windowed.length, 16);
+assert.deepEqual(windowed.map((a) => a.id), ['a', ...many.slice(-15).map((a) => a.id)]);
+assert.equal(windowed[0].evidence.status, 'settled');
+
 const signed = await signDeskReport(report, operator.pair.privateKey);
 const text = JSON.stringify(signed);
 const { sha256 } = await verifyDeskReport(text);
