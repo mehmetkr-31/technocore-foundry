@@ -72,7 +72,8 @@ export function classifyTrade(flows: FlowRecord[], trade: DeskMessage & { id: st
   const latest = flows.reduce((m, f) => Math.max(m, f.n), 0);
   const eligible = after(flows, trade.postedAt).filter((f) => f.n <= trade.until);
   const hidden = eligible.reduce((m, f) => m + f.omitted.settled + f.omitted.void, 0);
-  if (latest <= trade.until) return evidence('pending', null, '', hidden);
+  // Flow n reports sweep n, so once the `until` sweep is published the trade is decided.
+  if (latest < trade.until) return evidence('pending', null, '', hidden);
   if (hidden) return evidence('hidden', null, 'Uygun turlarda sonuçların bir kısmı yalnızca sayı olarak yayımlandı.', hidden);
   return evidence('absent', null, eligible.length ? 'Uygun turların listeleri eksiksizdi ve kimlik yok: hakem okumamış olabilir.'
     : 'Gönderimden sonra son tura kadar hakem turu yayımlanmadı.');
