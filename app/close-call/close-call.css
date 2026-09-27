@@ -51,3 +51,9 @@
 .close-call-banner { position:sticky; top:0; z-index:5; background:var(--ink-soft); line-height:1.6; }
 .close-call-card summary { cursor:pointer; color:var(--cyan); }.close-call-card li { margin-bottom:10px; font-size:13px; line-height:1.6; }
 @media(max-width:760px) { .close-call-card { padding:28px 5vw; }.close-call-metrics,.close-call-form { grid-template-columns:1fr; }.close-call-metrics > div + div { border-left:0; border-top:1px solid var(--line); }.close-review dl div { display:block; }.close-review dd { text-align:left; margin-top:5px; }.close-call-hero { gap:26px; }.close-call-page .artifact-nav > div { flex-wrap:wrap; } }
+.desk-report { border-top:1px solid var(--line); padding-left:7vw; padding-right:7vw; }
+.desk-report-input { display:grid; grid-template-columns:1fr 1fr; gap:0 24px; align-items:end; max-width:980px; }.desk-report-input button { grid-column:1 / -1; justify-self:start; }
+.desk-pair > span:last-child { display:grid; gap:8px; justify-items:end; text-align:right; }.desk-attempt { font:12px var(--font-geist-mono),monospace; color:var(--paper-dim); }
+.desk-evidence { display:inline-block; margin-left:8px; padding:3px 8px; border:1px solid var(--line); font:11px var(--font-geist-mono),monospace; color:var(--paper-dim); }
+.desk-settled,.desk-listed { color:var(--acid); border-color:var(--acid); }.desk-void,.desk-missed,.desk-absent { color:#ff9c89; border-color:#ff9c89; }.desk-hidden,.desk-pending { color:var(--cyan); border-color:rgba(86,217,232,.5); }
+@media(max-width:760px) { .desk-report-input { grid-template-columns:1fr; }.close-call-list .desk-pair { display:grid; }.desk-pair > span:last-child { justify-items:start; text-align:left; } }

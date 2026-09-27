@@ -16,6 +16,8 @@ exposing the current unrestricted write APIs.
 
 The local [Close Call desk](docs/CLOSE_CALL_TR.md) (`/close-call`) verifies contest data and supports registration, offers, and acceptance using the existing encrypted vault. Publishing real contest messages requires explicit approval; the desk does not infer missing balances, settle trades, or retry failed writes.
 
+Operators running several keys can publish a DID-signed [desk report](docs/CLOSE_CALL_DESK_TR.md) (`foundry-close-call-desk-report-v1`). `npm run close-call:desk -- reconcile --proof <server-response.json>` tells any player what the referee's truncated public flow proves about one registration or trade: listed, hidden behind an `omitted` count, inside a published `missed` range, or absent from complete lists. It never infers a balance.
+
 Türkçe adım adım kullanım: [Kimlik ve katkı hazırlığı](docs/READINESS_TR.md).
 
 İş ve anlaşma kanıtlarını birlikte doğrulama: `/deals/bundle` → **Örnek paketi doğrula · DEMO**.
