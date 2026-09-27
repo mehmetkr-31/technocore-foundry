@@ -68,6 +68,8 @@
     "test:technocore": "tsx scripts/test-technocore-contract.ts",
     "test:participation": "tsx scripts/test-participation-bundle.mjs",
     "test:close-call": "node --import tsx scripts/test-close-call.ts",
+    "test:close-call:desk": "node --import tsx scripts/test-close-call-desk.ts",
+    "close-call:desk": "node --import tsx scripts/close-call-desk.ts",
     "upstream:verify": "node scripts/technocore-upstream-watch.mjs --verify",
     "upstream:check": "node scripts/technocore-upstream-watch.mjs --check",
     "tclk:upstream:verify": "node scripts/tclk-upstream-watch.mjs --verify",

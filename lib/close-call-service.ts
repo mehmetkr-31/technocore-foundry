@@ -6,7 +6,7 @@ import { decodeStrictUtf8, parseLosslessIntegerJsonBytes, parseStrictJson, parse
 
 const ORIGIN = 'https://technocore.chat';
 const encoder = new TextEncoder();
-type Dependencies = { upstreamFetch: typeof fetch; now?: () => number };
+export type Dependencies = { upstreamFetch: typeof fetch; now?: () => number };
 type RecordProof = { room: string; seq: string; ts: string; from: string; text: string; nonce: string; sig: string };
 type DecodedRecord = { proof: RecordProof; value: Record<string, unknown> };
 
@@ -55,7 +55,7 @@ async function decodeRecord(value: unknown, room: string): Promise<DecodedRecord
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
   return { proof: { room, seq: integer(r.seq), ts: r.ts, from: r.from, text: r.text, nonce: message.nonce, sig: r.sig }, value: parsed as Record<string, unknown> };
 }
-async function records(room: string, deps: Dependencies, referee = true) {
+export async function records(room: string, deps: Dependencies, referee = true) {
   const response = await upstream(`/r/${room}/export`, deps);
   const raw = await bytes(response, 16 * 1024 * 1024);
   const lines = decodeStrictUtf8(raw).split('\n').filter(Boolean);
