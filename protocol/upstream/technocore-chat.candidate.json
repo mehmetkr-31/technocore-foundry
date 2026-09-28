@@ -1,0 +1,180 @@
+{
+  "schema": "foundry-upstream-candidate-v1",
+  "detectedAt": "2026-09-28T10:58:17.521Z",
+  "active": {
+    "release": {
+      "tag": "v0.12.0",
+      "version": "0.12.0",
+      "commit": "e88db03c79ae0ae1f6bf9bb2e21e5a1ea42dd0f9"
+    },
+    "observedMainCommit": "94e01adf45ee75889d1085e0be5c28806b2b0aac",
+    "liveBaseline": {
+      "serviceVersion": "0.12.0",
+      "configSha256": "a5c78775b66ad8fcac131f95cf3a6bcba39b297fa7504aa88b6399ae08bce1cb",
+      "openapiSha256": "cfcdba989524a0e0bc961bb0865d7a38a00b995fc2a16977a1845935e181f36b",
+      "agentSha256": "ad8d10f8760f09a5e25b92c8d6779874b98ac1707abe70aba7d7d564956a6435"
+    }
+  },
+  "snapshot": {
+    "release": {
+      "tag": "v0.14.5",
+      "version": "0.14.5",
+      "commit": "cd1ce1c55a9956f3cb14ec42c1dd9707981926f9"
+    },
+    "observedMainCommit": "0e47f770b13cc27e1e2e199d4cdf70a4778c97cc",
+    "watchedFiles": [
+      {
+        "path": "src/manual.md",
+        "gitBlob": "54fe06f07b1c737612a3ec915c63ad90a8b84650",
+        "sha256": "488e05310f497718a83d276110261cd81b37360c9468fd31b55d578ae3781260",
+        "bytes": 26611
+      },
+      {
+        "path": "src/app.py",
+        "gitBlob": "640a4225361c9fc8e31e0510dcd57056ac3255ad",
+        "sha256": "6d482f45acb407f4ceeca8b3835d8297421d6e8a9f83767fc9b89f7f1af4b2ef",
+        "bytes": 121241
+      },
+      {
+        "path": "src/store.py",
+        "gitBlob": "41bc0cf85e6ebd0f35aa90394c2049d5cc91b573",
+        "sha256": "0f93c20494464e739cf970298c23588fdaafbad7466001cc06de0f9326719be8",
+        "bytes": 162227
+      },
+      {
+        "path": "src/didkey.py",
+        "gitBlob": "d5b8d7f0f295b3c31070bb09fd7a9e73c1397385",
+        "sha256": "30dd6c3e7285051d578ac7f2c205e218c3d270b19e0d4dbd246e7a281e5e49d6",
+        "bytes": 7261
+      },
+      {
+        "path": "README.md",
+        "gitBlob": "4ea46ad9861a2b953903e8ecc3c4eba8f42b8dca",
+        "sha256": "4fd57fb18f5f9a4c16771238f5e3d2c77b10c3592c8315da23101f30719e02b3",
+        "bytes": 31170
+      },
+      {
+        "path": "CHANGELOG.md",
+        "gitBlob": "28515b37d61527e0229f82d17126a52262f79aaf",
+        "sha256": "54f5e0b853e94198f6b23d6d43effc43b282ab23866422feee5d97398d6e7347",
+        "bytes": 87862
+      },
+      {
+        "path": "src/config.py",
+        "gitBlob": "dc1143b3d9bd66c71bebcdf729151c14e4d3ca6c",
+        "sha256": "0927bf331b631db488a542f16542bde0195ac7fc22dca01d1ebf9f070c2181e3",
+        "bytes": 25068
+      },
+      {
+        "path": "src/manifest.py",
+        "gitBlob": "2dc60101b4e80ccd91498602c5b4aebbdb4a2d41",
+        "sha256": "9fee3b4f7a814941d0023edc7082adc6930049647d33e0bc00aff7628d8adb87",
+        "bytes": 121965
+      },
+      {
+        "path": "src/limit.py",
+        "gitBlob": "5ee19eeb0a00913f3af9666cd7d9f4f89e45d292",
+        "sha256": "74869f5aeaf23c92a93e89bf8c6a51a1888d47b53f1a7675a4e6d82c8d5e32bc",
+        "bytes": 28171
+      }
+    ],
+    "live": {
+      "serviceVersion": "0.14.5",
+      "configSha256": "0412b3ddfc10ee5343902fb94256beb7616b09ca60e39b658425263791ffc311",
+      "openapiSha256": "874e680e0fcbc10eb095f5a132567b866d414ff5d88651e8d5bf51f3ec0824d9",
+      "agentSha256": "7c0cade5226b41b0833006755b66d4d2dd2ff2091e4b6acab66f7479a06507d6"
+    }
+  },
+  "reasons": [
+    {
+      "severity": "critical",
+      "code": "release_changed",
+      "expected": "v0.12.0",
+      "observed": "v0.14.5"
+    },
+    {
+      "severity": "review",
+      "code": "main_advanced",
+      "expected": "94e01adf45ee75889d1085e0be5c28806b2b0aac",
+      "observed": "0e47f770b13cc27e1e2e199d4cdf70a4778c97cc"
+    },
+    {
+      "severity": "critical",
+      "code": "release_file_changed:src/manual.md",
+      "expected": "1f6906644f21b2b10a2e37f53d65ca6e37f32ca7ec50b6195db4fc21247a49ed",
+      "observed": "488e05310f497718a83d276110261cd81b37360c9468fd31b55d578ae3781260"
+    },
+    {
+      "severity": "critical",
+      "code": "release_file_changed:src/app.py",
+      "expected": "a26be910042ebfbf78f29acb311cf954e35b4ce0072f61883ab12234ad9036b2",
+      "observed": "6d482f45acb407f4ceeca8b3835d8297421d6e8a9f83767fc9b89f7f1af4b2ef"
+    },
+    {
+      "severity": "critical",
+      "code": "release_file_changed:src/store.py",
+      "expected": "671e39d49b08cbf88d2f58a1ea9721715d987a6b1b06b719f9fdebe61bcf642c",
+      "observed": "0f93c20494464e739cf970298c23588fdaafbad7466001cc06de0f9326719be8"
+    },
+    {
+      "severity": "critical",
+      "code": "release_file_changed:src/didkey.py",
+      "expected": "651d5585905ef211aacddaf70e2bd26559f14bc46148677af2e4e788aea5ed96",
+      "observed": "30dd6c3e7285051d578ac7f2c205e218c3d270b19e0d4dbd246e7a281e5e49d6"
+    },
+    {
+      "severity": "critical",
+      "code": "release_file_changed:README.md",
+      "expected": "cc55d0a7cec5b834dfee8d516f0be59c99cab5a003b4c4d0e409f49b95d34d3b",
+      "observed": "4fd57fb18f5f9a4c16771238f5e3d2c77b10c3592c8315da23101f30719e02b3"
+    },
+    {
+      "severity": "critical",
+      "code": "release_file_changed:CHANGELOG.md",
+      "expected": "b02a8c1ee02193a6d7c98cefe15d0fdb36170e2d5773779f479c72cf64af2269",
+      "observed": "54f5e0b853e94198f6b23d6d43effc43b282ab23866422feee5d97398d6e7347"
+    },
+    {
+      "severity": "critical",
+      "code": "release_file_changed:src/manifest.py",
+      "expected": "1de6be1c36c21a56092c78e5a3bd612fca63aa0797dbdb1330f62d260e1a40b9",
+      "observed": "9fee3b4f7a814941d0023edc7082adc6930049647d33e0bc00aff7628d8adb87"
+    },
+    {
+      "severity": "critical",
+      "code": "release_file_changed:src/limit.py",
+      "expected": "2ff40efec03cd30946369175df417bab49ddf7ae78c2063a70a9b7dca370ec37",
+      "observed": "74869f5aeaf23c92a93e89bf8c6a51a1888d47b53f1a7675a4e6d82c8d5e32bc"
+    },
+    {
+      "severity": "critical",
+      "code": "live_version_changed",
+      "expected": "0.12.0",
+      "observed": "0.14.5"
+    },
+    {
+      "severity": "critical",
+      "code": "live_openapi_changed",
+      "expected": "cfcdba989524a0e0bc961bb0865d7a38a00b995fc2a16977a1845935e181f36b",
+      "observed": "874e680e0fcbc10eb095f5a132567b866d414ff5d88651e8d5bf51f3ec0824d9"
+    },
+    {
+      "severity": "operational",
+      "code": "live_config_changed",
+      "expected": "a5c78775b66ad8fcac131f95cf3a6bcba39b297fa7504aa88b6399ae08bce1cb",
+      "observed": "0412b3ddfc10ee5343902fb94256beb7616b09ca60e39b658425263791ffc311"
+    },
+    {
+      "severity": "review",
+      "code": "live_agent_card_changed",
+      "expected": "ad8d10f8760f09a5e25b92c8d6779874b98ac1707abe70aba7d7d564956a6435",
+      "observed": "7c0cade5226b41b0833006755b66d4d2dd2ff2091e4b6acab66f7479a06507d6"
+    }
+  ],
+  "policy": {
+    "upstreamCodeExecuted": false,
+    "automaticRuntimeUpdate": false,
+    "automaticMerge": false,
+    "externalWrites": false
+  }
+}
